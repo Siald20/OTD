@@ -10,7 +10,7 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
-        Console.WriteLine("Test");
+        Console.WriteLine("Test1");
     }
 
     public override void OnFrameworkInitializationCompleted()
