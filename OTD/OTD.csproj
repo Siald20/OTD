@@ -20,6 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Folder Include="AppData\" />
       <Folder Include="UI\Converters\" />
       <Folder Include="UI\Models\" />
       <Folder Include="UI\View\" />
