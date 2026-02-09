@@ -1,0 +1,144 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Definition of Switching Devices like Turnouts and Signals -->
+<accessories>
+  <accessory uid="3f8a1b2c-4d5e-4f7a-8b9c-0d1e2f3a4b5c" name="W1" type="turnout" index="1">
+    <decoder>
+      <commandstation>1</commandstation>
+      <protocol>DCC</protocol>
+    </decoder>
+    <states>
+      <state id="straight" description="gerade">
+        <decoder address="10" output="0" />
+      </state>
+      <state id="diverging" description="abzweigend">
+        <decoder address="10" output="1" />
+      </state>
+    </states>
+  </accessory>
+  <accessory uid="3f8a1b2c-4d5e-4f7a-8b9c-0d1e2f3a4b5c" name="W2" type="double-slip-turnout" index="2">
+    <decoder>
+      <commandstation>1</commandstation>
+      <protocol>DCC</protocol>
+    </decoder>
+    <states>
+      <state id="straight" description="gerade über Hauptgleis">
+        <decoder address="11" output="0" />
+        <decoder address="12" output="0" />
+      </state>
+      <state id="straight-crossing" description="abzweigend vom Hauptgleis auf überkreuzendes Gleis">
+        <decoder address="11" output="0" />
+        <decoder address="12" output="1" />
+      </state>
+      <state id="crossing" description="gerade über überkreuzendes Gleis">
+        <decoder address="11" output="1" />
+        <decoder address="12" output="1" />
+      </state>
+      <state id="crossing-straight" description="abzweigend vom überkreuzendem Gleis auf Hauptgleis">
+        <decoder address="11" output="1" />
+        <decoder address="12" output="0" />
+      </state>
+    </states>
+  </accessory>
+  <accessory uid="3f8a1b2c-4d5e-4f7a-8b9c-0d1e2f3a4b5c" name="W3" type="three-way-turnout" index="3">
+    <decoder>
+      <commandstation>1</commandstation>
+      <protocol>DCC</protocol>
+    </decoder>
+    <states>
+      <state id="straight" description="gerade">
+        <decoder address="13" output="0" />
+        <decoder address="14" output="0" />
+      </state>
+      <state id="left" description="abzweigend nach links">
+        <decoder address="13" output="1" />
+        <decoder address="14" output="0" />
+      </state>
+      <state id="right" description="abzweigend nach rechts">
+        <decoder address="13" output="0" />
+        <decoder address="14" output="1" />
+      </state>
+    </states>
+  </accessory>
+  <accessory uid="b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e" id="S1" type="signal" index="4">
+    <model>
+      <signalsystem>SBB-L</signalsystem>
+      <notes>Hauptsignal SBB Typ L</notes>
+    </model>
+    <decoder>
+      <commandstation>1</commandstation>
+      <protocol>DCC</protocol>
+    </decoder>
+    <states>
+      <state id="Halt" description="Halt">
+        <decoder address="20" output="0" />
+        <decoder address="51" output="0" />
+        <decoder address="52" output="0" />
+      </state>
+      <state id="Im1" description="Freie Fahrt">
+        <decoder address="50" output="1" />
+        <decoder address="51" output="0" />
+        <decoder address="52" output="0" />
+      </state>
+      <state id="Im2" description="Fahrbegriff 2 (40 km/h)">
+        <decoder address="50" output="1" />
+        <decoder address="51" output="1" />
+        <decoder address="52" output="0" />
+      </state>
+      <state id="HS" description="Hilfssignal">
+        <decoder address="53" output="1" />
+      </state>
+      <state id="BS" description="besetzte Einfahrt">
+        <decoder address="54" output="1" />
+      </state>
+    </states>
+  </accessory>
+  <!-- Beispiel Ansteuerung SBB Typ N unter Verwendung von 3 Standard-Zubehöradressen ("Weichenadressen")
+  0 = Ausgang inaktiv, 1 = Ausgang "rot" aktiv, 2 = Ausgang "grün" aktiv 3 = Ausgänge "rot" und "grün" aktiv (hier nicht verwendet)-->
+  <accessory uid="a7b8c9d0-e1f2-4a3b-5c6d-7e8f9a0b1c2d" id="S11" type="signal" index="4">
+    <model>
+      <signalsystem>SBB-N</signalsystem>
+      <notes>Hauptsignal SBB Typ N</notes>
+    </model>
+    <decoder>
+      <commandstation>1</commandstation>
+      <protocol>DCCbasic</protocol>
+    </decoder>
+    <states>
+      <state id="Halt" description="Halt (rot)">
+        <decoder address="41" output="1" />
+        <decoder address="42" output="0" />
+        <decoder address="43" output="0" />
+      </state>
+      <state id="Freie Fahrt" description="freie Fahrt (grün)">
+        <decoder address="41" output="2" />
+        <decoder address="42" output="0" />
+        <decoder address="43" output="0" />
+      </state>
+      <state id="Ausf60" description="Ausführung 60 km/h (grün mit Anzeige 6)">
+        <decoder address="41" output="2" />
+        <decoder address="42" output="0" />
+        <decoder address="43" output="1" />
+      </state>
+      <state id="Warnung" description="Warnung (orange)">
+        <decoder address="41" output="0" />
+        <decoder address="42" output="1" />
+        <decoder address="43" output="0" />
+      </state>
+      <state id="Vorwarnung" description="Vorwarnung (orange mit Anzeige V)">
+        <decoder address="41" output="0" />
+        <decoder address="42" output="1" />
+        <decoder address="43" output="2" />
+      </state>
+      <state id="Ank60" description="Ankündigung 60 km/h (orange mit Anzeige 6)">
+        <decoder address="41" output="0" />
+        <decoder address="42" output="1" />
+        <decoder address="43" output="1" />
+      </state>
+      <state id="Hilfssignal" description="Hilfssignal (rot blinkend)">
+        <decoder address="41" output="1" mode="blink" timer="1000" />
+        <decoder address="42" output="0" />
+        <decoder address="43" output="0" />     
+      </state>
+    </states>
+  </accessory>
+</accessories>
