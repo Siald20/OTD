@@ -9,7 +9,6 @@
         Background="CornflowerBlue"
         Icon="avares://OTD/Assets/locomotive_icon_144234.ico"
         Title="OpenTrainDrive">
-    
    
     <DockPanel>
         <Menu DockPanel.Dock="Top" Background="MidnightBlue">
