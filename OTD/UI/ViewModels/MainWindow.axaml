@@ -4,6 +4,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="OTD.MainWindow"
+        WindowState="Maximized"
+        WindowStartupLocation="CenterScreen"
         Background="CornflowerBlue"
         Title="OpenTrainDrive">
     
@@ -45,7 +47,7 @@
             </MenuItem>
             
             <MenuItem Header="Settings" Foreground="White">
-                <MenuItem Header="Einstellungen"/>
+                <MenuItem Header="Einstellungen" Click="OpenSettings"/>
                 <MenuItem Header="-"/>
             </MenuItem>
             <MenuItem Header="Info" Foreground="White">

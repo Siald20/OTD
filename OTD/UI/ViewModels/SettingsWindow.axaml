@@ -1,0 +1,38 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="OTD.UI.ViewModels.SettingsWindow"
+        Background="CornflowerBlue"
+        Title="SettingsWindow">
+    
+        
+        
+        <DockPanel Margin="10">
+                <!-- Button Bereich unten -->
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                        <Button Content="Speichern"/>
+                        <Button Content="Abbrechen"/>
+                </StackPanel>
+        
+                <!-- Hauptinhalt (oben) -->
+                
+                <TabControl Margin="5">
+                                <TabItem Header="Allgemein">
+                                        <StackPanel Margin="5">
+                                                <TextBlock>Allgemein</TextBlock>
+                                                <CheckBox IsThreeState="False" IsChecked="False">Hallo</CheckBox>
+                                        </StackPanel>
+                                </TabItem>
+                                <TabItem Header="Bahnhöfe">
+                                        <TextBlock Margin="5">Bahnhöfe</TextBlock>
+                                </TabItem>
+                                <TabItem Header="Fahrzeuge">
+                                        <TextBlock Margin="5">Fahrzeuge</TextBlock>
+                                </TabItem>
+                </TabControl>
+                
+        </DockPanel>
+        
+</Window>

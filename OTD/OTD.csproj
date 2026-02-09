@@ -18,4 +18,18 @@
             <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
         </PackageReference>
     </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="UI\Converters\" />
+      <Folder Include="UI\Models\" />
+      <Folder Include="UI\Styles\" />
+      <Folder Include="UI\View\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="UI\ViewModels\MainWindow.axaml.cs">
+        <DependentUpon>MainWindow.axaml</DependentUpon>
+        <SubType>Code</SubType>
+      </Compile>
+    </ItemGroup>
 </Project>
