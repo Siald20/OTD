@@ -4,6 +4,58 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="OTD.MainWindow"
-        Title="OTD">
-    Welcome to Avalonia!
+        Background="CornflowerBlue"
+        Title="OpenTrainDrive">
+    
+   
+    <DockPanel>
+        <Menu DockPanel.Dock="Top" Background="MidnightBlue">
+            <MenuItem Header="OTD" Foreground="White">
+                <MenuItem Header="Öffnen..."/>
+                <MenuItem Header="Speichern"/>
+                <Separator/>
+                <MenuItem Header="_Exit"/>
+            </MenuItem>
+            <MenuItem Header="Bearbeiten" Foreground="White">
+                <MenuItem Header="Lokomotiven"/>
+                <MenuItem Header="Wagen"/>
+                <MenuItem Header="Züge"/>
+                <MenuItem Header="Magnetartikel"/>
+                <MenuItem Header="Makros"/>
+            </MenuItem>
+            <MenuItem Header="Automatik" Foreground="White">
+                <MenuItem Header="Zuglenkung"/>
+                <MenuItem Header="Zugdaten"/>
+                <MenuItem Header="Einstellungen"/>
+            </MenuItem>
+            <MenuItem Header="Steuern" Foreground="White">
+                <MenuItem Header="Lok Steuern"/>
+                <MenuItem Header="Modus"/>
+            </MenuItem>
+            <MenuItem Header="Fenster" Foreground="White">
+                <MenuItem Header="Lupenbilder"/>
+                <MenuItem Header="Übersichtsbild"/>
+                <MenuItem Header="Meldeverwalter"/>
+                <MenuItem Header="Fahrplan"/>
+                <MenuItem Header="Abfahrtsanzeiger"/>
+            </MenuItem>
+            <MenuItem Header="Extra" Foreground="White">
+                <MenuItem Header="Logging"/>
+                <MenuItem Header="Lichtsteuerung"/>
+            </MenuItem>
+            
+            <MenuItem Header="Settings" Foreground="White">
+                <MenuItem Header="Einstellungen"/>
+                <MenuItem Header="-"/>
+            </MenuItem>
+            <MenuItem Header="Info" Foreground="White">
+                <MenuItem Header="Copiright"/>
+                <MenuItem Header="Lizenz"/>
+            </MenuItem>
+        </Menu>
+        <TextBlock/>
+    </DockPanel>
+
+    
+    
 </Window>

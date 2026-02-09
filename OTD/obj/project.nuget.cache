@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "8vzssLPFrKk=",
+  "dgSpecHash": "YEtZCHRmT3o=",
   "success": true,
   "projectFilePath": "C:\\Users\\saemi\\RiderProjects\\OTD\\OTD\\OTD.csproj",
   "expectedPackageFiles": [
@@ -30,8 +30,17 @@
     "C:\\Users\\saemi\\.nuget\\packages\\skiasharp.nativeassets.macos\\2.88.9\\skiasharp.nativeassets.macos.2.88.9.nupkg.sha512",
     "C:\\Users\\saemi\\.nuget\\packages\\skiasharp.nativeassets.webassembly\\2.88.9\\skiasharp.nativeassets.webassembly.2.88.9.nupkg.sha512",
     "C:\\Users\\saemi\\.nuget\\packages\\skiasharp.nativeassets.win32\\2.88.9\\skiasharp.nativeassets.win32.2.88.9.nupkg.sha512",
-    "C:\\Users\\saemi\\.nuget\\packages\\system.io.pipelines\\8.0.0\\system.io.pipelines.8.0.0.nupkg.sha512",
     "C:\\Users\\saemi\\.nuget\\packages\\tmds.dbus.protocol\\0.21.2\\tmds.dbus.protocol.0.21.2.nupkg.sha512"
   ],
-  "logs": []
+  "logs": [
+    {
+      "code": "NU1900",
+      "level": "Warning",
+      "message": "Error occurred while getting package vulnerability data: Unable to load the service index for source https://api.nuget.org/v3/index.json.",
+      "projectPath": "C:\\Users\\saemi\\RiderProjects\\OTD\\OTD\\OTD.csproj",
+      "warningLevel": 1,
+      "filePath": "C:\\Users\\saemi\\RiderProjects\\OTD\\OTD\\OTD.csproj",
+      "targetGraphs": []
+    }
+  ]
 }

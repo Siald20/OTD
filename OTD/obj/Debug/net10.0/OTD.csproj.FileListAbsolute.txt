@@ -71,3 +71,4 @@ C:\Users\saemi\RiderProjects\OTD\OTD\obj\Debug\net10.0\refint\OTD.dll
 C:\Users\saemi\RiderProjects\OTD\OTD\obj\Debug\net10.0\OTD.pdb
 C:\Users\saemi\RiderProjects\OTD\OTD\obj\Debug\net10.0\OTD.genruntimeconfig.cache
 C:\Users\saemi\RiderProjects\OTD\OTD\obj\Debug\net10.0\ref\OTD.dll
+C:\Users\saemi\RiderProjects\OTD\OTD\obj\Debug\net10.0\OTD.sourcelink.json
