@@ -5,7 +5,7 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="OTD.UI.ViewModels.SettingsWindow"
         Background="CornflowerBlue"
-        Title="SettingsWindow">
+        Title="Settings">
     
         
         
@@ -18,11 +18,30 @@
         
                 <!-- Hauptinhalt (oben) -->
                 
-                <TabControl Margin="5">
+                <TabControl>
                                 <TabItem Header="Allgemein">
                                         <StackPanel Margin="5">
                                                 <TextBlock>Allgemein</TextBlock>
                                                 <CheckBox IsThreeState="False" IsChecked="False">Hallo</CheckBox>
+                                                <TextBlock>Zentrale</TextBlock>
+                                                <Expander VerticalAlignment="Top">
+                                                        <Expander.Header>
+                                                                Zentralen
+                                                        </Expander.Header>
+                                                        <Grid RowDefinitions="*,*" ColumnDefinitions="150,*">
+                                                                <TextBlock Grid.Row="0" Grid.Column="0"
+                                                                           VerticalAlignment="Center">IP-Adresse</TextBlock>
+                                                                <TextBox Grid.Row="0" Grid.Column="1"
+                                                                         Watermark="IP-Adresse" Width="200" />
+                                                                <TextBlock Grid.Row="1" Grid.Column="0"
+                                                                           VerticalAlignment="Center">Port</TextBlock>
+                                                                <TextBox Grid.Row="1" Grid.Column="1"
+                                                                         Watermark="Port" Width="150"/>
+                                                                </Grid>
+                                                        
+                                                </Expander>
+                                                
+                                                
                                         </StackPanel>
                                 </TabItem>
                                 <TabItem Header="Bahnhöfe">

@@ -5,6 +5,9 @@
       <map>
         <entry key="OTD/App.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/MainWindow.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/UI/Styles/Styles.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/UI/ViewModels/LocoListWindow.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/UI/ViewModels/MainWindow.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/UI/ViewModels/SettingsWindow.axaml" value="OTD/OTD.csproj" />
       </map>
     </option>

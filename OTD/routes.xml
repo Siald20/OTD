@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<routes>
+  <route id="5e90d240-947b-45e9-94b5-efdb4ad2a03a" startId="0c1b38e7-8ad9-45d7-a1e7-245ba2241b8b" endId="867fe37e-24dd-4745-a9c3-83daf9049f2c">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="diverge" />
+      <turnout id="7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823" state="diverge" />
+    </turnouts>
+    <routeIds>
+      <id>0c1b38e7-8ad9-45d7-a1e7-245ba2241b8b</id>
+      <id>e70a5a94-79db-42c7-bb46-60a205dcb43f</id>
+      <id>9d325947-fd09-443e-804c-54b5bf4f1ff6</id>
+      <id>9a0b8978-f28d-4c25-a48f-e799a6eab9ad</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823</id>
+      <id>925db739-ce67-44ad-930a-cba5de64d03e</id>
+      <id>8e2f9cc5-6e0f-4224-b20a-1a58975ad554</id>
+      <id>27f1ff6c-a5d8-4348-8b74-61777bbb61e7</id>
+      <id>867fe37e-24dd-4745-a9c3-83daf9049f2c</id>
+    </routeIds>
+  </route>
+  <route id="1cd3d92d-8ef6-468d-8cca-20335882b491" startId="0c1b38e7-8ad9-45d7-a1e7-245ba2241b8b" endId="1c3b8038-e826-4994-9a2e-9b9575b52cad">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="straight" />
+    </turnouts>
+    <routeIds>
+      <id>0c1b38e7-8ad9-45d7-a1e7-245ba2241b8b</id>
+      <id>e70a5a94-79db-42c7-bb46-60a205dcb43f</id>
+      <id>9d325947-fd09-443e-804c-54b5bf4f1ff6</id>
+      <id>9a0b8978-f28d-4c25-a48f-e799a6eab9ad</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>1c3b8038-e826-4994-9a2e-9b9575b52cad</id>
+    </routeIds>
+  </route>
+  <route id="d2c67d23-4e24-4231-9440-09f6a4eae5a9" startId="867fe37e-24dd-4745-a9c3-83daf9049f2c" endId="0c1b38e7-8ad9-45d7-a1e7-245ba2241b8b">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="diverge" />
+      <turnout id="7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823" state="diverge" />
+    </turnouts>
+    <routeIds>
+      <id>867fe37e-24dd-4745-a9c3-83daf9049f2c</id>
+      <id>27f1ff6c-a5d8-4348-8b74-61777bbb61e7</id>
+      <id>8e2f9cc5-6e0f-4224-b20a-1a58975ad554</id>
+      <id>925db739-ce67-44ad-930a-cba5de64d03e</id>
+      <id>7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>9a0b8978-f28d-4c25-a48f-e799a6eab9ad</id>
+      <id>9d325947-fd09-443e-804c-54b5bf4f1ff6</id>
+      <id>e70a5a94-79db-42c7-bb46-60a205dcb43f</id>
+      <id>0c1b38e7-8ad9-45d7-a1e7-245ba2241b8b</id>
+    </routeIds>
+  </route>
+  <route id="1dbd9435-d1b4-4e93-9732-5094ddb043c7" startId="867fe37e-24dd-4745-a9c3-83daf9049f2c" endId="1c3b8038-e826-4994-9a2e-9b9575b52cad">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="diverge" />
+      <turnout id="7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823" state="diverge" />
+    </turnouts>
+    <routeIds>
+      <id>867fe37e-24dd-4745-a9c3-83daf9049f2c</id>
+      <id>27f1ff6c-a5d8-4348-8b74-61777bbb61e7</id>
+      <id>8e2f9cc5-6e0f-4224-b20a-1a58975ad554</id>
+      <id>925db739-ce67-44ad-930a-cba5de64d03e</id>
+      <id>7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>1c3b8038-e826-4994-9a2e-9b9575b52cad</id>
+    </routeIds>
+  </route>
+  <route id="e2009f87-6491-487e-94c5-d61f5042b733" startId="925db739-ce67-44ad-930a-cba5de64d03e" endId="9a0b8978-f28d-4c25-a48f-e799a6eab9ad">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="diverge" />
+      <turnout id="7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823" state="diverge" />
+    </turnouts>
+    <routeIds>
+      <id>925db739-ce67-44ad-930a-cba5de64d03e</id>
+      <id>7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>9a0b8978-f28d-4c25-a48f-e799a6eab9ad</id>
+    </routeIds>
+  </route>
+  <route id="1439bfa8-6ae3-4114-9f77-6058cfcc26a8" startId="925db739-ce67-44ad-930a-cba5de64d03e" endId="098bed69-581a-473b-a389-07d67294b794">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="diverge" />
+      <turnout id="7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823" state="diverge" />
+    </turnouts>
+    <routeIds>
+      <id>925db739-ce67-44ad-930a-cba5de64d03e</id>
+      <id>7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>1c3b8038-e826-4994-9a2e-9b9575b52cad</id>
+      <id>a9f82f75-3da1-44da-8bb3-cb0f28f15f0b</id>
+      <id>9cf610c8-924c-4cc8-bf47-6675c6e7dcb0</id>
+      <id>098bed69-581a-473b-a389-07d67294b794</id>
+    </routeIds>
+  </route>
+  <route id="78c5f114-f0c6-45b8-a24b-776352e19952" startId="9a0b8978-f28d-4c25-a48f-e799a6eab9ad" endId="925db739-ce67-44ad-930a-cba5de64d03e">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="diverge" />
+      <turnout id="7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823" state="diverge" />
+    </turnouts>
+    <routeIds>
+      <id>9a0b8978-f28d-4c25-a48f-e799a6eab9ad</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823</id>
+      <id>925db739-ce67-44ad-930a-cba5de64d03e</id>
+    </routeIds>
+  </route>
+  <route id="4c69d7ab-37b8-4680-bac4-6fc218c64a11" startId="9a0b8978-f28d-4c25-a48f-e799a6eab9ad" endId="098bed69-581a-473b-a389-07d67294b794">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="straight" />
+    </turnouts>
+    <routeIds>
+      <id>9a0b8978-f28d-4c25-a48f-e799a6eab9ad</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>1c3b8038-e826-4994-9a2e-9b9575b52cad</id>
+      <id>a9f82f75-3da1-44da-8bb3-cb0f28f15f0b</id>
+      <id>9cf610c8-924c-4cc8-bf47-6675c6e7dcb0</id>
+      <id>098bed69-581a-473b-a389-07d67294b794</id>
+    </routeIds>
+  </route>
+  <route id="9706cae4-6f10-4ce6-b1de-1b03fd9fd837" startId="1c3b8038-e826-4994-9a2e-9b9575b52cad" endId="0c1b38e7-8ad9-45d7-a1e7-245ba2241b8b">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="straight" />
+    </turnouts>
+    <routeIds>
+      <id>1c3b8038-e826-4994-9a2e-9b9575b52cad</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>9a0b8978-f28d-4c25-a48f-e799a6eab9ad</id>
+      <id>9d325947-fd09-443e-804c-54b5bf4f1ff6</id>
+      <id>e70a5a94-79db-42c7-bb46-60a205dcb43f</id>
+      <id>0c1b38e7-8ad9-45d7-a1e7-245ba2241b8b</id>
+    </routeIds>
+  </route>
+  <route id="527ac27f-3cdf-4ef0-9de1-28314e2da9aa" startId="1c3b8038-e826-4994-9a2e-9b9575b52cad" endId="867fe37e-24dd-4745-a9c3-83daf9049f2c">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="diverge" />
+      <turnout id="7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823" state="diverge" />
+    </turnouts>
+    <routeIds>
+      <id>1c3b8038-e826-4994-9a2e-9b9575b52cad</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823</id>
+      <id>925db739-ce67-44ad-930a-cba5de64d03e</id>
+      <id>8e2f9cc5-6e0f-4224-b20a-1a58975ad554</id>
+      <id>27f1ff6c-a5d8-4348-8b74-61777bbb61e7</id>
+      <id>867fe37e-24dd-4745-a9c3-83daf9049f2c</id>
+    </routeIds>
+  </route>
+  <route id="dfb882ee-c228-4ca7-adee-d14460864f47" startId="098bed69-581a-473b-a389-07d67294b794" endId="925db739-ce67-44ad-930a-cba5de64d03e">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="diverge" />
+      <turnout id="7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823" state="diverge" />
+    </turnouts>
+    <routeIds>
+      <id>098bed69-581a-473b-a389-07d67294b794</id>
+      <id>9cf610c8-924c-4cc8-bf47-6675c6e7dcb0</id>
+      <id>a9f82f75-3da1-44da-8bb3-cb0f28f15f0b</id>
+      <id>1c3b8038-e826-4994-9a2e-9b9575b52cad</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>7d8bfba9-b7d8-458d-9fd3-3ecbf4d0e823</id>
+      <id>925db739-ce67-44ad-930a-cba5de64d03e</id>
+    </routeIds>
+  </route>
+  <route id="8d3c3921-fde7-4628-aceb-acaa002a5093" startId="098bed69-581a-473b-a389-07d67294b794" endId="9a0b8978-f28d-4c25-a48f-e799a6eab9ad">
+    <turnouts>
+      <turnout id="a5957c45-cf3c-4265-9ee6-be8510cc7c29" state="straight" />
+    </turnouts>
+    <routeIds>
+      <id>098bed69-581a-473b-a389-07d67294b794</id>
+      <id>9cf610c8-924c-4cc8-bf47-6675c6e7dcb0</id>
+      <id>a9f82f75-3da1-44da-8bb3-cb0f28f15f0b</id>
+      <id>1c3b8038-e826-4994-9a2e-9b9575b52cad</id>
+      <id>a5957c45-cf3c-4265-9ee6-be8510cc7c29</id>
+      <id>9a0b8978-f28d-4c25-a48f-e799a6eab9ad</id>
+    </routeIds>
+  </route>
+</routes>

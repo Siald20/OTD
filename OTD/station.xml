@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<stations>
+  <station id="334cc610-dbcf-415d-8989-8cb79c0ea33b" name="Bitschikon" code="BI" abbr="BI" type="" region="" notes="" />
+  <station id="442bc680-8c4b-4461-8ab2-9ca7800b3a1b" name="Bitschikon Tief" code="" abbr="BIT" type="Simis W" region="" notes="" />
+</stations>

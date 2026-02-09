@@ -22,7 +22,6 @@
     <ItemGroup>
       <Folder Include="UI\Converters\" />
       <Folder Include="UI\Models\" />
-      <Folder Include="UI\Styles\" />
       <Folder Include="UI\View\" />
     </ItemGroup>
 
@@ -32,4 +31,14 @@
         <SubType>Code</SubType>
       </Compile>
     </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="loco.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

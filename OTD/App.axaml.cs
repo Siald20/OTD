@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-namespace OTD;
+namespace OTD.UI.ViewModels;
 
 public partial class App : Application
 {

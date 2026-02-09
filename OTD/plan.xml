@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<plan grid="12x24">
+  <symbols>
+    <symbol id="467fb12e-e63a-4c18-adfa-bc700a185819" type="Iltis_Straight_White" classes="otd-symbol--svg" x="26" y="3">
+      <config>
+        <field key="type" value="Iltis_Straight_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Straight_White.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="36371b17-f820-4395-bd9a-3f4caa7b68e4" type="Iltis_Straight_White" classes="otd-symbol--svg" x="27" y="3">
+      <config>
+        <field key="type" value="Iltis_Straight_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Straight_White.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="61c134d0-4f4d-429e-9585-0f3fc9b0546b" type="Iltis_Straight_White" classes="otd-symbol--svg" x="28" y="3">
+      <config>
+        <field key="type" value="Iltis_Straight_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Straight_White.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="8221a2bb-52d8-4635-951c-4c5652e8b850" type="Iltis_Track_Straight_White" classes="otd-symbol--svg" x="99" y="20">
+      <config>
+        <field key="type" value="Iltis_Track_Straight_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Track_Straight_White.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="d7508278-4b2e-4d92-b18e-61539332ba68" type="Iltis_Track_Straight_White" classes="otd-symbol--svg" x="98" y="20">
+      <config>
+        <field key="type" value="Iltis_Track_Straight_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Track_Straight_White.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="f67d6a00-0118-4274-a38e-45df56b319f9" type="Iltis_Track_Straight_White" classes="otd-symbol--svg" x="82" y="17">
+      <config>
+        <field key="type" value="Iltis_Track_Straight_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Track_Straight_White.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="e96838ac-e49a-484b-bb27-2ca14e2c8a81" type="Iltis_Track_Straight_White" classes="otd-symbol--svg" x="81" y="17">
+      <config>
+        <field key="type" value="Iltis_Track_Straight_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Track_Straight_White.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="df4494ab-3ec2-405b-8342-720d2a49f185" type="Iltis_Track_Straight_White" classes="otd-symbol--svg" x="80" y="17">
+      <config>
+        <field key="type" value="Iltis_Track_Straight_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Track_Straight_White.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="d886338f-0415-4298-bb4b-aad2579d59d1" type="Iltis_Track_Straight_White" classes="otd-symbol--svg" x="76" y="17">
+      <config>
+        <field key="type" value="Iltis_Track_Straight_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Track_Straight_White.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="d40c6b32-407f-45b7-b441-7f653c819d35" type="Iltis_Signal_aSB_Off_Red" classes="otd-symbol--svg" x="100" y="20">
+      <config>
+        <field key="type" value="Iltis_Signal_aSB_Off_Red" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Signal_aSB_Off_Red.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="e1f233e4-2a4b-4591-a2a0-76c535dd40d7" type="Iltis_Signal_aSB_Off_Red" classes="otd-symbol--svg" x="97" y="20">
+      <config>
+        <field key="type" value="Iltis_Signal_aSB_Off_Red" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Signal_aSB_Off_Red.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="f8dfef67-e7d1-4831-b512-35bbac0378d7" type="Iltis_Signal_aSB_Off_Red" classes="otd-symbol--svg" x="83" y="17">
+      <config>
+        <field key="type" value="Iltis_Signal_aSB_Off_Red" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Signal_aSB_Off_Red.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="0403ecd0-8960-44bb-bbfb-2849ca5d7c7d" type="Iltis_Signal_aSB_Off_Red" classes="otd-symbol--svg" x="74" y="17">
+      <config>
+        <field key="type" value="Iltis_Signal_aSB_Off_Red" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Signal_aSB_Off_Red.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="5a6453ed-82f9-44a5-9c36-ff7f994afee2" type="Iltis_Track_Straight_White" classes="otd-symbol--svg" x="75" y="17">
+      <config>
+        <field key="type" value="Iltis_Track_Straight_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Track_Straight_White.svg" />
+        <field key="sizeX" value="1" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+    <symbol id="3541f548-cb2e-4c2f-8165-944e82b2e838" type="Iltis_Trainnumberdisplay_White" classes="otd-symbol--svg" x="77" y="17">
+      <config>
+        <field key="type" value="Iltis_Trainnumberdisplay_White" />
+        <field key="classes" value="otd-symbol--svg" />
+        <field key="file" value="/svg/Iltis_Trainnumberdisplay_White.svg" />
+        <field key="sizeX" value="3" />
+        <field key="sizeY" value="1" />
+      </config>
+    </symbol>
+  </symbols>
+</plan>

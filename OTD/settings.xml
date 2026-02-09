@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<settings>
+  <general project="OpenTrainDrive" language="de" autosave="true" autosaveInterval="120" autoOpen="true" usersEnabled="false" />
+  <ui theme="classic" density="compact" tooltips="false" clock="false" statusbar="false" />
+  <connection system="dcc" host="localhost" port="5550" baud="115200" autoconnect="true" heartbeat="15" />
+  <operation maxSpeed="120" accelFactor="1" brakeFactor="1" stopOnSignal="true" emergencyStop="true" />
+  <editor grid="48" snap="true" showLabels="true" showIds="false" confirmDelete="true" />
+  <logging level="info" keepDays="7" path="logs" />
+</settings>

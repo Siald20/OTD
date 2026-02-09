@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Switches>
+  <switch uid="f47ac10b-58cc-4372-a567-0e02b2c3d479" name="A" index="1">
+    <model manufacturer="Roco" scale="H0" catalognumber="8888">
+      <switch_type>Hauptsignal</switch_type>
+      <prefLocation>right</prefLocation>
+      <GFM>0</GFM>
+      <length>0</length>
+    </model>
+    <velocity>
+        <vLeft>0</vLeft>
+        <vRight>0</vRight>
+    </velocity>
+    <settings>
+      <wuAllowd>yes</wuAllowd>
+      <isElectric>yes</isElectric>
+      <noGFM>no</noGFM>
+    </settings>
+  </switch>
+</Switches>

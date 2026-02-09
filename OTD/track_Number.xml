@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Track_Numbers>
+  <Track_Number uid="f47ac10b-58cc-4372-a567-0e02b2c3d479" name="A" index="1">
+    <model manufacturer="Roco" scale="H0" catalognumber="8888">
+      <trackNumberColor>white</trackNumberColor>
+      <codedot>no</codedot>
+      <visible>yes</visible>
+    <settings>
+        <position>above</position>
+        <hasBVNZ>no</hasBVNZ>
+        <BVNZTime>0</BVNZTime>
+        <trackNumberinStation>1</trackNumberinStation>
+        <length>0</length>
+        <GFM>0</GFM>
+        <hasFSvz>no</hasFSvz>
+    </settings>
+    </model>
+  </Track_Number>
+</Track_Numbers>
