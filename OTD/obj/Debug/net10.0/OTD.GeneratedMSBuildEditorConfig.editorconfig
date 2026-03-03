@@ -17,38 +17,23 @@ build_property.PlatformNeutralAssembly =
 build_property.EnforceExtendedAnalyzerRules = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = OTD
-build_property.ProjectDir = C:\Users\saemi\RiderProjects\OTD\OTD\
+build_property.ProjectDir = /home/hua/Dokumente/Batec/Modellbahn-Insel/Steuerung/Software/OpenTrainDrive_GitHub/OTD/
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.EffectiveAnalysisLevelStyle = 10.0
 build_property.EnableCodeStyleSeverity = 
 
-[C:/Users/saemi/RiderProjects/OTD/OTD/App.axaml]
+[/home/hua/Dokumente/Batec/Modellbahn-Insel/Steuerung/Software/OpenTrainDrive_GitHub/OTD/App.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/saemi/RiderProjects/OTD/OTD/UI/Styles/Styles.axaml]
+[/home/hua/Dokumente/Batec/Modellbahn-Insel/Steuerung/Software/OpenTrainDrive_GitHub/OTD/UI/Styles/Styles.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/saemi/RiderProjects/OTD/OTD/UI/Styles/Symbols.axaml]
+[/home/hua/Dokumente/Batec/Modellbahn-Insel/Steuerung/Software/OpenTrainDrive_GitHub/OTD/UI/ViewModels/LocoListWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/saemi/RiderProjects/OTD/OTD/UI/ViewModels/LocoListWindow.axaml]
+[/home/hua/Dokumente/Batec/Modellbahn-Insel/Steuerung/Software/OpenTrainDrive_GitHub/OTD/UI/ViewModels/MainWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/saemi/RiderProjects/OTD/OTD/UI/ViewModels/LocomotiveThrottleWindow.axaml]
-build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
-
-[C:/Users/saemi/RiderProjects/OTD/OTD/UI/ViewModels/MainWindow.axaml]
-build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
-
-[C:/Users/saemi/RiderProjects/OTD/OTD/UI/ViewModels/MeldeverwalterWindow.axaml]
-build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
-
-[C:/Users/saemi/RiderProjects/OTD/OTD/UI/ViewModels/RailcarListWindow.axaml]
-build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
-
-[C:/Users/saemi/RiderProjects/OTD/OTD/UI/ViewModels/SettingsWindow.axaml]
-build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
-
-[C:/Users/saemi/RiderProjects/OTD/OTD/UI/ViewModels/TrainListWindow.axaml]
+[/home/hua/Dokumente/Batec/Modellbahn-Insel/Steuerung/Software/OpenTrainDrive_GitHub/OTD/UI/ViewModels/SettingsWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
