@@ -1,9 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <settings>
-  <general project="OpenTrainDrive" language="de" autosave="true" autosaveInterval="120" autoOpen="true" usersEnabled="false" />
-  <ui theme="classic" density="compact" tooltips="false" clock="false" statusbar="false" />
-  <connection system="dcc" host="localhost" port="5550" baud="115200" autoconnect="true" heartbeat="15" />
-  <operation maxSpeed="120" accelFactor="1" brakeFactor="1" stopOnSignal="true" emergencyStop="true" />
-  <editor grid="48" snap="true" showLabels="true" showIds="false" confirmDelete="true" />
-  <logging level="info" keepDays="7" path="logs" />
+  <general project="OpenTrainDrive" language="de" profile="single-user" autosave="true" autosaveInterval="120" autoOpen="true" usersEnabled="false" />
+  <connection system="dcc" host="localhost" port="5550" baud="115200" autoconnect="true" heartbeat="15" retryCount="3" />
+  <automation mode="manual" routeReservation="true" deadlockDetection="true" scheduleEnabled="true" blockWaitSeconds="5" />
+  <operation maxSpeed="120" accelFactor="1" brakeFactor="1" stopOnSignal="true" cruiseControl="true" shuntingSpeed="40" />
+  <feedback bus="s88" pollingMs="150" debounceMs="60" invertLogic="false" occupancyTimeout="20" />
+  <safety emergencyStop="true" shortCircuitCutoff="true" watchdogSeconds="8" powerOnAtStart="false" />
+  <editor grid="48" snap="true" showLabels="true" showIds="false" confirmDelete="true" symbolSize="32" />
+  <ui theme="dark" density="compact" tooltips="false" clock="true" statusbar="false" expertMode="false" />
+  <logging level="info" keepDays="7" path="logs" traceProtocol="false" traceCommands="false" />
 </settings>

@@ -2,56 +2,194 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d"
         x:Class="OTD.UI.ViewModels.SettingsWindow"
-        Background="CornflowerBlue"
-        Title="Settings">
-    
-        
-        
-        <DockPanel Margin="10">
-                <!-- Button Bereich unten -->
-                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
-                        <Button Content="Speichern"/>
-                        <Button Content="Abbrechen"/>
-                </StackPanel>
-        
-                <!-- Hauptinhalt (oben) -->
-                
-                <TabControl>
-                                <TabItem Header="Allgemein">
-                                        <StackPanel Margin="5">
-                                                <TextBlock>Allgemein</TextBlock>
-                                                <CheckBox IsThreeState="False" IsChecked="False">Hallo</CheckBox>
-                                                <TextBlock>Zentrale</TextBlock>
-                                                <Expander VerticalAlignment="Top">
-                                                        <Expander.Header>
-                                                                Zentralen
-                                                        </Expander.Header>
-                                                        <Grid RowDefinitions="*,*" ColumnDefinitions="150,*">
-                                                                <TextBlock Grid.Row="0" Grid.Column="0"
-                                                                           VerticalAlignment="Center">IP-Adresse</TextBlock>
-                                                                <TextBox Grid.Row="0" Grid.Column="1"
-                                                                         Watermark="IP-Adresse" Width="200" />
-                                                                <TextBlock Grid.Row="1" Grid.Column="0"
-                                                                           VerticalAlignment="Center">Port</TextBlock>
-                                                                <TextBox Grid.Row="1" Grid.Column="1"
-                                                                         Watermark="Port" Width="150"/>
-                                                                </Grid>
-                                                        
-                                                </Expander>
-                                                
-                                                
-                                        </StackPanel>
-                                </TabItem>
-                                <TabItem Header="Bahnhöfe">
-                                        <TextBlock Margin="5">Bahnhöfe</TextBlock>
-                                </TabItem>
-                                <TabItem Header="Fahrzeuge">
-                                        <TextBlock Margin="5">Fahrzeuge</TextBlock>
-                                </TabItem>
-                </TabControl>
-                
-        </DockPanel>
-        
+        Width="1080"
+        Height="760"
+        MinWidth="920"
+        MinHeight="640"
+        Title="Programmeinstellungen"
+        Background="#0E0E0E">
+    <Grid Margin="10" RowDefinitions="*,Auto" RowSpacing="10">
+        <TabControl>
+            <TabItem Header="Allgemein">
+                <ScrollViewer>
+                    <Grid Margin="6" ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="8">
+                        <TextBlock Text="Projektname" Foreground="White" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" x:Name="ProjectNameBox" />
+
+                        <TextBlock Grid.Row="1" Text="Sprache" Foreground="White" VerticalAlignment="Center" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="LanguageBox">
+                            <x:String>de</x:String>
+                            <x:String>en</x:String>
+                            <x:String>fr</x:String>
+                            <x:String>it</x:String>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="2" Text="Profil" Foreground="White" VerticalAlignment="Center" />
+                        <ComboBox Grid.Row="2" Grid.Column="1" x:Name="ProfileBox">
+                            <x:String>single-user</x:String>
+                            <x:String>club-layout</x:String>
+                            <x:String>demo</x:String>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="3" Text="AutoSave Intervall (s)" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="3" Grid.Column="1" x:Name="AutosaveIntervalBox" Minimum="10" Maximum="3600" Increment="10" />
+
+                        <CheckBox Grid.Row="4" Grid.ColumnSpan="2" x:Name="AutosaveBox" Content="AutoSave aktiv" Foreground="White" />
+                        <CheckBox Grid.Row="5" Grid.ColumnSpan="2" x:Name="AutoOpenBox" Content="Letztes Projekt beim Start laden" Foreground="White" />
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Zentrale">
+                <ScrollViewer>
+                    <Grid Margin="6" ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="8">
+                        <TextBlock Text="Digitalsystem" Foreground="White" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" x:Name="SystemBox">
+                            <x:String>dcc</x:String>
+                            <x:String>loconet</x:String>
+                            <x:String>xpressnet</x:String>
+                            <x:String>can</x:String>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="1" Text="Host" Foreground="White" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="1" Grid.Column="1" x:Name="HostBox" />
+
+                        <TextBlock Grid.Row="2" Text="Port" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="2" Grid.Column="1" x:Name="PortBox" Minimum="1" Maximum="65535" />
+
+                        <TextBlock Grid.Row="3" Text="Baudrate" Foreground="White" VerticalAlignment="Center" />
+                        <ComboBox Grid.Row="3" Grid.Column="1" x:Name="BaudBox">
+                            <x:String>9600</x:String>
+                            <x:String>19200</x:String>
+                            <x:String>57600</x:String>
+                            <x:String>115200</x:String>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="4" Text="Heartbeat (s)" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="4" Grid.Column="1" x:Name="HeartbeatBox" Minimum="1" Maximum="120" />
+
+                        <TextBlock Grid.Row="5" Text="Reconnect Versuche" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="5" Grid.Column="1" x:Name="RetryCountBox" Minimum="0" Maximum="50" />
+
+                        <CheckBox Grid.Row="6" Grid.ColumnSpan="2" x:Name="AutoconnectBox" Content="Automatisch verbinden" Foreground="White" />
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Betrieb und Automatik">
+                <ScrollViewer>
+                    <Grid Margin="6" ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="8">
+                        <TextBlock Text="Automatikmodus" Foreground="White" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" x:Name="AutomationModeBox">
+                            <x:String>manual</x:String>
+                            <x:String>semi-auto</x:String>
+                            <x:String>full-auto</x:String>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="1" Text="Max Geschwindigkeit (km/h)" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="MaxSpeedBox" Minimum="10" Maximum="350" />
+
+                        <TextBlock Grid.Row="2" Text="Beschleunigungsfaktor" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="2" Grid.Column="1" x:Name="AccelFactorBox" Minimum="1" Maximum="10" />
+
+                        <TextBlock Grid.Row="3" Text="Bremsfaktor" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="3" Grid.Column="1" x:Name="BrakeFactorBox" Minimum="1" Maximum="10" />
+
+                        <TextBlock Grid.Row="4" Text="Rangiergeschwindigkeit (km/h)" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="4" Grid.Column="1" x:Name="ShuntingSpeedBox" Minimum="5" Maximum="80" />
+
+                        <TextBlock Grid.Row="5" Text="Blockwartezeit (s)" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="5" Grid.Column="1" x:Name="BlockWaitSecondsBox" Minimum="0" Maximum="300" />
+
+                        <CheckBox Grid.Row="6" Grid.ColumnSpan="2" x:Name="StopOnSignalBox" Content="An roten Signalen stoppen" Foreground="White" />
+                        <CheckBox Grid.Row="7" Grid.ColumnSpan="2" x:Name="RouteReservationBox" Content="Fahrstrassen reservieren" Foreground="White" />
+                        <CheckBox Grid.Row="8" Grid.ColumnSpan="2" x:Name="DeadlockDetectionBox" Content="Deadlock-Erkennung aktiv" Foreground="White" />
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Rueckmelder und Sicherheit">
+                <ScrollViewer>
+                    <Grid Margin="6" ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="8">
+                        <TextBlock Text="Rueckmelde-Bus" Foreground="White" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" x:Name="FeedbackBusBox">
+                            <x:String>s88</x:String>
+                            <x:String>loconet</x:String>
+                            <x:String>can</x:String>
+                            <x:String>virtual</x:String>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="1" Text="Polling (ms)" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="PollingMsBox" Minimum="20" Maximum="5000" Increment="10" />
+
+                        <TextBlock Grid.Row="2" Text="Entprellzeit (ms)" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="2" Grid.Column="1" x:Name="DebounceMsBox" Minimum="0" Maximum="2000" Increment="10" />
+
+                        <TextBlock Grid.Row="3" Text="Belegt-Timeout (s)" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="3" Grid.Column="1" x:Name="OccupancyTimeoutBox" Minimum="1" Maximum="300" />
+
+                        <TextBlock Grid.Row="4" Text="Watchdog (s)" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="4" Grid.Column="1" x:Name="WatchdogSecondsBox" Minimum="1" Maximum="60" />
+
+                        <CheckBox Grid.Row="5" Grid.ColumnSpan="2" x:Name="InvertFeedbackLogicBox" Content="Rueckmelde-Logik invertieren" Foreground="White" />
+                        <CheckBox Grid.Row="6" Grid.ColumnSpan="2" x:Name="EmergencyStopBox" Content="Not-Halt bei Kommunikationsfehler" Foreground="White" />
+                        <CheckBox Grid.Row="7" Grid.ColumnSpan="2" x:Name="PowerOnAtStartBox" Content="Gleisspannung beim Start aktivieren" Foreground="White" />
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="UI, Editor und Logging">
+                <ScrollViewer>
+                    <Grid Margin="6" ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="8">
+                        <TextBlock Text="Theme" Foreground="White" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" x:Name="ThemeBox">
+                            <x:String>classic</x:String>
+                            <x:String>dark</x:String>
+                            <x:String>blueprint</x:String>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="1" Text="Dichte" Foreground="White" VerticalAlignment="Center" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="DensityBox">
+                            <x:String>compact</x:String>
+                            <x:String>normal</x:String>
+                            <x:String>large</x:String>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="2" Text="Gridgroesse" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="2" Grid.Column="1" x:Name="GridSizeBox" Minimum="8" Maximum="128" />
+
+                        <TextBlock Grid.Row="3" Text="Symbolgroesse" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="3" Grid.Column="1" x:Name="SymbolSizeBox" Minimum="16" Maximum="128" />
+
+                        <TextBlock Grid.Row="4" Text="Log Level" Foreground="White" VerticalAlignment="Center" />
+                        <ComboBox Grid.Row="4" Grid.Column="1" x:Name="LogLevelBox">
+                            <x:String>trace</x:String>
+                            <x:String>debug</x:String>
+                            <x:String>info</x:String>
+                            <x:String>warn</x:String>
+                            <x:String>error</x:String>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="5" Text="Log behalten (Tage)" Foreground="White" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Row="5" Grid.Column="1" x:Name="LogKeepDaysBox" Minimum="1" Maximum="365" />
+
+                        <TextBlock Grid.Row="6" Text="Log Pfad" Foreground="White" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="6" Grid.Column="1" x:Name="LogPathBox" />
+
+                        <CheckBox Grid.Row="7" Grid.ColumnSpan="2" x:Name="ShowTooltipsBox" Content="Tooltips anzeigen" Foreground="White" />
+                        <CheckBox Grid.Row="8" Grid.ColumnSpan="2" x:Name="ShowClockBox" Content="Uhr anzeigen" Foreground="White" />
+                        <CheckBox Grid.Row="9" Grid.ColumnSpan="2" x:Name="ShowStatusBarBox" Content="Statusleiste anzeigen" Foreground="White" />
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <TextBlock x:Name="StatusText" Foreground="#BDBDBD" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Speichern" Click="SaveClicked" />
+            <Button Grid.Column="2" Content="Abbrechen" Click="CancelClicked" />
+        </Grid>
+    </Grid>
 </Window>
