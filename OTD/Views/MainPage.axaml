@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="960"
+             d:DesignHeight="640"
+             x:Class="OTD.Views.MainPage">
+
+    <Grid RowDefinitions="Auto,*"
+          Background="{DynamicResource AppBackgroundBrush}">
+        <DockPanel Grid.Row="0">
+            <Menu DockPanel.Dock="Top">
+                <MenuItem Header="OTD">
+                    <MenuItem Header="_Einstellungen"
+                              Click="OpenSettings"/>
+                    <MenuItem Header="Beenden"
+                              InputGesture="Ctrl+Q"/>
+                </MenuItem>
+
+                <MenuItem Header="Bearbeiten">
+                    <MenuItem Header="Gleisplan"
+                              Click="OpenTrackPlan_OnClick"/>
+                </MenuItem>
+            </Menu>
+        </DockPanel>
+
+        <Grid Grid.Row="1"
+              Margin="28"
+              RowDefinitions="Auto,Auto,*"
+              RowSpacing="18">
+            <StackPanel Spacing="6">
+                <TextBlock Text="OTD"
+                           FontSize="28"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="Uebersicht"
+                           Classes="secondary" />
+            </StackPanel>
+
+            <Border Grid.Row="1"
+                    Classes="panel"
+                    Padding="18"
+                    MaxWidth="420"
+                    HorizontalAlignment="Left">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Gleisplan"
+                               FontSize="20"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="Editor und Bedienebene fuer den Anlagenbetrieb."
+                               Classes="secondary"
+                               TextWrapping="Wrap" />
+                    <Button Classes="primary"
+                            Content="Gleisplan oeffnen"
+                            HorizontalAlignment="Left"
+                            Click="OpenTrackPlan_OnClick" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
