@@ -1,1 +1,7 @@
-﻿/OTD/obj/Debug/
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+*.rsuser

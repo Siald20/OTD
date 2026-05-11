@@ -1,33 +1,12 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="OTD.UI.ViewModels.App"
-             RequestedThemeVariant="Dark">
+             x:Class="OTD.App"
+             RequestedThemeVariant="Default">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
-             
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://OTD/Styles/ModernRailTheme.axaml" />
+        <StyleInclude Source="avares://OTD/Styles/TrackPlanTheme.axaml" />
     </Application.Styles>
-             
-
-             
-    <Application.Resources>
-        <ControlTheme x:Key="EllipseButton" TargetType="Button">
-            <Setter Property="Background" Value="CornflowerBlue"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="8"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Panel>
-                        <Ellipse Fill="{TemplateBinding Background}"
-                                 HorizontalAlignment="Stretch"
-                                 VerticalAlignment="Stretch"/>
-                        <ContentPresenter x:Name="PART_ContentPresenter"
-                                          Content="{TemplateBinding Content}"
-                                          Margin="{TemplateBinding Padding}"/>
-                    </Panel>
-                </ControlTemplate>
-            </Setter>
-        </ControlTheme>
-    </Application.Resources>
 </Application>

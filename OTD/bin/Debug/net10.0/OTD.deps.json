@@ -12,7 +12,8 @@
           "Avalonia.Desktop": "11.3.11",
           "Avalonia.Diagnostics": "11.3.11",
           "Avalonia.Fonts.Inter": "11.3.11",
-          "Avalonia.Themes.Fluent": "11.3.11"
+          "Avalonia.Themes.Fluent": "11.3.11",
+          "Tmds.DBus.Protocol": "0.93.0"
         },
         "runtime": {
           "OTD.dll": {}
@@ -75,17 +76,17 @@
           "runtimes/win-arm64/native/av_libglesv2.dll": {
             "rid": "win-arm64",
             "assetType": "native",
-            "fileVersion": "0.0.0.0"
+            "fileVersion": "2.1.25606.0"
           },
           "runtimes/win-x64/native/av_libglesv2.dll": {
             "rid": "win-x64",
             "assetType": "native",
-            "fileVersion": "0.0.0.0"
+            "fileVersion": "2.1.25606.0"
           },
           "runtimes/win-x86/native/av_libglesv2.dll": {
             "rid": "win-x86",
             "assetType": "native",
-            "fileVersion": "0.0.0.0"
+            "fileVersion": "2.1.25606.0"
           }
         }
       },
@@ -143,7 +144,7 @@
       "Avalonia.FreeDesktop/11.3.11": {
         "dependencies": {
           "Avalonia": "11.3.11",
-          "Tmds.DBus.Protocol": "0.21.2"
+          "Tmds.DBus.Protocol": "0.93.0"
         },
         "runtime": {
           "lib/net8.0/Avalonia.FreeDesktop.dll": {
@@ -418,11 +419,11 @@
           }
         }
       },
-      "Tmds.DBus.Protocol/0.21.2": {
+      "Tmds.DBus.Protocol/0.93.0": {
         "runtime": {
-          "lib/net8.0/Tmds.DBus.Protocol.dll": {
-            "assemblyVersion": "0.21.2.0",
-            "fileVersion": "0.21.2.0"
+          "lib/net9.0/Tmds.DBus.Protocol.dll": {
+            "assemblyVersion": "0.93.0.0",
+            "fileVersion": "0.93.0.0"
           }
         }
       }
@@ -595,12 +596,12 @@
       "path": "skiasharp.nativeassets.win32/2.88.9",
       "hashPath": "skiasharp.nativeassets.win32.2.88.9.nupkg.sha512"
     },
-    "Tmds.DBus.Protocol/0.21.2": {
+    "Tmds.DBus.Protocol/0.93.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-ScSMrUrrw8px4kK1Glh0fZv/HQUlg1078bNXNPfRPKQ3WbRzV9HpsydYEOgSoMK5LWICMf2bMwIFH0pGjxjcMA==",
-      "path": "tmds.dbus.protocol/0.21.2",
-      "hashPath": "tmds.dbus.protocol.0.21.2.nupkg.sha512"
+      "sha512": "sha512-KDshXiWIfl26HUUN9Yv6CbAluEld8ZTrH+CJuCfLdBV/nXuhuEkcJrdcgApd5vCIkhxvOluJu9Qp7hn90hHcXQ==",
+      "path": "tmds.dbus.protocol/0.93.0",
+      "hashPath": "tmds.dbus.protocol.0.93.0.nupkg.sha512"
     }
   }
 }
