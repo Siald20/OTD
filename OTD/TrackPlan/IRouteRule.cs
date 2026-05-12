@@ -36,7 +36,7 @@ public class DefaultRouteRule : IRouteRule
             return false;
         }
 
-        return symbol.Kind is not TrackSymbolKind.BufferStop;
+        return symbol.Kind is not TrackSymbolKind.BufferStop || symbol.Id == context.TargetSignal.Id;
     }
 
     public virtual bool CanUseConnection(TrackConnection connection, RouteSearchContext context)
@@ -112,5 +112,10 @@ public class DefaultRouteRule : IRouteRule
             SignalDirection.BottomToTop => Math.Abs(dy) > Math.Abs(dx) && dy > 0,
             _ => true
         };
+    }
+
+    public static bool BlockIsVisibleFrom(TrackSymbol block, TrackSymbol previous)
+    {
+        return SignalIsVisibleFrom(block, previous);
     }
 }

@@ -122,7 +122,7 @@ public sealed class RouteBuilder
 
         if (!graph.TryGetSymbol(targetSignalId, out var targetSignal) ||
             targetSignal is null ||
-            targetSignal.Kind is not TrackSymbolKind.Signal)
+            !IsRouteTarget(targetSignal))
         {
             return false;
         }
@@ -299,9 +299,9 @@ public sealed class RouteBuilder
             path.Add(node);
             visited.Add(nextSymbol.Id);
 
-            if (nextSymbol.Kind is TrackSymbolKind.Signal &&
+            if (IsRouteTarget(nextSymbol) &&
                 nextSymbol.Id != context.StartSignal.Id &&
-                DefaultRouteRule.SignalIsVisibleFrom(nextSymbol, currentSymbol))
+                IsRouteTargetVisibleFrom(nextSymbol, currentSymbol))
             {
                 routes.Add(BuildRoute(graph, node, context.StartSignal, nextSymbol));
             }
@@ -429,4 +429,20 @@ public sealed class RouteBuilder
         RouteNode? Previous,
         TrackConnection? IncomingConnection,
         int Cost);
+
+    private static bool IsRouteTarget(TrackSymbol symbol)
+    {
+        return symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.LineBlock or TrackSymbolKind.BufferStop;
+    }
+
+    private static bool IsRouteTargetVisibleFrom(TrackSymbol target, TrackSymbol previous)
+    {
+        return target.Kind switch
+        {
+            TrackSymbolKind.Signal => DefaultRouteRule.SignalIsVisibleFrom(target, previous),
+            TrackSymbolKind.LineBlock => DefaultRouteRule.BlockIsVisibleFrom(target, previous),
+            TrackSymbolKind.BufferStop => true,
+            _ => false
+        };
+    }
 }

@@ -4,6 +4,7 @@ public enum TrackSymbolKind
 {
     Track,
     TrackBlock,
+    LineBlock,
     Signal,
     Switch,
     DoubleSlipSwitch,

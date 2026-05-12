@@ -108,6 +108,10 @@
                                    Text="Keine Fahrstrasse aktiv."
                                    Classes="secondary"
                                    TextWrapping="Wrap" />
+                        <TextBlock x:Name="StoredRouteText"
+                                   Text="Fahrstrassenspeicher leer."
+                                   Classes="secondary"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
 
                     <StackPanel x:Name="EditorAutomationPanel"

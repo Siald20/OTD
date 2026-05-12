@@ -17,5 +17,10 @@ public interface IInterlockingProfile
     /// </summary>
     void ApplyRoute(RouteSettingContext context, RouteSettingResultBuilder result);
 
+    /// <summary>
+    /// Profilweite Aufloesewirkungen beim Aufheben einer aktiven Fahrstrasse.
+    /// </summary>
+    void ReleaseRoute(RouteSettingContext context, RouteSettingResultBuilder result);
+
     IInterlockingElementLogic GetLogic(TrackSymbolKind kind);
 }

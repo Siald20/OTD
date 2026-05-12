@@ -12,7 +12,7 @@ public sealed class Domino67TrackBlockInterlockingLogic : TrackBlockInterlocking
             return failure;
         }
 
-        if (Domino67PropertyHelper.IsEnabled(symbol, Domino67PropertyNames.Blocked))
+        if (Domino67PropertyHelper.IsEnabled(symbol, Domino67PropertyNames.TrackClosed))
         {
             return new RouteSettingFailure { Message = $"{symbol.Name} ist im Domino 67 gesperrt." };
         }
@@ -21,5 +21,12 @@ public sealed class Domino67TrackBlockInterlockingLogic : TrackBlockInterlocking
         return context.AnySymbolOccupied(overlapSymbols)
             ? new RouteSettingFailure { Message = $"{symbol.Name}: Durchrutschweg ist belegt." }
             : null;
+    }
+
+    public override void Release(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        _ = context;
+        _ = symbol;
+        _ = result;
     }
 }

@@ -16,9 +16,10 @@ public sealed class Domino67InterlockingProfile : DefaultInterlockingProfile
     {
         ReplaceLogic(new Domino67SignalInterlockingLogic());
         ReplaceLogic(new Domino67TrackBlockInterlockingLogic());
+        ReplaceLogic(new Domino67LineBlockInterlockingLogic());
         ReplaceLogic(new Domino67SwitchInterlockingLogic());
         ReplaceLogic(new Domino67DoubleSlipSwitchInterlockingLogic());
-        //ReplaceLogic(new Domino67LevelCrossingInterlockingLogic());
+        ReplaceLogic(new Domino67LevelCrossingInterlockingLogic());
     }
 
     public override string Name => "Domino 67";
@@ -154,13 +155,29 @@ public sealed class Domino67InterlockingProfile : DefaultInterlockingProfile
 
     private static bool RoutesConflict(RouteResult candidate, RouteResult activeRoute, out string conflictName)
     {
+        var allowedSharedBoundarySignalIds = new HashSet<string>();
+        if (candidate.StartSignal.Kind is TrackSymbolKind.Signal &&
+            activeRoute.TargetSignal.Kind is TrackSymbolKind.Signal &&
+            candidate.StartSignal.Id == activeRoute.TargetSignal.Id)
+        {
+            allowedSharedBoundarySignalIds.Add(candidate.StartSignal.Id);
+        }
+
+        if (candidate.TargetSignal.Kind is TrackSymbolKind.Signal &&
+            activeRoute.StartSignal.Kind is TrackSymbolKind.Signal &&
+            candidate.TargetSignal.Id == activeRoute.StartSignal.Id)
+        {
+            allowedSharedBoundarySignalIds.Add(candidate.TargetSignal.Id);
+        }
+
         var activeSymbols = activeRoute.Symbols
             .Select(static symbol => symbol.Id)
             .ToHashSet();
 
         foreach (var symbol in candidate.Symbols)
         {
-            if (activeSymbols.Contains(symbol.Id))
+            if (activeSymbols.Contains(symbol.Id) &&
+                !allowedSharedBoundarySignalIds.Contains(symbol.Id))
             {
                 conflictName = symbol.Name;
                 return true;

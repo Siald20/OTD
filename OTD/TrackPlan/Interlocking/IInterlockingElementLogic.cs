@@ -26,4 +26,10 @@ public interface IInterlockingElementLogic
     /// berechnete Aktionen ausfuehren: Weiche stellen, Signal freigeben, Symbol verriegeln.
     /// </summary>
     void Apply(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result);
+
+    /// <summary>
+    /// Wendet die Aufloeselogik fuer ein Element an, wenn eine aktive Fahrstrasse
+    /// aufgehoben wird.
+    /// </summary>
+    void Release(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result);
 }

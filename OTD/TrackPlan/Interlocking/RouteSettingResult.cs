@@ -14,13 +14,15 @@ public sealed class RouteSettingResult
         string message,
         IReadOnlyList<SwitchCommand> switchCommands,
         IReadOnlySet<string> greenSignalIds,
-        IReadOnlySet<string> lockedSymbolIds)
+        IReadOnlySet<string> lockedSymbolIds,
+        IReadOnlyList<DelayedAction> delayedActions)
     {
         IsSuccess = isSuccess;
         Message = message;
         SwitchCommands = switchCommands;
         GreenSignalIds = greenSignalIds;
         LockedSymbolIds = lockedSymbolIds;
+        DelayedActions = delayedActions;
     }
 
     public bool IsSuccess { get; }
@@ -43,9 +45,11 @@ public sealed class RouteSettingResult
     /// </summary>
     public IReadOnlySet<string> LockedSymbolIds { get; }
 
+    public IReadOnlyList<DelayedAction> DelayedActions { get; }
+
     public static RouteSettingResult Failed(string message)
     {
-        return new RouteSettingResult(false, message, [], new HashSet<string>(), new HashSet<string>());
+        return new RouteSettingResult(false, message, [], new HashSet<string>(), new HashSet<string>(), []);
     }
 
     public static RouteSettingResult Success(RouteSettingResultBuilder builder, string message)
@@ -55,6 +59,7 @@ public sealed class RouteSettingResult
             message,
             builder.SwitchCommands,
             builder.GreenSignalIds,
-            builder.LockedSymbolIds);
+            builder.LockedSymbolIds,
+            builder.DelayedActions);
     }
 }

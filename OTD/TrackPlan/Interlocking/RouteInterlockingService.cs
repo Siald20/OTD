@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
 namespace OTD.TrackPlan.Interlocking;
 
 /// <summary>
@@ -18,7 +22,7 @@ public sealed class RouteInterlockingService
     {
         // Erst einfache globale Stellwerksbedingungen pruefen. Spaeter koennen hier
         // z. B. feindliche Fahrstrassen, Flankenschutz oder Domino-67-spezifische
-        // Start-/Zielabhängigkeiten zentral ergaenzt werden.
+        // Start-/Zielabhaengigkeiten zentral ergaenzt werden.
         var context = new RouteSettingContext(request);
         var routeFailure = _profile.ValidateRoute(context);
         if (routeFailure is not null)
@@ -47,7 +51,38 @@ public sealed class RouteInterlockingService
         }
 
         _profile.ApplyRoute(context, resultBuilder);
+        ScheduleDelayedActions(context, resultBuilder.DelayedActions);
 
         return RouteSettingResult.Success(resultBuilder, $"Fahrstrasse nach {_profile.Name} gestellt.");
+    }
+
+    public RouteSettingResult ReleaseRoute(RouteSettingRequest request)
+    {
+        var context = new RouteSettingContext(request);
+        var resultBuilder = new RouteSettingResultBuilder();
+
+        foreach (var symbol in request.Route.Symbols)
+        {
+            _profile.GetLogic(symbol.Kind).Release(context, symbol, resultBuilder);
+        }
+
+        _profile.ReleaseRoute(context, resultBuilder);
+        return RouteSettingResult.Success(resultBuilder, $"Fahrstrasse nach {_profile.Name} aufgeloest.");
+    }
+
+    private static void ScheduleDelayedActions(RouteSettingContext context, IReadOnlyList<DelayedAction> delayedActions)
+    {
+        foreach (var delayedAction in delayedActions)
+        {
+            _ = RunDelayedActionAsync(context, delayedAction);
+        }
+    }
+
+    private static async Task RunDelayedActionAsync(RouteSettingContext context, DelayedAction delayedAction)
+    {
+        await Task.Delay(delayedAction.Delay);
+        var delayedResult = new RouteSettingResultBuilder();
+        delayedAction.Action(context, delayedResult);
+        context.Request.DelayedActionApplied?.Invoke(context, delayedResult);
     }
 }

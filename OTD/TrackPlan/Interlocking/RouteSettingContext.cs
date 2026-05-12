@@ -110,4 +110,31 @@ public sealed class RouteSettingContext
     {
         return _switchCommandsById.TryGetValue(switchId, out command!);
     }
+
+    /// <summary>
+    /// Setzt eine Eigenschaft fuer ein TrackSymbol im aktuellen Dokument.
+    /// </summary>
+    /// <param name="symbolId">Die ID des Symbols.</param>
+    /// <param name="propertyName">Der Name der Eigenschaft.</param>
+    /// <param name="value">Der neue Wert der Eigenschaft als String.</param>
+    public void SetSymbolProperty(string symbolId, string propertyName, string value)
+    {
+        var symbol = FindDrawnSymbol(symbolId);
+        if (symbol != null)
+        {
+            symbol.Properties[propertyName] = value;
+        }
+        // Optional: Fehlerbehandlung, wenn Symbol nicht gefunden wird.
+    }
+
+    /// <summary>
+    /// Setzt eine boolesche Eigenschaft fuer ein TrackSymbol im aktuellen Dokument.
+    /// </summary>
+    /// <param name="symbolId">Die ID des Symbols.</param>
+    /// <param name="propertyName">Der Name der Eigenschaft.</param>
+    /// <param name="value">Der neue boolesche Wert der Eigenschaft.</param>
+    public void SetSymbolProperty(string symbolId, string propertyName, bool value)
+    {
+        SetSymbolProperty(symbolId, propertyName, value.ToString().ToLowerInvariant());
+    }
 }

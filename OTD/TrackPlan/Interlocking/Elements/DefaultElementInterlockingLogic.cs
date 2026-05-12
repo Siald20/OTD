@@ -35,6 +35,13 @@ public abstract class DefaultElementInterlockingLogic : IInterlockingElementLogi
         result.LockSymbol(symbol.Id);
     }
 
+    public virtual void Release(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        _ = context;
+        _ = symbol;
+        _ = result;
+    }
+
     protected static RouteSettingFailure? ValidateDemoBlocked(TrackSymbol symbol, string elementName)
     {
         return IsPropertyEnabled(symbol, DemoBlockedProperty)

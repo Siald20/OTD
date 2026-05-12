@@ -21,6 +21,7 @@ public class DefaultInterlockingProfile : IInterlockingProfile
         {
             [TrackSymbolKind.Track] = new TrackInterlockingLogic(),
             [TrackSymbolKind.TrackBlock] = new TrackBlockInterlockingLogic(),
+            [TrackSymbolKind.LineBlock] = new LineBlockInterlockingLogic(),
             [TrackSymbolKind.Signal] = new SignalInterlockingLogic(),
             [TrackSymbolKind.Switch] = new SwitchInterlockingLogic(),
             [TrackSymbolKind.DoubleSlipSwitch] = new DoubleSlipSwitchInterlockingLogic(),
@@ -46,6 +47,10 @@ public class DefaultInterlockingProfile : IInterlockingProfile
     }
 
     public virtual void ApplyRoute(RouteSettingContext context, RouteSettingResultBuilder result)
+    {
+    }
+
+    public virtual void ReleaseRoute(RouteSettingContext context, RouteSettingResultBuilder result)
     {
     }
 

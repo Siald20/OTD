@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace OTD.TrackPlan.Interlocking;
@@ -36,4 +37,10 @@ public sealed class RouteSettingRequest
     /// Durch aktive Fahrstrassen oder Schutzweichen verschlossene Symbole.
     /// </summary>
     public IReadOnlySet<string> LockedSymbolIds { get; init; } = new HashSet<string>();
+
+    /// <summary>
+    /// Optionaler Rueckkanal fuer asynchron ausgefuehrte Stellwirkungen (z. B. verzoegertes
+    /// Schliessen eines Bahnuebergangs). Die Fachlogik bleibt im Interlocking-Service.
+    /// </summary>
+    public Action<RouteSettingContext, RouteSettingResultBuilder>? DelayedActionApplied { get; init; }
 }
