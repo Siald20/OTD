@@ -24,6 +24,8 @@
           <Color x:Key="TrackPlanSymbolSelectedBorderColor">#0284C7</Color>
           <Color x:Key="TrackPlanSymbolTextColor">#111827</Color>
           <Color x:Key="TrackPlanSignalColor">Red</Color>
+          <Color x:Key="TrackPlanZwergSignalGreenColor">#90EE90</Color>
+          <Color x:Key="TrackPlanZwergSignalRedColor">#FCA5A5</Color>
           <Color x:Key="TrackPlanSwitchColor">Blue</Color>
           <Color x:Key="TrackPlanDoubleSlipSwitchColor">LightBlue</Color>
           <Color x:Key="TrackPlanBlockColor">Yellow</Color>
@@ -53,6 +55,8 @@
           <Color x:Key="TrackPlanSymbolSelectedBorderColor">#7DD3FC</Color>
           <Color x:Key="TrackPlanSymbolTextColor">#0F172A</Color>
           <Color x:Key="TrackPlanSignalColor">Red</Color>
+          <Color x:Key="TrackPlanZwergSignalGreenColor">#4ADE80</Color>
+          <Color x:Key="TrackPlanZwergSignalRedColor">Green</Color>
           <Color x:Key="TrackPlanSwitchColor">Blue</Color>
           <Color x:Key="TrackPlanDoubleSlipSwitchColor">LightBlue</Color>
           <Color x:Key="TrackPlanBlockColor">Yellow</Color>

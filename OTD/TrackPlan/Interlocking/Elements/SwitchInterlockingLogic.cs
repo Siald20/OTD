@@ -37,6 +37,7 @@ public class SwitchInterlockingLogic : DefaultElementInterlockingLogic
 
     public override void Apply(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
     {
+        // TODO: Einstelllogik fuer Switch hier erweitern.
         base.Apply(context, symbol, result);
 
         if (!context.TryGetSwitchCommand(symbol.Id, out var command))
@@ -54,5 +55,11 @@ public class SwitchInterlockingLogic : DefaultElementInterlockingLogic
         }
 
         result.AddSwitchCommand(command);
+    }
+
+    public override void Release(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        // TODO: Aufloeselogik fuer Switch hier einbauen.
+        base.Release(context, symbol, result);
     }
 }

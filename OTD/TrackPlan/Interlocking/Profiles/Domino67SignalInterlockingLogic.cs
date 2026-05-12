@@ -36,6 +36,11 @@ public sealed class Domino67SignalInterlockingLogic : Elements.DefaultElementInt
     /// </summary>
     public override void Apply(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
     {
+        if (context.Request.RouteType is not RouteType.Train)
+        {
+            return;
+        }
+
         if (symbol.Id != context.Request.Route.StartSignal.Id)
         {
             return;
@@ -52,6 +57,7 @@ public sealed class Domino67SignalInterlockingLogic : Elements.DefaultElementInt
         if (openAutoCloseCrossings.Count == 0)
         {
             result.AddGreenSignal(symbol.Id);
+            AddRouteZwergSignalsToGreen(context, result);
             return;
         }
 
@@ -80,6 +86,7 @@ public sealed class Domino67SignalInterlockingLogic : Elements.DefaultElementInt
             {
                 ctx.SetSymbolProperty(symbol.Id, Domino67PropertyNames.SignalIsGreen, true);
                 delayedResult.AddGreenSignal(symbol.Id);
+                AddRouteZwergSignalsToGreen(ctx, delayedResult);
             }
         }));
     }
@@ -135,6 +142,28 @@ public sealed class Domino67SignalInterlockingLogic : Elements.DefaultElementInt
             yield return new OpenAutoCloseCrossing(
                 routeSymbol.Id,
                 Domino67LevelCrossingInterlockingLogic.GetAutoCloseDelay(routeSymbol));
+        }
+    }
+
+    private static void AddRouteZwergSignalsToGreen(RouteSettingContext context, RouteSettingResultBuilder result)
+    {
+        var symbols = context.Request.Route.Symbols;
+        for (var i = 0; i < symbols.Count; i++)
+        {
+            var routeSymbol = symbols[i];
+            if (routeSymbol.Kind is not TrackSymbolKind.ZwergSignal)
+            {
+                continue;
+            }
+
+            // Zwergsignale nur dann auf Fahrt stellen, wenn sie in Fahrtrichtung zeigen.
+            if (i + 1 >= symbols.Count || !DefaultRouteRule.SignalAllowsDeparture(routeSymbol, symbols[i + 1]))
+            {
+                continue;
+            }
+
+            context.SetSymbolProperty(routeSymbol.Id, Domino67PropertyNames.SignalIsGreen, true);
+            result.AddGreenSignal(routeSymbol.Id);
         }
     }
 

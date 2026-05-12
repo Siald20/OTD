@@ -15,6 +15,7 @@ public sealed class Domino67InterlockingProfile : DefaultInterlockingProfile
     public Domino67InterlockingProfile()
     {
         ReplaceLogic(new Domino67SignalInterlockingLogic());
+        ReplaceLogic(new Domino67ZwergSignalInterlockingLogic());
         ReplaceLogic(new Domino67TrackBlockInterlockingLogic());
         ReplaceLogic(new Domino67LineBlockInterlockingLogic());
         ReplaceLogic(new Domino67SwitchInterlockingLogic());
@@ -31,9 +32,11 @@ public sealed class Domino67InterlockingProfile : DefaultInterlockingProfile
             return new RouteSettingFailure { Message = "Domino 67: Fahrstrasse ist unvollstaendig." };
         }
 
+        var allowedSharedBoundarySignalIds = BuildAllowedSharedBoundarySignalIds(context.Request.Route, context.Request.ActiveRoutes);
+
         foreach (var symbol in context.Request.Route.Symbols)
         {
-            if (context.IsLocked(symbol.Id))
+            if (context.IsLocked(symbol.Id) && !allowedSharedBoundarySignalIds.Contains(symbol.Id))
             {
                 return new RouteSettingFailure { Message = $"{symbol.Name} ist durch eine andere Fahrstrasse verschlossen." };
             }
@@ -155,20 +158,7 @@ public sealed class Domino67InterlockingProfile : DefaultInterlockingProfile
 
     private static bool RoutesConflict(RouteResult candidate, RouteResult activeRoute, out string conflictName)
     {
-        var allowedSharedBoundarySignalIds = new HashSet<string>();
-        if (candidate.StartSignal.Kind is TrackSymbolKind.Signal &&
-            activeRoute.TargetSignal.Kind is TrackSymbolKind.Signal &&
-            candidate.StartSignal.Id == activeRoute.TargetSignal.Id)
-        {
-            allowedSharedBoundarySignalIds.Add(candidate.StartSignal.Id);
-        }
-
-        if (candidate.TargetSignal.Kind is TrackSymbolKind.Signal &&
-            activeRoute.StartSignal.Kind is TrackSymbolKind.Signal &&
-            candidate.TargetSignal.Id == activeRoute.StartSignal.Id)
-        {
-            allowedSharedBoundarySignalIds.Add(candidate.TargetSignal.Id);
-        }
+        var allowedSharedBoundarySignalIds = BuildAllowedSharedBoundarySignalIds(candidate, [activeRoute]);
 
         var activeSymbols = activeRoute.Symbols
             .Select(static symbol => symbol.Id)
@@ -219,5 +209,35 @@ public sealed class Domino67InterlockingProfile : DefaultInterlockingProfile
             SwitchRouteOptions = symbol.SwitchRouteOptions,
             Properties = symbol.Properties
         };
+    }
+
+    private static bool IsSignalKind(TrackSymbolKind kind)
+    {
+        return kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal;
+    }
+
+    private static HashSet<string> BuildAllowedSharedBoundarySignalIds(
+        RouteResult candidate,
+        IReadOnlyList<RouteResult> activeRoutes)
+    {
+        var allowedSharedBoundarySignalIds = new HashSet<string>();
+        foreach (var activeRoute in activeRoutes)
+        {
+            if (IsSignalKind(candidate.StartSignal.Kind) &&
+                IsSignalKind(activeRoute.TargetSignal.Kind) &&
+                candidate.StartSignal.Id == activeRoute.TargetSignal.Id)
+            {
+                allowedSharedBoundarySignalIds.Add(candidate.StartSignal.Id);
+            }
+
+            if (IsSignalKind(candidate.TargetSignal.Kind) &&
+                IsSignalKind(activeRoute.StartSignal.Kind) &&
+                candidate.TargetSignal.Id == activeRoute.StartSignal.Id)
+            {
+                allowedSharedBoundarySignalIds.Add(candidate.TargetSignal.Id);
+            }
+        }
+
+        return allowedSharedBoundarySignalIds;
     }
 }

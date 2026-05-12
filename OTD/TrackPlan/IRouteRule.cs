@@ -49,7 +49,7 @@ public class DefaultRouteRule : IRouteRule
         var from = context.Graph.GetSymbol(connection.FromSymbolId);
         var to = context.Graph.GetSymbol(connection.ToSymbolId);
 
-        if (from.Kind is TrackSymbolKind.Signal &&
+        if (from.Kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal &&
             from.Id == context.StartSignal.Id &&
             !SignalAllowsDeparture(from, to))
         {

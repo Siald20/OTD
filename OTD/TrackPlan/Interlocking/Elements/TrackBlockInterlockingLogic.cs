@@ -25,9 +25,26 @@ public class TrackBlockInterlockingLogic : DefaultElementInterlockingLogic
             return new RouteSettingFailure { Message = $"{symbol.Name} ist nur fuer Reservemanoever freigegeben." };
         }
 
-        // Ein belegter Block darf fuer eine normale Fahrstrasse nicht neu eingestellt werden.
+        // Bei Rangierfahrstrassen darf in besetzte Gleise eingestellt werden.
+        if (context.Request.RouteType is RouteType.Shunting)
+        {
+            return null;
+        }
+
         return context.IsOccupied(symbol.Id)
             ? new RouteSettingFailure { Message = $"{symbol.Name} ist belegt." }
             : null;
+    }
+
+    public override void Apply(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        // TODO: Einstelllogik fuer TrackBlock hier einbauen.
+        base.Apply(context, symbol, result);
+    }
+
+    public override void Release(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        // TODO: Aufloeselogik fuer TrackBlock hier einbauen.
+        base.Release(context, symbol, result);
     }
 }

@@ -14,4 +14,16 @@ public sealed class DepotInterlockingLogic : DefaultElementInterlockingLogic
         return base.Validate(context, symbol) ??
                ValidateRequiredProperty(symbol, DemoDepotExitReleasedProperty, $"{symbol.Name} hat in der Demo keine Ausfahrfreigabe.");
     }
+
+    public override void Apply(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        // TODO: Einstelllogik fuer Depot hier einbauen.
+        base.Apply(context, symbol, result);
+    }
+
+    public override void Release(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        // TODO: Aufloeselogik fuer Depot hier einbauen.
+        base.Release(context, symbol, result);
+    }
 }

@@ -4,6 +4,8 @@ namespace OTD.TrackPlan;
 
 public sealed class RouteResult
 {
+    public RouteType RouteType { get; init; } = RouteType.Train;
+
     public required TrackSymbol StartSignal { get; init; }
 
     public required TrackSymbol TargetSignal { get; init; }

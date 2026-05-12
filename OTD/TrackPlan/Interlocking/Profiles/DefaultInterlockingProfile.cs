@@ -23,6 +23,7 @@ public class DefaultInterlockingProfile : IInterlockingProfile
             [TrackSymbolKind.TrackBlock] = new TrackBlockInterlockingLogic(),
             [TrackSymbolKind.LineBlock] = new LineBlockInterlockingLogic(),
             [TrackSymbolKind.Signal] = new SignalInterlockingLogic(),
+            [TrackSymbolKind.ZwergSignal] = new ZwergSignalInterlockingLogic(),
             [TrackSymbolKind.Switch] = new SwitchInterlockingLogic(),
             [TrackSymbolKind.DoubleSlipSwitch] = new DoubleSlipSwitchInterlockingLogic(),
             [TrackSymbolKind.Crossing] = new CrossingInterlockingLogic(),

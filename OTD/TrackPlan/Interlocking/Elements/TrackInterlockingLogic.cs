@@ -16,4 +16,16 @@ public sealed class TrackInterlockingLogic : DefaultElementInterlockingLogic
                    ? new RouteSettingFailure { Message = $"{symbol.Name} ist im Demo-Unterhalt." }
                    : null);
     }
+
+    public override void Apply(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        // TODO: Einstelllogik fuer Track hier einbauen.
+        base.Apply(context, symbol, result);
+    }
+
+    public override void Release(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        // TODO: Aufloeselogik fuer Track hier einbauen.
+        base.Release(context, symbol, result);
+    }
 }

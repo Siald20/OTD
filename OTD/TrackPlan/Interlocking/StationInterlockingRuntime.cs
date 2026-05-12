@@ -236,6 +236,7 @@ public sealed class StationInterlockingRuntime
     {
         return new RouteSettingRequest
         {
+            RouteType = route.RouteType,
             Route = route,
             Document = document,
             OccupiedSymbolIds = OccupiedSymbolIds,
@@ -248,7 +249,8 @@ public sealed class StationInterlockingRuntime
     private static bool IsSameRoute(RouteResult left, RouteResult right)
     {
         return left.StartSignal.Id == right.StartSignal.Id &&
-               left.TargetSignal.Id == right.TargetSignal.Id;
+               left.TargetSignal.Id == right.TargetSignal.Id &&
+               left.RouteType == right.RouteType;
     }
 
     private static void SetLineBlockDirection(TrackPlanDocument document, string symbolId, string direction)

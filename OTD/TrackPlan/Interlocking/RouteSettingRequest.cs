@@ -11,6 +11,8 @@ namespace OTD.TrackPlan.Interlocking;
 /// </summary>
 public sealed class RouteSettingRequest
 {
+    public RouteType RouteType { get; init; } = RouteType.Train;
+
     /// <summary>
     /// Die bereits gefundene Fahrstrasse, die jetzt gestellt werden soll.
     /// </summary>

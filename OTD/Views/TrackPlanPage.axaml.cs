@@ -11,6 +11,7 @@ using OTD.TrackPlan.Interlocking;
 using OTD.TrackPlan.Interlocking.Profiles;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using IOPath = System.IO.Path;
 
@@ -23,6 +24,7 @@ public partial class TrackPlanPage : UserControl
     private readonly List<PaletteElement> _paletteElements =
     [
         new(TrackSymbolKind.Signal, TrackEditorTool.Signal, "Signal"),
+        new(TrackSymbolKind.ZwergSignal, TrackEditorTool.ZwergSignal, "Zwergsignal"),
         new(TrackSymbolKind.Track, TrackEditorTool.Track, "Gleis"),
         new(TrackSymbolKind.TrackBlock, TrackEditorTool.TrackBlock, "Block"),
         new(TrackSymbolKind.LineBlock, TrackEditorTool.LineBlock, "Streckenblock"),
@@ -40,8 +42,9 @@ public partial class TrackPlanPage : UserControl
 
     private readonly TrackPlanDocumentStore _trackPlanDocumentStore = new();
     private readonly RouteDocumentStore _routeDocumentStore = new();
-    private readonly string _planFilePath = IOPath.Combine(Environment.CurrentDirectory, "plan.xml");
-    private readonly string _routesFilePath = IOPath.Combine(Environment.CurrentDirectory, "Routes.xml");
+    private readonly string _dataDirectory = ResolveDataDirectory();
+    private readonly string _planFilePath;
+    private readonly string _routesFilePath;
     private readonly TrackPlanEditorModel _trackPlanEditor;
     private readonly RouteBuilder _routeBuilder = new();
     private readonly StationInterlockingRuntime _interlockingRuntime = new(new Domino67InterlockingProfile());
@@ -76,6 +79,8 @@ public partial class TrackPlanPage : UserControl
     public TrackPlanPage(Action? navigateBack)
     {
         _navigateBack = navigateBack;
+        _planFilePath = IOPath.Combine(_dataDirectory, "plan.xml");
+        _routesFilePath = IOPath.Combine(_dataDirectory, "Routes.xml");
         _trackPlanEditor = new TrackPlanEditorModel(LoadTrackPlanDocument());
         InitializeComponent();
         RenderPalette();
@@ -89,6 +94,28 @@ public partial class TrackPlanPage : UserControl
             TrackPlanStatus.Text = $"Gleisplan aus {IOPath.GetFileName(_planFilePath)} geladen.";
             RenderTrackPlan();
         }
+    }
+
+    private static string ResolveDataDirectory()
+    {
+        var searchDirectory = Environment.CurrentDirectory;
+        for (var i = 0; i < 8; i++)
+        {
+            if (File.Exists(IOPath.Combine(searchDirectory, "OTD.csproj")))
+            {
+                return searchDirectory;
+            }
+
+            var parent = Directory.GetParent(searchDirectory);
+            if (parent is null)
+            {
+                break;
+            }
+
+            searchDirectory = parent.FullName;
+        }
+
+        return Environment.CurrentDirectory;
     }
 
     private void BackToMain_OnClick(object? sender, RoutedEventArgs e)
@@ -232,12 +259,12 @@ public partial class TrackPlanPage : UserControl
         if (_visibleRoutes.Count == 0)
         {
             PopulateRoutes();
-        TrackPlanStatus.Text = "Bedienung aktiv. Startsignal anklicken, danach Ziel (Signal/Streckenblock/Prellbock).";
+        TrackPlanStatus.Text = "Bedienung aktiv. Start (Signal/Zwergsignal) anklicken, danach Ziel (Signal/Zwergsignal/Streckenblock/Prellbock).";
         }
         else
         {
             RefreshRouteLists();
-        TrackPlanStatus.Text = "Bedienung aktiv. Startsignal anklicken, danach Ziel (Signal/Streckenblock/Prellbock).";
+        TrackPlanStatus.Text = "Bedienung aktiv. Start (Signal/Zwergsignal) anklicken, danach Ziel (Signal/Zwergsignal/Streckenblock/Prellbock).";
         }
 
         RenderPalette();
@@ -272,19 +299,29 @@ public partial class TrackPlanPage : UserControl
     {
         _highlightedConnectionKeys.Clear();
 
-        var signals = _trackPlanEditor.Document.Symbols
-            .Where(symbol => symbol.Kind is TrackSymbolKind.Signal)
+        var starts = _trackPlanEditor.Document.Symbols
+            .Where(symbol => symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal)
             .ToList();
 
-        if (signals.Count < 2)
+        if (starts.Count < 2)
         {
-            TrackPlanStatus.Text = "Mindestens zwei Signale werden fuer eine Fahrstrasse benoetigt.";
+            TrackPlanStatus.Text = "Mindestens zwei Signal-/Zwergsignal-Elemente werden fuer eine Fahrstrasse benoetigt.";
             RenderTrackPlan();
             return;
         }
 
+        var start = starts.First();
+        var target = starts.Last();
+        var routeType = start.Kind is TrackSymbolKind.ZwergSignal
+            ? RouteType.Shunting
+            : RouteType.Train;
+
         var graph = _trackPlanEditor.ToGraph();
-        var result = _routeBuilder.FindRoute(graph, signals.First().Id, signals.Last().Id);
+        var result = _routeBuilder.FindRoute(graph, start.Id, target.Id, new RouteSearchOptions
+        {
+            RouteType = routeType,
+            AllowOccupiedSymbols = routeType is RouteType.Shunting
+        });
 
         if (!result.IsSuccess || result.Route is null)
         {
@@ -318,7 +355,25 @@ public partial class TrackPlanPage : UserControl
         _visibleRoutes.Clear();
 
         var graph = _trackPlanEditor.ToGraph();
-        _visibleRoutes.AddRange(_routeBuilder.FindAllRoutes(graph));
+        _visibleRoutes.AddRange(_routeBuilder.FindAllRoutes(graph, new RouteSearchOptions
+        {
+            RouteType = RouteType.Train
+        }));
+        _visibleRoutes.AddRange(_routeBuilder.FindAllRoutes(graph, new RouteSearchOptions
+        {
+            RouteType = RouteType.Shunting,
+            AllowOccupiedSymbols = true
+        }));
+
+        var deduplicated = _visibleRoutes
+            .GroupBy(route => new { route.RouteType, StartId = route.StartSignal.Id, TargetId = route.TargetSignal.Id })
+            .Select(group => group.OrderBy(route => route.Cost).First())
+            .OrderBy(route => route.RouteType)
+            .ThenBy(route => route.StartSignal.Name)
+            .ThenBy(route => route.TargetSignal.Name)
+            .ToList();
+        _visibleRoutes.Clear();
+        _visibleRoutes.AddRange(deduplicated);
         RefreshRouteLists();
         SaveRoutes();
 
@@ -489,7 +544,7 @@ public partial class TrackPlanPage : UserControl
                 .ToList();
             foreach (var route in affectedRoutes)
             {
-                ClearGreenSignal(route.StartSignal.Id);
+                ClearRouteSignals(route);
             }
 
             if (affectedRoutes.Count > 0)
@@ -824,7 +879,7 @@ public partial class TrackPlanPage : UserControl
     {
         var control = symbol.Kind switch
         {
-            TrackSymbolKind.Signal => CreateOperationSignal(symbol),
+            TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal => CreateOperationSignal(symbol),
             TrackSymbolKind.TrackBlock or TrackSymbolKind.LineBlock => CreateOperationBlock(symbol),
             TrackSymbolKind.Switch or TrackSymbolKind.DoubleSlipSwitch => CreateOperationSwitch(symbol),
             _ => CreateOperationAccessory(symbol)
@@ -1137,6 +1192,15 @@ public partial class TrackPlanPage : UserControl
 
         if (_isOperationMode)
         {
+            if (IsOperationRouteEndpoint(symbol) &&
+                _activeRoutes.Any(route => route.TargetSignal.Id == symbol.Id))
+            {
+                var releaseRouteItem = new MenuItem { Header = "Fahrstrasse aufloesen" };
+                releaseRouteItem.Click += (_, _) => ReleaseRoutesByTargetSymbol(symbol);
+                menu.Items.Add(new Separator());
+                menu.Items.Add(releaseRouteItem);
+            }
+
             return menu;
         }
 
@@ -1144,11 +1208,11 @@ public partial class TrackPlanPage : UserControl
         menu.Items.Add(connectItem);
         menu.Items.Add(new Separator());
 
-        if (symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.LineBlock)
+        if (symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal or TrackSymbolKind.LineBlock)
         {
             var directionMenu = new MenuItem
             {
-                Header = symbol.Kind is TrackSymbolKind.Signal ? "Signalrichtung" : "Blockrichtung"
+                Header = symbol.Kind is TrackSymbolKind.LineBlock ? "Blockrichtung" : "Signalrichtung"
             };
             foreach (var direction in Enum.GetValues<SignalDirection>())
             {
@@ -1223,9 +1287,9 @@ public partial class TrackPlanPage : UserControl
 
         if (_operationStartSymbol is null || _operationStartSymbol.Id == signal.Id)
         {
-            if (signal.Kind is not TrackSymbolKind.Signal)
+            if (signal.Kind is not (TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal))
             {
-                TrackPlanStatus.Text = "Start muss ein Signal sein.";
+                TrackPlanStatus.Text = "Start muss ein Signal oder Zwergsignal sein.";
                 RenderTrackPlan();
                 return;
             }
@@ -1233,12 +1297,15 @@ public partial class TrackPlanPage : UserControl
             _operationStartSymbol = signal;
             _selectedOperationRoute = null;
             _highlightedConnectionKeys.Clear();
-            TrackPlanStatus.Text = $"{signal.Name} als Startsignal gewaehlt. Ziel (Signal/Streckenblock/Prellbock) anklicken.";
+            TrackPlanStatus.Text = $"{signal.Name} als Start gewaehlt. Ziel (Signal/Zwergsignal/Streckenblock/Prellbock) anklicken.";
             RenderTrackPlan();
             return;
         }
 
-        var route = FindOperationRoute(_operationStartSymbol.Id, signal.Id);
+        var routeType = _operationStartSymbol.Kind is TrackSymbolKind.ZwergSignal
+            ? RouteType.Shunting
+            : RouteType.Train;
+        var route = FindOperationRoute(_operationStartSymbol.Id, signal.Id, routeType);
         if (route is null)
         {
             TrackPlanStatus.Text = $"Keine Fahrstrasse von {_operationStartSymbol.Name} nach {signal.Name} gefunden.";
@@ -1255,11 +1322,12 @@ public partial class TrackPlanPage : UserControl
         SetSelectedOperationRoute();
     }
 
-    private RouteResult? FindOperationRoute(string startSignalId, string targetSignalId)
+    private RouteResult? FindOperationRoute(string startSignalId, string targetSignalId, RouteType routeType)
     {
         var existingRoute = _visibleRoutes.FirstOrDefault(route =>
             route.StartSignal.Id == startSignalId &&
-            route.TargetSignal.Id == targetSignalId);
+            route.TargetSignal.Id == targetSignalId &&
+            route.RouteType == routeType);
 
         if (existingRoute is not null)
         {
@@ -1267,7 +1335,11 @@ public partial class TrackPlanPage : UserControl
         }
 
         var graph = _trackPlanEditor.ToGraph();
-        var result = _routeBuilder.FindRoute(graph, startSignalId, targetSignalId);
+        var result = _routeBuilder.FindRoute(graph, startSignalId, targetSignalId, new RouteSearchOptions
+        {
+            RouteType = routeType,
+            AllowOccupiedSymbols = routeType is RouteType.Shunting
+        });
         if (!result.IsSuccess || result.Route is null)
         {
             return null;
@@ -1543,9 +1615,9 @@ public partial class TrackPlanPage : UserControl
 
     private void AddElementSpecificSettings(StackPanel content, DrawnTrackSymbol symbol)
     {
-        if (symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.LineBlock)
+        if (symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal or TrackSymbolKind.LineBlock)
         {
-            content.Children.Add(CreateSectionTitle(symbol.Kind is TrackSymbolKind.Signal ? "Signal" : "Streckenblock"));
+            content.Children.Add(CreateSectionTitle(symbol.Kind is TrackSymbolKind.LineBlock ? "Streckenblock" : "Signal"));
             var signalDirectionBox = new ComboBox
             {
                 MinWidth = 240
@@ -1566,7 +1638,7 @@ public partial class TrackPlanPage : UserControl
             };
 
             content.Children.Add(CreateLabeledControl(
-                symbol.Kind is TrackSymbolKind.Signal ? "Signalrichtung" : "Blockrichtung",
+                symbol.Kind is TrackSymbolKind.LineBlock ? "Blockrichtung" : "Signalrichtung",
                 signalDirectionBox));
         }
 
@@ -1653,7 +1725,7 @@ public partial class TrackPlanPage : UserControl
         content.Children.Add(CreateSectionTitle("Domino 67"));
         content.Children.Add(CreatePropertyCheckBox(symbol, new DemoSetting(Domino67PropertyNames.TrackClosed, "Element im Domino 67 sperren", "true")));
 
-        if (symbol.Kind is TrackSymbolKind.Signal)
+        if (symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal)
         {
             content.Children.Add(CreatePropertyCheckBox(symbol, new DemoSetting(Domino67PropertyNames.HoldRed, "Startsignal auf Halt halten", "true")));
             content.Children.Add(CreatePropertyCheckBox(symbol, new DemoSetting(Domino67PropertyNames.SignalKeepGreenOnRelease, "Bei Aufloesung gruen belassen", "true")));
@@ -1806,6 +1878,7 @@ public partial class TrackPlanPage : UserControl
             TrackSymbolKind.TrackBlock => [new DemoSetting("Demo.ReserveOnly", "Nur Reservemanöver", "true")],
             TrackSymbolKind.LineBlock => [new DemoSetting("Demo.ReserveOnly", "Nur Reservemanöver", "true")],
             TrackSymbolKind.Signal => [new DemoSetting("Demo.HoldRed", "Signal auf Halt halten", "true")],
+            TrackSymbolKind.ZwergSignal => [new DemoSetting("Demo.HoldRed", "Zwergsignal auf Halt halten", "true")],
             TrackSymbolKind.Crossing => [new DemoSetting("Demo.ConflictingCrossing", "Kreuzungskonflikt aktiv", "true")],
             TrackSymbolKind.Sensor => [new DemoSetting("Demo.SensorClear", "Sensor meldet nicht frei", "false")],
             TrackSymbolKind.Platform => [new DemoSetting("Demo.PassengerStopOnly", "Nur haltende Zuege", "true")],
@@ -2044,7 +2117,7 @@ public partial class TrackPlanPage : UserControl
 
         foreach (var route in affectedRoutes)
         {
-            ClearGreenSignal(route.StartSignal.Id);
+            ClearRouteSignals(route);
         }
 
         RebuildLockedSymbols();
@@ -2054,6 +2127,52 @@ public partial class TrackPlanPage : UserControl
         {
             _releasedRouteConnectionKeys.Clear();
         }
+    }
+
+    private void ReleaseRoutesByTargetSymbol(DrawnTrackSymbol targetSymbol)
+    {
+        var affectedRoutes = _activeRoutes
+            .Where(route => route.TargetSignal.Id == targetSymbol.Id)
+            .ToList();
+        if (affectedRoutes.Count == 0)
+        {
+            TrackPlanStatus.Text = $"Keine aktive Fahrstrasse mit Ziel {targetSymbol.Name}.";
+            return;
+        }
+
+        var allReleased = new List<RouteResult>();
+        foreach (var route in affectedRoutes)
+        {
+            var released = _interlockingRuntime.ReleaseRoutesContainingSymbol(
+                route.TargetSignal.Id,
+                _trackPlanEditor.Document,
+                OnDelayedActionApplied);
+            allReleased.AddRange(released);
+        }
+
+        foreach (var connection in allReleased.SelectMany(route => route.Connections))
+        {
+            _activeRouteConnectionKeys.Remove(GetConnectionKey(connection.FromSymbolId, connection.ToSymbolId));
+            _activeRouteConnectionKeys.Remove(GetConnectionKey(connection.ToSymbolId, connection.FromSymbolId));
+            _releasedRouteConnectionKeys.Add(GetConnectionKey(connection.FromSymbolId, connection.ToSymbolId));
+            _releasedRouteConnectionKeys.Add(GetConnectionKey(connection.ToSymbolId, connection.FromSymbolId));
+        }
+
+        foreach (var route in allReleased)
+        {
+            ClearRouteSignals(route);
+        }
+
+        RebuildLockedSymbols();
+        UpdateActiveRouteText();
+        if (_activeRoutes.Count == 0)
+        {
+            _releasedRouteConnectionKeys.Clear();
+        }
+
+        TrackPlanStatus.Text = $"{allReleased.Count} Fahrstrasse(n) am Ziel {targetSymbol.Name} aufgeloest.";
+        SaveTrackPlan();
+        RenderTrackPlan();
     }
 
     private void UpdateActiveRouteText()
@@ -2138,6 +2257,17 @@ public partial class TrackPlanPage : UserControl
         SetSymbolProperty(signalId, Domino67PropertyNames.SignalIsGreen, true);
     }
 
+    private void ClearRouteSignals(RouteResult route)
+    {
+        foreach (var symbol in route.Symbols)
+        {
+            if (symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal)
+            {
+                ClearGreenSignal(symbol.Id);
+            }
+        }
+    }
+
     private void ClearGreenSignal(string signalId)
     {
         _greenSignalIds.Remove(signalId);
@@ -2146,7 +2276,7 @@ public partial class TrackPlanPage : UserControl
 
     private void ClearGreenSignals()
     {
-        foreach (var signal in _trackPlanEditor.Document.Symbols.Where(static s => s.Kind is TrackSymbolKind.Signal))
+        foreach (var signal in _trackPlanEditor.Document.Symbols.Where(static s => s.Kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal))
         {
             SetSymbolProperty(signal.Id, Domino67PropertyNames.SignalIsGreen, false);
         }
@@ -2181,17 +2311,19 @@ public partial class TrackPlanPage : UserControl
     private static bool IsSameRoute(RouteResult left, RouteResult right)
     {
         return left.StartSignal.Id == right.StartSignal.Id &&
-               left.TargetSignal.Id == right.TargetSignal.Id;
+               left.TargetSignal.Id == right.TargetSignal.Id &&
+               left.RouteType == right.RouteType;
     }
 
     private static bool IsOperationRouteEndpoint(DrawnTrackSymbol symbol)
     {
-        return symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.LineBlock or TrackSymbolKind.BufferStop;
+        return symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal or TrackSymbolKind.LineBlock or TrackSymbolKind.BufferStop;
     }
 
     private static string FormatRouteName(RouteResult route)
     {
-        return $"{route.StartSignal.Name} -> {route.TargetSignal.Name}";
+        var type = route.RouteType is RouteType.Shunting ? "Rangier" : "Zug";
+        return $"{type}: {route.StartSignal.Name} -> {route.TargetSignal.Name}";
     }
 
     private void RebuildLockedSymbols()
@@ -2220,7 +2352,7 @@ public partial class TrackPlanPage : UserControl
             TrackSymbolKind.DoubleSlipSwitch when to.Y < from.Y - 20 => "D",
             TrackSymbolKind.DoubleSlipSwitch when to.X > from.X => "B",
             TrackSymbolKind.DoubleSlipSwitch => "A",
-            TrackSymbolKind.Signal => "out",
+            TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal => "out",
             _ when to.X >= from.X => "right",
             _ => "left"
         };
@@ -2232,7 +2364,7 @@ public partial class TrackPlanPage : UserControl
             TrackSymbolKind.DoubleSlipSwitch when from.Y > to.Y + 20 => "C",
             TrackSymbolKind.DoubleSlipSwitch when from.Y < to.Y - 20 => "D",
             TrackSymbolKind.DoubleSlipSwitch => "B",
-            TrackSymbolKind.Signal => "in",
+            TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal => "in",
             _ when from.X <= to.X => "left",
             _ => "right"
         };
@@ -2244,7 +2376,7 @@ public partial class TrackPlanPage : UserControl
     {
         return symbol.Kind switch
         {
-            TrackSymbolKind.Signal => ["in", "out"],
+            TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal => ["in", "out"],
             TrackSymbolKind.Switch => ["A", "B", "C"],
             TrackSymbolKind.DoubleSlipSwitch => ["A", "B", "C", "D"],
             TrackSymbolKind.Track or TrackSymbolKind.TrackBlock or TrackSymbolKind.LineBlock => ["left", "right"],
@@ -2254,7 +2386,7 @@ public partial class TrackPlanPage : UserControl
 
     private static Point GetPortPoint(DrawnTrackSymbol symbol, string portName)
     {
-        if (symbol.Kind is TrackSymbolKind.Signal)
+        if (symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal)
         {
             return GetSignalPortPoint(symbol, portName);
         }
@@ -2361,6 +2493,7 @@ public partial class TrackPlanPage : UserControl
         return kind switch
         {
             TrackSymbolKind.Signal => GetThemeBrush("TrackPlanSignalBrush", Brushes.Red),
+            TrackSymbolKind.ZwergSignal => GetThemeBrush("TrackPlanZwergSignalGreenBrush", Brushes.LightGreen),
             TrackSymbolKind.Switch => GetThemeBrush("TrackPlanSwitchBrush", Brushes.Blue),
             TrackSymbolKind.DoubleSlipSwitch => GetThemeBrush("TrackPlanDoubleSlipSwitchBrush", Brushes.LightSkyBlue),
             TrackSymbolKind.TrackBlock => GetThemeBrush("TrackPlanBlockBrush", Brushes.Yellow),
@@ -2388,6 +2521,7 @@ public partial class TrackPlanPage : UserControl
         return kind switch
         {
             TrackSymbolKind.Signal => "SIG",
+            TrackSymbolKind.ZwergSignal => "ZW",
             TrackSymbolKind.Switch => "W",
             TrackSymbolKind.DoubleSlipSwitch => "DKW",
             TrackSymbolKind.TrackBlock => "BLK",
@@ -2424,7 +2558,7 @@ public partial class TrackPlanPage : UserControl
 
     private static string GetSymbolCaption(DrawnTrackSymbol symbol)
     {
-        if (symbol.Kind is TrackSymbolKind.Signal)
+        if (symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal)
         {
             return $"{symbol.Name} {GetSignalArrow(symbol.SignalDirection)}";
         }
@@ -2496,6 +2630,7 @@ public partial class TrackPlanPage : UserControl
     {
         Select,
         Signal,
+        ZwergSignal,
         Track,
         TrackBlock,
         LineBlock,
@@ -2522,6 +2657,7 @@ public partial class TrackPlanPage : UserControl
         kind = tool switch
         {
             TrackEditorTool.Signal => TrackSymbolKind.Signal,
+            TrackEditorTool.ZwergSignal => TrackSymbolKind.ZwergSignal,
             TrackEditorTool.Track => TrackSymbolKind.Track,
             TrackEditorTool.TrackBlock => TrackSymbolKind.TrackBlock,
             TrackEditorTool.LineBlock => TrackSymbolKind.LineBlock,

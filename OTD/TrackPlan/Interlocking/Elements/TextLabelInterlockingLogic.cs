@@ -16,4 +16,16 @@ public sealed class TextLabelInterlockingLogic : DefaultElementInterlockingLogic
                    ? new RouteSettingFailure { Message = $"{symbol.Name} ist ein Demo-Hinweis mit betrieblicher Sperre." }
                    : null);
     }
+
+    public override void Apply(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        // TODO: Einstelllogik fuer TextLabel hier einbauen.
+        base.Apply(context, symbol, result);
+    }
+
+    public override void Release(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        // TODO: Aufloeselogik fuer TextLabel hier einbauen.
+        base.Release(context, symbol, result);
+    }
 }

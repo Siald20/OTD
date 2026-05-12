@@ -74,6 +74,7 @@ public sealed class TrackPlanEditorModel
         var prefix = kind switch
         {
             TrackSymbolKind.Signal => "S",
+            TrackSymbolKind.ZwergSignal => "ZS",
             TrackSymbolKind.Switch => "W",
             TrackSymbolKind.DoubleSlipSwitch => "DKW",
             TrackSymbolKind.TrackBlock => "B",
@@ -91,7 +92,14 @@ public sealed class TrackPlanEditorModel
             _ => "G"
         };
 
-        var index = Document.Symbols.Count(symbol => symbol.Id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) + 1;
+        var index = Document.Symbols
+            .Select(symbol => symbol.Id)
+            .Where(id => id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Select(id => id[prefix.Length..])
+            .Where(suffix => int.TryParse(suffix, out _))
+            .Select(int.Parse)
+            .DefaultIfEmpty(0)
+            .Max() + 1;
         return $"{prefix}{index}";
     }
 
@@ -100,6 +108,7 @@ public sealed class TrackPlanEditorModel
         return kind switch
         {
             TrackSymbolKind.Signal => "Signal",
+            TrackSymbolKind.ZwergSignal => "Zwergsignal",
             TrackSymbolKind.Switch => "Weiche",
             TrackSymbolKind.DoubleSlipSwitch => "Kreuzungsweiche",
             TrackSymbolKind.TrackBlock => "Block",

@@ -6,6 +6,7 @@ public enum TrackSymbolKind
     TrackBlock,
     LineBlock,
     Signal,
+    ZwergSignal,
     Switch,
     DoubleSlipSwitch,
     Crossing,
@@ -43,4 +44,10 @@ public enum RouteSearchMode
     Shortest,
     PreferStraightSwitches,
     MinimizeSwitchChanges
+}
+
+public enum RouteType
+{
+    Train,
+    Shunting
 }

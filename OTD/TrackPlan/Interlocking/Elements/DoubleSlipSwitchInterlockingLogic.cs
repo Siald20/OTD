@@ -36,6 +36,7 @@ public class DoubleSlipSwitchInterlockingLogic : DefaultElementInterlockingLogic
 
     public override void Apply(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
     {
+        // TODO: Einstelllogik fuer DoubleSlipSwitch hier erweitern.
         base.Apply(context, symbol, result);
 
         if (!context.TryGetSwitchCommand(symbol.Id, out var command))
@@ -52,5 +53,11 @@ public class DoubleSlipSwitchInterlockingLogic : DefaultElementInterlockingLogic
         }
 
         result.AddSwitchCommand(command);
+    }
+
+    public override void Release(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
+    {
+        // TODO: Aufloeselogik fuer DoubleSlipSwitch hier einbauen.
+        base.Release(context, symbol, result);
     }
 }

@@ -10,6 +10,8 @@
           <Color x:Key="TrackPlanSymbolSelectedBorderColor">#0284C7</Color>
           <Color x:Key="TrackPlanSymbolTextColor">#111827</Color>
           <Color x:Key="TrackPlanSignalColor">Red</Color>
+          <Color x:Key="TrackPlanZwergSignalGreenColor">Green</Color>
+          <Color x:Key="TrackPlanZwergSignalRedColor">#FCA5A5</Color>
           <Color x:Key="TrackPlanSwitchColor">Blue</Color>
           <Color x:Key="TrackPlanDoubleSlipSwitchColor">LightBlue</Color>
           <Color x:Key="TrackPlanBlockColor">Yellow</Color>
@@ -26,6 +28,8 @@
           <Color x:Key="TrackPlanSymbolSelectedBorderColor">#7DD3FC</Color>
           <Color x:Key="TrackPlanSymbolTextColor">#0F172A</Color>
           <Color x:Key="TrackPlanSignalColor">Red</Color>
+          <Color x:Key="TrackPlanZwergSignalGreenColor">Green</Color>
+          <Color x:Key="TrackPlanZwergSignalRedColor">#F87171</Color>
           <Color x:Key="TrackPlanSwitchColor">Blue</Color>
           <Color x:Key="TrackPlanDoubleSlipSwitchColor">LightBlue</Color>
           <Color x:Key="TrackPlanBlockColor">Yellow</Color>
@@ -42,6 +46,8 @@
       <SolidColorBrush x:Key="TrackPlanSymbolSelectedBorderBrush" Color="{DynamicResource TrackPlanSymbolSelectedBorderColor}" />
       <SolidColorBrush x:Key="TrackPlanSymbolTextBrush" Color="{DynamicResource TrackPlanSymbolTextColor}" />
       <SolidColorBrush x:Key="TrackPlanSignalBrush" Color="{DynamicResource TrackPlanSignalColor}" />
+      <SolidColorBrush x:Key="TrackPlanZwergSignalGreenBrush" Color="{DynamicResource TrackPlanZwergSignalGreenColor}" />
+      <SolidColorBrush x:Key="TrackPlanZwergSignalRedBrush" Color="{DynamicResource TrackPlanZwergSignalRedColor}" />
       <SolidColorBrush x:Key="TrackPlanSwitchBrush" Color="{DynamicResource TrackPlanSwitchColor}" />
       <SolidColorBrush x:Key="TrackPlanDoubleSlipSwitchBrush" Color="{DynamicResource TrackPlanDoubleSlipSwitchColor}" />
       <SolidColorBrush x:Key="TrackPlanBlockBrush" Color="{DynamicResource TrackPlanBlockColor}" />

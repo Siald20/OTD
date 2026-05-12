@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Xml;
 using System.Xml.Linq;
 
 namespace OTD.TrackPlan;
@@ -96,7 +97,11 @@ public sealed class TrackPlanDocumentStore
                 new XAttribute("name", document.Name),
                 new XAttribute("version", document.Version.ToString(CultureInfo.InvariantCulture)),
                 new XElement("Symbols",
-                    document.Symbols.Select(symbol =>
+                    document.Symbols
+                        .OrderBy(static symbol => symbol.Kind)
+                        .ThenBy(static symbol => symbol.Name)
+                        .ThenBy(static symbol => symbol.Id)
+                        .Select(symbol =>
                         new XElement("Symbol",
                             new XAttribute("id", symbol.Id),
                             new XAttribute("name", symbol.Name),
@@ -119,7 +124,12 @@ public sealed class TrackPlanDocumentStore
                                             new XAttribute("key", property.Key),
                                             new XAttribute("value", property.Value))))))),
                 new XElement("Connections",
-                    document.Connections.Select(connection =>
+                    document.Connections
+                        .OrderBy(static connection => connection.FromSymbolId)
+                        .ThenBy(static connection => connection.FromPort)
+                        .ThenBy(static connection => connection.ToSymbolId)
+                        .ThenBy(static connection => connection.ToPort)
+                        .Select(connection =>
                         new XElement("Connection",
                             new XAttribute("fromSymbolId", connection.FromSymbolId),
                             new XAttribute("fromPort", connection.FromPort),
@@ -129,7 +139,22 @@ public sealed class TrackPlanDocumentStore
                             new XAttribute("isEnabled", connection.IsEnabled.ToString()),
                             new XAttribute("isBidirectional", connection.IsBidirectional.ToString()))))));
 
-        xml.Save(filePath);
+        SaveFormatted(xml, filePath);
+    }
+
+    private static void SaveFormatted(XDocument xml, string filePath)
+    {
+        var settings = new XmlWriterSettings
+        {
+            Indent = true,
+            IndentChars = "  ",
+            NewLineChars = Environment.NewLine,
+            NewLineHandling = NewLineHandling.Replace,
+            NewLineOnAttributes = false
+        };
+
+        using var writer = XmlWriter.Create(filePath, settings);
+        xml.Save(writer);
     }
 
     private static string ReadString(XElement element, string attributeName, string fallback)

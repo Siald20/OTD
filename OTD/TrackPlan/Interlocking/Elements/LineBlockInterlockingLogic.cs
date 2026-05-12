@@ -55,6 +55,11 @@ public class LineBlockInterlockingLogic : DefaultElementInterlockingLogic
             return new RouteSettingFailure { Message = $"{symbol.Name} ist nur fuer Reservemanoever freigegeben." };
         }
 
+        if (context.Request.RouteType is RouteType.Shunting)
+        {
+            return null;
+        }
+
         return context.IsOccupied(symbol.Id)
             ? new RouteSettingFailure { Message = $"{symbol.Name} ist belegt." }
             : null;
@@ -62,12 +67,14 @@ public class LineBlockInterlockingLogic : DefaultElementInterlockingLogic
 
     public override void Apply(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
     {
+        // TODO: Einstelllogik fuer LineBlock hier erweitern.
         base.Apply(context, symbol, result);
         ApplyStateForRoute(context);
     }
 
     public override void Release(RouteSettingContext context, TrackSymbol symbol, RouteSettingResultBuilder result)
     {
+        // TODO: Aufloeselogik fuer LineBlock hier erweitern.
         _ = result;
         var drawnSymbol = context.FindDrawnSymbol(symbol.Id);
         if (drawnSymbol?.Kind is TrackSymbolKind.LineBlock)

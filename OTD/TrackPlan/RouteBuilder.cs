@@ -13,7 +13,7 @@ public sealed class RouteBuilder
         options ??= new RouteSearchOptions();
 
         var signals = graph.Symbols
-            .Where(static symbol => symbol.Kind is TrackSymbolKind.Signal)
+            .Where(symbol => IsRouteStart(symbol, options.RouteType))
             .ToList();
 
         var routes = new List<RouteResult>();
@@ -115,14 +115,14 @@ public sealed class RouteBuilder
 
         if (!graph.TryGetSymbol(startSignalId, out var startSignal) ||
             startSignal is null ||
-            startSignal.Kind is not TrackSymbolKind.Signal)
+            !IsRouteStart(startSignal, options.RouteType))
         {
             return false;
         }
 
         if (!graph.TryGetSymbol(targetSignalId, out var targetSignal) ||
             targetSignal is null ||
-            !IsRouteTarget(targetSignal))
+            !IsRouteTarget(targetSignal, options.RouteType))
         {
             return false;
         }
@@ -299,7 +299,7 @@ public sealed class RouteBuilder
             path.Add(node);
             visited.Add(nextSymbol.Id);
 
-            if (IsRouteTarget(nextSymbol) &&
+            if (IsRouteTarget(nextSymbol, context.Options.RouteType) &&
                 nextSymbol.Id != context.StartSignal.Id &&
                 IsRouteTargetVisibleFrom(nextSymbol, currentSymbol))
             {
@@ -344,6 +344,7 @@ public sealed class RouteBuilder
 
         return new RouteResult
         {
+            RouteType = startSignal.Kind is TrackSymbolKind.ZwergSignal ? RouteType.Shunting : RouteType.Train,
             StartSignal = startSignal,
             TargetSignal = targetSignal,
             Symbols = symbols,
@@ -430,9 +431,22 @@ public sealed class RouteBuilder
         TrackConnection? IncomingConnection,
         int Cost);
 
-    private static bool IsRouteTarget(TrackSymbol symbol)
+    private static bool IsRouteStart(TrackSymbol symbol, RouteType routeType)
     {
-        return symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.LineBlock or TrackSymbolKind.BufferStop;
+        return routeType switch
+        {
+            RouteType.Shunting => symbol.Kind is TrackSymbolKind.ZwergSignal,
+            _ => symbol.Kind is TrackSymbolKind.Signal
+        };
+    }
+
+    private static bool IsRouteTarget(TrackSymbol symbol, RouteType routeType)
+    {
+        return routeType switch
+        {
+            RouteType.Shunting => symbol.Kind is TrackSymbolKind.ZwergSignal or TrackSymbolKind.BufferStop,
+            _ => symbol.Kind is TrackSymbolKind.Signal or TrackSymbolKind.LineBlock or TrackSymbolKind.BufferStop
+        };
     }
 
     private static bool IsRouteTargetVisibleFrom(TrackSymbol target, TrackSymbol previous)
@@ -440,6 +454,7 @@ public sealed class RouteBuilder
         return target.Kind switch
         {
             TrackSymbolKind.Signal => DefaultRouteRule.SignalIsVisibleFrom(target, previous),
+            TrackSymbolKind.ZwergSignal => DefaultRouteRule.SignalIsVisibleFrom(target, previous),
             TrackSymbolKind.LineBlock => DefaultRouteRule.BlockIsVisibleFrom(target, previous),
             TrackSymbolKind.BufferStop => true,
             _ => false

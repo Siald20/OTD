@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Xml;
 using System.Xml.Linq;
 
 namespace OTD.TrackPlan;
@@ -75,6 +76,7 @@ public sealed class RouteDocumentStore
 
             routes.Add(new RouteResult
             {
+                RouteType = ReadEnum(routeElement, "routeType", RouteType.Train),
                 StartSignal = startSignal,
                 TargetSignal = targetSignal,
                 Symbols = symbols,
@@ -98,16 +100,31 @@ public sealed class RouteDocumentStore
         var xml = new XDocument(
             new XElement("Routes",
                 routes.Select(route =>
-                    new XElement("Route",
+                    route)
+                    .OrderBy(static route => route.RouteType)
+                    .ThenBy(static route => route.StartSignal.Name)
+                    .ThenBy(static route => route.TargetSignal.Name)
+                    .ThenBy(static route => route.Cost)
+                    .Select(route =>
+                        new XElement("Route",
+                        new XAttribute("routeType", route.RouteType.ToString()),
                         new XAttribute("startSignalId", route.StartSignal.Id),
                         new XAttribute("targetSignalId", route.TargetSignal.Id),
                         new XAttribute("cost", route.Cost.ToString(CultureInfo.InvariantCulture)),
                         new XElement("Symbols",
-                            route.Symbols.Select(symbol =>
+                            route.Symbols
+                                .OrderBy(static symbol => symbol.Name)
+                                .ThenBy(static symbol => symbol.Id)
+                                .Select(symbol =>
                                 new XElement("Symbol",
                                     new XAttribute("id", symbol.Id)))),
                         new XElement("Connections",
-                            route.Connections.Select(connection =>
+                            route.Connections
+                                .OrderBy(static connection => connection.FromSymbolId)
+                                .ThenBy(static connection => connection.FromPort)
+                                .ThenBy(static connection => connection.ToSymbolId)
+                                .ThenBy(static connection => connection.ToPort)
+                                .Select(connection =>
                                 new XElement("Connection",
                                     new XAttribute("fromSymbolId", connection.FromSymbolId),
                                     new XAttribute("fromPort", connection.FromPort),
@@ -116,13 +133,31 @@ public sealed class RouteDocumentStore
                                     new XAttribute("cost", connection.Cost.ToString(CultureInfo.InvariantCulture)),
                                     new XAttribute("isEnabled", connection.IsEnabled.ToString())))),
                         new XElement("SwitchCommands",
-                            route.SwitchCommands.Select(command =>
+                            route.SwitchCommands
+                                .OrderBy(static command => command.SwitchName)
+                                .ThenBy(static command => command.SwitchId)
+                                .Select(command =>
                                 new XElement("SwitchCommand",
                                     new XAttribute("switchId", command.SwitchId),
                                     new XAttribute("switchName", command.SwitchName),
                                     new XAttribute("position", command.Position.ToString()))))))));
 
-        xml.Save(filePath);
+        SaveFormatted(xml, filePath);
+    }
+
+    private static void SaveFormatted(XDocument xml, string filePath)
+    {
+        var settings = new XmlWriterSettings
+        {
+            Indent = true,
+            IndentChars = "  ",
+            NewLineChars = Environment.NewLine,
+            NewLineHandling = NewLineHandling.Replace,
+            NewLineOnAttributes = false
+        };
+
+        using var writer = XmlWriter.Create(filePath, settings);
+        xml.Save(writer);
     }
 
     private static string ReadString(XElement element, string attributeName, string fallback)
