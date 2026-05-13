@@ -1,0 +1,958 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Routes>
+  <Route routeType="Train" startSignalId="S1" targetSignalId="S5" cost="4">
+    <Symbols>
+      <Symbol id="G1" />
+      <Symbol id="S1" />
+      <Symbol id="S3" />
+      <Symbol id="S5" />
+      <Symbol id="W2" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G1" fromPort="right" toSymbolId="S5" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S1" fromPort="out" toSymbolId="W2" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S3" fromPort="in" toSymbolId="G1" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W2" fromPort="A" toSymbolId="S3" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W2" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S2" targetSignalId="S6" cost="4">
+    <Symbols>
+      <Symbol id="G2" />
+      <Symbol id="S2" />
+      <Symbol id="S4" />
+      <Symbol id="S6" />
+      <Symbol id="W1" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G2" fromPort="right" toSymbolId="S6" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S2" fromPort="out" toSymbolId="W1" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S4" fromPort="in" toSymbolId="G2" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W1" fromPort="B" toSymbolId="S4" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W1" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S21" targetSignalId="S19" cost="4">
+    <Symbols>
+      <Symbol id="G7" />
+      <Symbol id="S16" />
+      <Symbol id="S19" />
+      <Symbol id="S21" />
+      <Symbol id="W11" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G7" fromPort="left" toSymbolId="S19" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S16" fromPort="in" toSymbolId="G7" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S21" fromPort="out" toSymbolId="W11" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W11" fromPort="A" toSymbolId="S16" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W11" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S2" targetSignalId="S5" cost="5">
+    <Symbols>
+      <Symbol id="G1" />
+      <Symbol id="S2" />
+      <Symbol id="S3" />
+      <Symbol id="S5" />
+      <Symbol id="W1" />
+      <Symbol id="W2" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G1" fromPort="right" toSymbolId="S5" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S2" fromPort="out" toSymbolId="W1" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S3" fromPort="in" toSymbolId="G1" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W1" fromPort="C" toSymbolId="W2" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W2" fromPort="A" toSymbolId="S3" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W1" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W2" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S14" targetSignalId="S15" cost="6">
+    <Symbols>
+      <Symbol id="G4" />
+      <Symbol id="S14" />
+      <Symbol id="S15" />
+      <Symbol id="S20" />
+      <Symbol id="W8" />
+      <Symbol id="ZS5" />
+      <Symbol id="ZS6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G4" fromPort="left" toSymbolId="S15" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S14" fromPort="out" toSymbolId="ZS6" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S20" fromPort="in" toSymbolId="ZS5" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W8" fromPort="B" toSymbolId="S20" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS5" fromPort="in" toSymbolId="G4" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS6" fromPort="in" toSymbolId="W8" toPort="A" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W8" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S14" targetSignalId="S19" cost="6">
+    <Symbols>
+      <Symbol id="G7" />
+      <Symbol id="S14" />
+      <Symbol id="S16" />
+      <Symbol id="S19" />
+      <Symbol id="W11" />
+      <Symbol id="W8" />
+      <Symbol id="ZS6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G7" fromPort="left" toSymbolId="S19" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S14" fromPort="out" toSymbolId="ZS6" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S16" fromPort="in" toSymbolId="G7" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W11" fromPort="A" toSymbolId="S16" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W8" fromPort="C" toSymbolId="W11" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS6" fromPort="in" toSymbolId="W8" toPort="A" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W11" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W8" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S7" targetSignalId="S4" cost="6">
+    <Symbols>
+      <Symbol id="BU2" />
+      <Symbol id="G2" />
+      <Symbol id="S4" />
+      <Symbol id="S6" />
+      <Symbol id="S7" />
+      <Symbol id="W3" />
+      <Symbol id="W5" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU2" fromPort="left" toSymbolId="W5" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="G2" fromPort="left" toSymbolId="S4" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S6" fromPort="in" toSymbolId="G2" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S7" fromPort="out" toSymbolId="BU2" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W3" fromPort="A" toSymbolId="S6" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W5" fromPort="B" toSymbolId="W3" toPort="B" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W3" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W5" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S8" targetSignalId="S3" cost="6">
+    <Symbols>
+      <Symbol id="BU1" />
+      <Symbol id="G1" />
+      <Symbol id="S3" />
+      <Symbol id="S5" />
+      <Symbol id="S8" />
+      <Symbol id="W4" />
+      <Symbol id="W6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU1" fromPort="left" toSymbolId="W6" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="G1" fromPort="left" toSymbolId="S3" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S5" fromPort="in" toSymbolId="G1" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S8" fromPort="out" toSymbolId="BU1" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W4" fromPort="A" toSymbolId="S5" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W6" fromPort="B" toSymbolId="W4" toPort="B" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W4" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W6" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S13" targetSignalId="S20" cost="7">
+    <Symbols>
+      <Symbol id="G4" />
+      <Symbol id="S13" />
+      <Symbol id="S15" />
+      <Symbol id="S20" />
+      <Symbol id="W7" />
+      <Symbol id="ZS2" />
+      <Symbol id="ZS5" />
+      <Symbol id="ZS7" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G4" fromPort="right" toSymbolId="ZS5" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S13" fromPort="out" toSymbolId="ZS2" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S15" fromPort="in" toSymbolId="G4" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W7" fromPort="B" toSymbolId="ZS7" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS2" fromPort="out" toSymbolId="W7" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS5" fromPort="out" toSymbolId="S20" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS7" fromPort="out" toSymbolId="S15" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W7" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S13" targetSignalId="S16" cost="7">
+    <Symbols>
+      <Symbol id="G7" />
+      <Symbol id="S13" />
+      <Symbol id="S16" />
+      <Symbol id="S19" />
+      <Symbol id="W7" />
+      <Symbol id="W9" />
+      <Symbol id="ZS2" />
+      <Symbol id="ZS3" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G7" fromPort="right" toSymbolId="S16" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S13" fromPort="out" toSymbolId="ZS2" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S19" fromPort="in" toSymbolId="G7" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W7" fromPort="C" toSymbolId="W9" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="A" toSymbolId="ZS3" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS2" fromPort="out" toSymbolId="W7" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS3" fromPort="in" toSymbolId="S19" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W7" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S17" targetSignalId="S16" cost="7">
+    <Symbols>
+      <Symbol id="G7" />
+      <Symbol id="S16" />
+      <Symbol id="S17" />
+      <Symbol id="S19" />
+      <Symbol id="W10" />
+      <Symbol id="W9" />
+      <Symbol id="ZS3" />
+      <Symbol id="ZS8" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G7" fromPort="right" toSymbolId="S16" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S17" fromPort="out" toSymbolId="ZS8" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S19" fromPort="in" toSymbolId="G7" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W10" fromPort="A" toSymbolId="W9" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="A" toSymbolId="ZS3" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS3" fromPort="in" toSymbolId="S19" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS8" fromPort="out" toSymbolId="W10" toPort="B" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W10" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S18" targetSignalId="S16" cost="7">
+    <Symbols>
+      <Symbol id="G7" />
+      <Symbol id="S16" />
+      <Symbol id="S18" />
+      <Symbol id="S19" />
+      <Symbol id="W10" />
+      <Symbol id="W9" />
+      <Symbol id="ZS3" />
+      <Symbol id="ZS9" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G7" fromPort="right" toSymbolId="S16" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S18" fromPort="out" toSymbolId="ZS9" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S19" fromPort="in" toSymbolId="G7" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W10" fromPort="A" toSymbolId="W9" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="A" toSymbolId="ZS3" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS3" fromPort="in" toSymbolId="S19" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS9" fromPort="out" toSymbolId="W10" toPort="C" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W10" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S8" targetSignalId="S4" cost="9">
+    <Symbols>
+      <Symbol id="BU1" />
+      <Symbol id="G2" />
+      <Symbol id="DKW1" />
+      <Symbol id="S4" />
+      <Symbol id="S6" />
+      <Symbol id="S8" />
+      <Symbol id="W3" />
+      <Symbol id="W6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU1" fromPort="left" toSymbolId="W6" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="DKW1" fromPort="C" toSymbolId="W3" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="G2" fromPort="left" toSymbolId="S4" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S6" fromPort="in" toSymbolId="G2" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S8" fromPort="out" toSymbolId="BU1" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W3" fromPort="A" toSymbolId="S6" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W6" fromPort="C" toSymbolId="DKW1" toPort="B" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="DKW1" switchName="Kreuzungsweiche" position="Left" />
+      <SwitchCommand switchId="W3" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W6" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S7" targetSignalId="S3" cost="11">
+    <Symbols>
+      <Symbol id="BU2" />
+      <Symbol id="G1" />
+      <Symbol id="DKW1" />
+      <Symbol id="S3" />
+      <Symbol id="S5" />
+      <Symbol id="S7" />
+      <Symbol id="W4" />
+      <Symbol id="W5" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU2" fromPort="left" toSymbolId="W5" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="DKW1" fromPort="A" toSymbolId="W4" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="G1" fromPort="left" toSymbolId="S3" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S5" fromPort="in" toSymbolId="G1" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S7" fromPort="out" toSymbolId="BU2" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W4" fromPort="A" toSymbolId="S5" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W5" fromPort="C" toSymbolId="DKW1" toPort="D" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="DKW1" switchName="Kreuzungsweiche" position="Right" />
+      <SwitchCommand switchId="W4" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W5" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S16" targetSignalId="SB7" cost="3">
+    <Symbols>
+      <Symbol id="S16" />
+      <Symbol id="S21" />
+      <Symbol id="SB7" />
+      <Symbol id="W11" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="S16" fromPort="out" toSymbolId="W11" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S21" fromPort="in" toSymbolId="SB7" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W11" fromPort="C" toSymbolId="S21" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W11" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S4" targetSignalId="SB6" cost="3">
+    <Symbols>
+      <Symbol id="S2" />
+      <Symbol id="S4" />
+      <Symbol id="SB6" />
+      <Symbol id="W1" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="S2" fromPort="in" toSymbolId="SB6" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S4" fromPort="out" toSymbolId="W1" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W1" fromPort="A" toSymbolId="S2" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W1" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S20" targetSignalId="SB4" cost="4">
+    <Symbols>
+      <Symbol id="S14" />
+      <Symbol id="S20" />
+      <Symbol id="SB4" />
+      <Symbol id="W8" />
+      <Symbol id="ZS6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="S14" fromPort="in" toSymbolId="SB4" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S20" fromPort="out" toSymbolId="W8" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W8" fromPort="A" toSymbolId="ZS6" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS6" fromPort="out" toSymbolId="S14" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W8" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S3" targetSignalId="SB6" cost="4">
+    <Symbols>
+      <Symbol id="S2" />
+      <Symbol id="S3" />
+      <Symbol id="SB6" />
+      <Symbol id="W1" />
+      <Symbol id="W2" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="S2" fromPort="in" toSymbolId="SB6" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S3" fromPort="out" toSymbolId="W2" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W1" fromPort="A" toSymbolId="S2" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W2" fromPort="C" toSymbolId="W1" toPort="C" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W1" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W2" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S4" targetSignalId="SB5" cost="4">
+    <Symbols>
+      <Symbol id="S2" />
+      <Symbol id="S4" />
+      <Symbol id="SB5" />
+      <Symbol id="SB6" />
+      <Symbol id="W1" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="S2" fromPort="in" toSymbolId="SB6" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S4" fromPort="out" toSymbolId="W1" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB6" fromPort="left" toSymbolId="SB5" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W1" fromPort="A" toSymbolId="S2" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W1" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S15" targetSignalId="SB3" cost="5">
+    <Symbols>
+      <Symbol id="S13" />
+      <Symbol id="S15" />
+      <Symbol id="SB3" />
+      <Symbol id="W7" />
+      <Symbol id="ZS2" />
+      <Symbol id="ZS7" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="S13" fromPort="in" toSymbolId="SB3" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S15" fromPort="out" toSymbolId="ZS7" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W7" fromPort="A" toSymbolId="ZS2" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS2" fromPort="in" toSymbolId="S13" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS7" fromPort="in" toSymbolId="W7" toPort="B" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W7" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S16" targetSignalId="SB4" cost="5">
+    <Symbols>
+      <Symbol id="S14" />
+      <Symbol id="S16" />
+      <Symbol id="SB4" />
+      <Symbol id="W11" />
+      <Symbol id="W8" />
+      <Symbol id="ZS6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="S14" fromPort="in" toSymbolId="SB4" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S16" fromPort="out" toSymbolId="W11" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W11" fromPort="B" toSymbolId="W8" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W8" fromPort="A" toSymbolId="ZS6" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS6" fromPort="out" toSymbolId="S14" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W11" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W8" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S5" targetSignalId="SB1" cost="5">
+    <Symbols>
+      <Symbol id="BU1" />
+      <Symbol id="S5" />
+      <Symbol id="S8" />
+      <Symbol id="SB1" />
+      <Symbol id="W4" />
+      <Symbol id="W6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU1" fromPort="right" toSymbolId="S8" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S5" fromPort="out" toSymbolId="W4" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S8" fromPort="in" toSymbolId="SB1" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W4" fromPort="B" toSymbolId="W6" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W6" fromPort="A" toSymbolId="BU1" toPort="left" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W4" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W6" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S6" targetSignalId="SB2" cost="5">
+    <Symbols>
+      <Symbol id="BU2" />
+      <Symbol id="S6" />
+      <Symbol id="S7" />
+      <Symbol id="SB2" />
+      <Symbol id="W3" />
+      <Symbol id="W5" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU2" fromPort="right" toSymbolId="S7" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S6" fromPort="out" toSymbolId="W3" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S7" fromPort="in" toSymbolId="SB2" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W3" fromPort="B" toSymbolId="W5" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W5" fromPort="A" toSymbolId="BU2" toPort="left" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W3" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W5" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S19" targetSignalId="SB5" cost="6">
+    <Symbols>
+      <Symbol id="S17" />
+      <Symbol id="S19" />
+      <Symbol id="SB5" />
+      <Symbol id="W10" />
+      <Symbol id="W9" />
+      <Symbol id="ZS3" />
+      <Symbol id="ZS8" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="S17" fromPort="in" toSymbolId="SB5" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S19" fromPort="out" toSymbolId="ZS3" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W10" fromPort="B" toSymbolId="ZS8" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="B" toSymbolId="W10" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS3" fromPort="out" toSymbolId="W9" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS8" fromPort="in" toSymbolId="S17" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W10" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S19" targetSignalId="SB3" cost="6">
+    <Symbols>
+      <Symbol id="S13" />
+      <Symbol id="S19" />
+      <Symbol id="SB3" />
+      <Symbol id="W7" />
+      <Symbol id="W9" />
+      <Symbol id="ZS2" />
+      <Symbol id="ZS3" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="S13" fromPort="in" toSymbolId="SB3" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S19" fromPort="out" toSymbolId="ZS3" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W7" fromPort="A" toSymbolId="ZS2" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="C" toSymbolId="W7" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS2" fromPort="in" toSymbolId="S13" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS3" fromPort="out" toSymbolId="W9" toPort="A" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W7" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S5" targetSignalId="SB2" cost="6">
+    <Symbols>
+      <Symbol id="BU2" />
+      <Symbol id="DKW1" />
+      <Symbol id="S5" />
+      <Symbol id="S7" />
+      <Symbol id="SB2" />
+      <Symbol id="W4" />
+      <Symbol id="W5" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU2" fromPort="right" toSymbolId="S7" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="DKW1" fromPort="D" toSymbolId="W5" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S5" fromPort="out" toSymbolId="W4" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S7" fromPort="in" toSymbolId="SB2" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W4" fromPort="C" toSymbolId="DKW1" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W5" fromPort="A" toSymbolId="BU2" toPort="left" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="DKW1" switchName="Kreuzungsweiche" position="Right" />
+      <SwitchCommand switchId="W4" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W5" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Train" startSignalId="S6" targetSignalId="SB1" cost="6">
+    <Symbols>
+      <Symbol id="BU1" />
+      <Symbol id="DKW1" />
+      <Symbol id="S6" />
+      <Symbol id="S8" />
+      <Symbol id="SB1" />
+      <Symbol id="W3" />
+      <Symbol id="W6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU1" fromPort="right" toSymbolId="S8" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="DKW1" fromPort="B" toSymbolId="W6" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S6" fromPort="out" toSymbolId="W3" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S8" fromPort="in" toSymbolId="SB1" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W3" fromPort="C" toSymbolId="DKW1" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W6" fromPort="A" toSymbolId="BU1" toPort="left" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="DKW1" switchName="Kreuzungsweiche" position="Left" />
+      <SwitchCommand switchId="W3" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W6" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS7" targetSignalId="ZS2" cost="2">
+    <Symbols>
+      <Symbol id="W7" />
+      <Symbol id="ZS2" />
+      <Symbol id="ZS7" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="W7" fromPort="A" toSymbolId="ZS2" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS7" fromPort="in" toSymbolId="W7" toPort="B" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W7" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS3" targetSignalId="ZS8" cost="3">
+    <Symbols>
+      <Symbol id="W10" />
+      <Symbol id="W9" />
+      <Symbol id="ZS3" />
+      <Symbol id="ZS8" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="W10" fromPort="B" toSymbolId="ZS8" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="B" toSymbolId="W10" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS3" fromPort="out" toSymbolId="W9" toPort="A" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W10" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS3" targetSignalId="ZS2" cost="3">
+    <Symbols>
+      <Symbol id="W7" />
+      <Symbol id="W9" />
+      <Symbol id="ZS2" />
+      <Symbol id="ZS3" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="W7" fromPort="A" toSymbolId="ZS2" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="C" toSymbolId="W7" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS3" fromPort="out" toSymbolId="W9" toPort="A" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W7" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS5" targetSignalId="ZS6" cost="3">
+    <Symbols>
+      <Symbol id="S20" />
+      <Symbol id="W8" />
+      <Symbol id="ZS5" />
+      <Symbol id="ZS6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="S20" fromPort="out" toSymbolId="W8" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W8" fromPort="A" toSymbolId="ZS6" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS5" fromPort="out" toSymbolId="S20" toPort="in" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W8" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS9" targetSignalId="ZS3" cost="3">
+    <Symbols>
+      <Symbol id="W10" />
+      <Symbol id="W9" />
+      <Symbol id="ZS3" />
+      <Symbol id="ZS9" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="W10" fromPort="A" toSymbolId="W9" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="A" toSymbolId="ZS3" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS9" fromPort="out" toSymbolId="W10" toPort="C" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W10" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS2" targetSignalId="ZS5" cost="5">
+    <Symbols>
+      <Symbol id="G4" />
+      <Symbol id="S15" />
+      <Symbol id="W7" />
+      <Symbol id="ZS2" />
+      <Symbol id="ZS5" />
+      <Symbol id="ZS7" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G4" fromPort="right" toSymbolId="ZS5" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S15" fromPort="in" toSymbolId="G4" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W7" fromPort="B" toSymbolId="ZS7" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS2" fromPort="out" toSymbolId="W7" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS7" fromPort="out" toSymbolId="S15" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W7" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS6" targetSignalId="ZS7" cost="6">
+    <Symbols>
+      <Symbol id="G4" />
+      <Symbol id="S15" />
+      <Symbol id="S20" />
+      <Symbol id="W8" />
+      <Symbol id="ZS5" />
+      <Symbol id="ZS6" />
+      <Symbol id="ZS7" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G4" fromPort="left" toSymbolId="S15" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S15" fromPort="out" toSymbolId="ZS7" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S20" fromPort="in" toSymbolId="ZS5" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W8" fromPort="B" toSymbolId="S20" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS5" fromPort="in" toSymbolId="G4" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS6" fromPort="in" toSymbolId="W8" toPort="A" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W8" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS6" targetSignalId="ZS3" cost="6">
+    <Symbols>
+      <Symbol id="G7" />
+      <Symbol id="S16" />
+      <Symbol id="S19" />
+      <Symbol id="W11" />
+      <Symbol id="W8" />
+      <Symbol id="ZS3" />
+      <Symbol id="ZS6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G7" fromPort="left" toSymbolId="S19" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S16" fromPort="in" toSymbolId="G7" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S19" fromPort="out" toSymbolId="ZS3" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W11" fromPort="A" toSymbolId="S16" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W8" fromPort="C" toSymbolId="W11" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS6" fromPort="in" toSymbolId="W8" toPort="A" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W11" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W8" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS2" targetSignalId="ZS6" cost="9">
+    <Symbols>
+      <Symbol id="G7" />
+      <Symbol id="S16" />
+      <Symbol id="S19" />
+      <Symbol id="W11" />
+      <Symbol id="W7" />
+      <Symbol id="W8" />
+      <Symbol id="W9" />
+      <Symbol id="ZS2" />
+      <Symbol id="ZS3" />
+      <Symbol id="ZS6" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G7" fromPort="right" toSymbolId="S16" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S16" fromPort="out" toSymbolId="W11" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S19" fromPort="in" toSymbolId="G7" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W11" fromPort="B" toSymbolId="W8" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W7" fromPort="C" toSymbolId="W9" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W8" fromPort="A" toSymbolId="ZS6" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="A" toSymbolId="ZS3" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS2" fromPort="out" toSymbolId="W7" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS3" fromPort="in" toSymbolId="S19" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W11" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W7" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W8" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Diverging" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS8" targetSignalId="ZS6" cost="9">
+    <Symbols>
+      <Symbol id="G7" />
+      <Symbol id="S16" />
+      <Symbol id="S19" />
+      <Symbol id="W10" />
+      <Symbol id="W11" />
+      <Symbol id="W8" />
+      <Symbol id="W9" />
+      <Symbol id="ZS3" />
+      <Symbol id="ZS6" />
+      <Symbol id="ZS8" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G7" fromPort="right" toSymbolId="S16" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S16" fromPort="out" toSymbolId="W11" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S19" fromPort="in" toSymbolId="G7" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W10" fromPort="A" toSymbolId="W9" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W11" fromPort="B" toSymbolId="W8" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W8" fromPort="A" toSymbolId="ZS6" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="A" toSymbolId="ZS3" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS3" fromPort="in" toSymbolId="S19" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS8" fromPort="out" toSymbolId="W10" toPort="B" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W10" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W11" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W8" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS9" targetSignalId="ZS6" cost="9">
+    <Symbols>
+      <Symbol id="G7" />
+      <Symbol id="S16" />
+      <Symbol id="S19" />
+      <Symbol id="W10" />
+      <Symbol id="W11" />
+      <Symbol id="W8" />
+      <Symbol id="W9" />
+      <Symbol id="ZS3" />
+      <Symbol id="ZS6" />
+      <Symbol id="ZS9" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="G7" fromPort="right" toSymbolId="S16" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S16" fromPort="out" toSymbolId="W11" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S19" fromPort="in" toSymbolId="G7" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W10" fromPort="A" toSymbolId="W9" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W11" fromPort="B" toSymbolId="W8" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W8" fromPort="A" toSymbolId="ZS6" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W9" fromPort="A" toSymbolId="ZS3" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS3" fromPort="in" toSymbolId="S19" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS9" fromPort="out" toSymbolId="W10" toPort="C" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W10" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W11" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W8" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W9" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS2" targetSignalId="ZS8" cost="16">
+    <Symbols>
+      <Symbol id="BU2" />
+      <Symbol id="G2" />
+      <Symbol id="S13" />
+      <Symbol id="S17" />
+      <Symbol id="S2" />
+      <Symbol id="S4" />
+      <Symbol id="S6" />
+      <Symbol id="S7" />
+      <Symbol id="SB2" />
+      <Symbol id="SB3" />
+      <Symbol id="SB5" />
+      <Symbol id="SB6" />
+      <Symbol id="W1" />
+      <Symbol id="W3" />
+      <Symbol id="W5" />
+      <Symbol id="ZS2" />
+      <Symbol id="ZS8" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU2" fromPort="left" toSymbolId="W5" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="G2" fromPort="left" toSymbolId="S4" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S13" fromPort="in" toSymbolId="SB3" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S17" fromPort="out" toSymbolId="ZS8" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S2" fromPort="in" toSymbolId="SB6" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S4" fromPort="out" toSymbolId="W1" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S6" fromPort="in" toSymbolId="G2" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S7" fromPort="out" toSymbolId="BU2" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB2" fromPort="left" toSymbolId="S7" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB3" fromPort="left" toSymbolId="SB2" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB5" fromPort="right" toSymbolId="S17" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB6" fromPort="left" toSymbolId="SB5" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W1" fromPort="A" toSymbolId="S2" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W3" fromPort="A" toSymbolId="S6" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W5" fromPort="B" toSymbolId="W3" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS2" fromPort="in" toSymbolId="S13" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W1" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W3" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W5" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS8" targetSignalId="ZS2" cost="16">
+    <Symbols>
+      <Symbol id="BU2" />
+      <Symbol id="G2" />
+      <Symbol id="S13" />
+      <Symbol id="S17" />
+      <Symbol id="S2" />
+      <Symbol id="S4" />
+      <Symbol id="S6" />
+      <Symbol id="S7" />
+      <Symbol id="SB2" />
+      <Symbol id="SB3" />
+      <Symbol id="SB5" />
+      <Symbol id="SB6" />
+      <Symbol id="W1" />
+      <Symbol id="W3" />
+      <Symbol id="W5" />
+      <Symbol id="ZS2" />
+      <Symbol id="ZS8" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU2" fromPort="right" toSymbolId="S7" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="G2" fromPort="right" toSymbolId="S6" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S13" fromPort="out" toSymbolId="ZS2" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S17" fromPort="in" toSymbolId="SB5" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S2" fromPort="out" toSymbolId="W1" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S4" fromPort="in" toSymbolId="G2" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S6" fromPort="out" toSymbolId="W3" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S7" fromPort="in" toSymbolId="SB2" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB2" fromPort="right" toSymbolId="SB3" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB3" fromPort="right" toSymbolId="S13" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB5" fromPort="left" toSymbolId="SB6" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB6" fromPort="right" toSymbolId="S2" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W1" fromPort="B" toSymbolId="S4" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W3" fromPort="B" toSymbolId="W5" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W5" fromPort="A" toSymbolId="BU2" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS8" fromPort="in" toSymbolId="S17" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W1" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W3" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W5" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+  <Route routeType="Shunting" startSignalId="ZS6" targetSignalId="ZS8" cost="17">
+    <Symbols>
+      <Symbol id="BU1" />
+      <Symbol id="G1" />
+      <Symbol id="S14" />
+      <Symbol id="S17" />
+      <Symbol id="S2" />
+      <Symbol id="S3" />
+      <Symbol id="S5" />
+      <Symbol id="S8" />
+      <Symbol id="SB1" />
+      <Symbol id="SB4" />
+      <Symbol id="SB5" />
+      <Symbol id="SB6" />
+      <Symbol id="W1" />
+      <Symbol id="W2" />
+      <Symbol id="W4" />
+      <Symbol id="W6" />
+      <Symbol id="ZS6" />
+      <Symbol id="ZS8" />
+    </Symbols>
+    <Connections>
+      <Connection fromSymbolId="BU1" fromPort="left" toSymbolId="W6" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="G1" fromPort="left" toSymbolId="S3" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S14" fromPort="in" toSymbolId="SB4" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S17" fromPort="out" toSymbolId="ZS8" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S2" fromPort="in" toSymbolId="SB6" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S3" fromPort="out" toSymbolId="W2" toPort="A" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S5" fromPort="in" toSymbolId="G1" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="S8" fromPort="out" toSymbolId="BU1" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB1" fromPort="left" toSymbolId="S8" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB4" fromPort="right" toSymbolId="SB1" toPort="right" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB5" fromPort="right" toSymbolId="S17" toPort="in" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="SB6" fromPort="left" toSymbolId="SB5" toPort="left" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W1" fromPort="A" toSymbolId="S2" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W2" fromPort="C" toSymbolId="W1" toPort="C" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W4" fromPort="A" toSymbolId="S5" toPort="out" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="W6" fromPort="B" toSymbolId="W4" toPort="B" cost="1" isEnabled="True" />
+      <Connection fromSymbolId="ZS6" fromPort="out" toSymbolId="S14" toPort="out" cost="1" isEnabled="True" />
+    </Connections>
+    <SwitchCommands>
+      <SwitchCommand switchId="W1" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W2" switchName="Weiche" position="Diverging" />
+      <SwitchCommand switchId="W4" switchName="Weiche" position="Straight" />
+      <SwitchCommand switchId="W6" switchName="Weiche" position="Straight" />
+    </SwitchCommands>
+  </Route>
+</Routes>

@@ -49,10 +49,9 @@
                     <TextBlock Text="Editor und Bedienebene fuer den Anlagenbetrieb."
                                Classes="secondary"
                                TextWrapping="Wrap" />
-                    <Button Classes="primary"
-                            Content="Gleisplan oeffnen"
-                            HorizontalAlignment="Left"
-                            Click="OpenTrackPlan_OnClick" />
+                    <TextBlock Text="Oeffnen ueber Menue: Bearbeiten -> Gleisplan."
+                               Classes="secondary"
+                               TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>

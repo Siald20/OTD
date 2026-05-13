@@ -32,11 +32,17 @@ public sealed class TrackPlanDocumentStore
 
         foreach (var element in root.Element("Symbols")?.Elements("Symbol") ?? [])
         {
+            var kind = ReadEnum(element, "kind", TrackSymbolKind.Track);
+            if (kind is TrackSymbolKind.TrackBlock)
+            {
+                kind = TrackSymbolKind.LineBlock;
+            }
+
             var symbol = new DrawnTrackSymbol
             {
                 Id = ReadString(element, "id", string.Empty),
                 Name = ReadString(element, "name", string.Empty),
-                Kind = ReadEnum(element, "kind", TrackSymbolKind.Track),
+                Kind = kind,
                 X = ReadInt(element, "x", 0),
                 Y = ReadInt(element, "y", 0),
                 SignalDirection = ReadEnum(element, "signalDirection", SignalDirection.Both),

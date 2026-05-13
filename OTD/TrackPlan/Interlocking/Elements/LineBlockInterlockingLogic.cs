@@ -55,6 +55,19 @@ public class LineBlockInterlockingLogic : DefaultElementInterlockingLogic
             return new RouteSettingFailure { Message = $"{symbol.Name} ist nur fuer Reservemanoever freigegeben." };
         }
 
+        if (string.Equals(context.Request.Route.TargetSignal.Id, symbol.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            var boundaryDirection = effectiveSymbol.Properties.TryGetValue(Domino67PropertyNames.LineBlockDirection, out var storedBoundaryDirection)
+                ? storedBoundaryDirection
+                : Domino67PropertyNames.LineBlockDirectionOutgoing;
+            if (!string.Equals(boundaryDirection, Domino67PropertyNames.LineBlockDirectionOutgoing, StringComparison.OrdinalIgnoreCase))
+            {
+                return new RouteSettingFailure { Message = $"{symbol.Name} ist nicht auf AB gestellt." };
+            }
+
+            // Fahrtrichtung wird beim Stellen automatisch angepasst.
+        }
+
         if (context.Request.RouteType is RouteType.Shunting)
         {
             return null;
@@ -108,6 +121,7 @@ public class LineBlockInterlockingLogic : DefaultElementInterlockingLogic
         if (route.TargetSignal.Kind is TrackSymbolKind.LineBlock)
         {
             SetDirection(document, route.TargetSignal.Id, Domino67PropertyNames.LineBlockDirectionOutgoing);
+            SetTravelDirectionForTarget(document, route, route.TargetSignal.Id);
             SetBlocked(document, route.TargetSignal.Id, true);
             SetConnectedLineBlockDirections(document, route.TargetSignal.Id, Domino67PropertyNames.LineBlockDirectionIncoming);
             SetConnectedLineBlockBlocked(document, route.TargetSignal.Id, true);
@@ -124,6 +138,8 @@ public class LineBlockInterlockingLogic : DefaultElementInterlockingLogic
 
             SetDirection(document, from.Id, Domino67PropertyNames.LineBlockDirectionOutgoing);
             SetDirection(document, to.Id, Domino67PropertyNames.LineBlockDirectionIncoming);
+            SetTravelDirection(document, from.Id, to);
+            SetTravelDirection(document, to.Id, from);
             SetBlocked(document, from.Id, true);
             SetBlocked(document, to.Id, true);
         }
@@ -212,6 +228,65 @@ public class LineBlockInterlockingLogic : DefaultElementInterlockingLogic
         }
 
         symbol.Properties.Remove(Domino67PropertyNames.BlockBlocked);
+    }
+
+    private static void SetTravelDirectionForTarget(TrackPlanDocument document, RouteResult route, string targetId)
+    {
+        var required = GetRequiredTravelDirectionForTarget(document, route, targetId);
+        if (required is null)
+        {
+            return;
+        }
+
+        var symbol = FindSymbol(document, targetId);
+        if (symbol is null)
+        {
+            return;
+        }
+
+        symbol.Properties[Domino67PropertyNames.LineBlockTravelDirection] = required;
+    }
+
+    private static string? GetRequiredTravelDirectionForTarget(TrackPlanDocument document, RouteResult route, string targetId)
+    {
+        var incomingConnection = route.Connections.LastOrDefault(connection =>
+            string.Equals(connection.ToSymbolId, targetId, StringComparison.OrdinalIgnoreCase));
+        if (incomingConnection is null)
+        {
+            return null;
+        }
+
+        var target = FindSymbol(document, targetId);
+        var source = FindSymbol(document, incomingConnection.FromSymbolId);
+        if (target is null || source is null)
+        {
+            return null;
+        }
+
+        return GetDirectionValue(source, target);
+    }
+
+    private static void SetTravelDirection(TrackPlanDocument document, string symbolId, DrawnTrackSymbol neighbor)
+    {
+        var symbol = FindSymbol(document, symbolId);
+        if (symbol is null)
+        {
+            return;
+        }
+
+        symbol.Properties[Domino67PropertyNames.LineBlockTravelDirection] = GetDirectionValue(symbol, neighbor);
+    }
+
+    private static string GetDirectionValue(DrawnTrackSymbol from, DrawnTrackSymbol to)
+    {
+        var dx = to.X - from.X;
+        var dy = to.Y - from.Y;
+        if (Math.Abs(dx) >= Math.Abs(dy))
+        {
+            return dx >= 0 ? SignalDirection.LeftToRight.ToString() : SignalDirection.RightToLeft.ToString();
+        }
+
+        return dy >= 0 ? SignalDirection.TopToBottom.ToString() : SignalDirection.BottomToTop.ToString();
     }
 
     private static DrawnTrackSymbol? FindSymbol(TrackPlanDocument document, string symbolId)

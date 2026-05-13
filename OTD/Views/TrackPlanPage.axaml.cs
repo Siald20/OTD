@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 using IOPath = System.IO.Path;
 
 namespace OTD.Views;
@@ -26,7 +27,6 @@ public partial class TrackPlanPage : UserControl
         new(TrackSymbolKind.Signal, TrackEditorTool.Signal, "Signal"),
         new(TrackSymbolKind.ZwergSignal, TrackEditorTool.ZwergSignal, "Zwergsignal"),
         new(TrackSymbolKind.Track, TrackEditorTool.Track, "Gleis"),
-        new(TrackSymbolKind.TrackBlock, TrackEditorTool.TrackBlock, "Block"),
         new(TrackSymbolKind.LineBlock, TrackEditorTool.LineBlock, "Streckenblock"),
         new(TrackSymbolKind.Switch, TrackEditorTool.SwitchLeftRightUp, "W L-R oben"),
         new(TrackSymbolKind.Switch, TrackEditorTool.SwitchLeftRightDown, "W L-R unten"),
@@ -43,15 +43,21 @@ public partial class TrackPlanPage : UserControl
     private readonly TrackPlanDocumentStore _trackPlanDocumentStore = new();
     private readonly RouteDocumentStore _routeDocumentStore = new();
     private readonly string _dataDirectory = ResolveDataDirectory();
-    private readonly string _planFilePath;
-    private readonly string _routesFilePath;
-    private readonly TrackPlanEditorModel _trackPlanEditor;
+    private readonly string _stationsDirectory;
+    private readonly string _stationsConfigPath;
+    private readonly Dictionary<string, StationContext> _stations = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<BoundaryLinkEntry> _boundaryLinks = [];
+    private readonly Dictionary<string, DateTimeOffset> _boundaryHeartbeat = new(StringComparer.OrdinalIgnoreCase);
+    private string? _activeStationId;
+    private string _planFilePath = string.Empty;
+    private string _routesFilePath = string.Empty;
+    private TrackPlanEditorModel _trackPlanEditor = new(new TrackPlanDocument());
     private readonly RouteBuilder _routeBuilder = new();
-    private readonly StationInterlockingRuntime _interlockingRuntime = new(new Domino67InterlockingProfile());
+    private StationInterlockingRuntime _interlockingRuntime = new(new Domino67InterlockingProfile());
     private readonly HashSet<string> _highlightedConnectionKeys = [];
     private readonly HashSet<string> _activeRouteConnectionKeys = [];
     private readonly HashSet<string> _releasedRouteConnectionKeys = [];
-    private readonly List<RouteResult> _visibleRoutes = [];
+    private List<RouteResult> _visibleRoutes = [];
     private SettingsWindow? _settingsWindow;
     private TrackEditorTool _activeTool = TrackEditorTool.Select;
     private DrawnTrackSymbol? _selectedOperationSymbol;
@@ -63,6 +69,9 @@ public partial class TrackPlanPage : UserControl
     private Point _dragOffset;
     private bool _isDragging;
     private bool _isOperationMode;
+    private DrawnTrackSymbol? _selectedBoundarySourceLineBlock;
+    private readonly DispatcherTimer _storedRouteRetryTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private static readonly TimeSpan BoundaryCommunicationTimeout = TimeSpan.FromMinutes(5);
 
     private HashSet<string> _occupiedSymbolIds => _interlockingRuntime.OccupiedSymbolIds;
     private HashSet<string> _releaseOnFreeSymbolIds => _interlockingRuntime.ReleaseOnFreeSymbolIds;
@@ -79,21 +88,22 @@ public partial class TrackPlanPage : UserControl
     public TrackPlanPage(Action? navigateBack)
     {
         _navigateBack = navigateBack;
-        _planFilePath = IOPath.Combine(_dataDirectory, "plan.xml");
-        _routesFilePath = IOPath.Combine(_dataDirectory, "Routes.xml");
-        _trackPlanEditor = new TrackPlanEditorModel(LoadTrackPlanDocument());
+        _stationsDirectory = IOPath.Combine(_dataDirectory, "Stations");
+        _stationsConfigPath = IOPath.Combine(_stationsDirectory, "stations.xml");
         InitializeComponent();
         RenderPalette();
-        LoadSavedRoutes();
-        if (_trackPlanEditor.Document.Symbols.Count == 0)
+        LoadStations();
+        RenderTrackPlan();
+        _storedRouteRetryTimer.Tick += (_, _) =>
         {
-            LoadDemoTrackPlan();
-        }
-        else
-        {
-            TrackPlanStatus.Text = $"Gleisplan aus {IOPath.GetFileName(_planFilePath)} geladen.";
-            RenderTrackPlan();
-        }
+            if (_storedRoutes.Count == 0)
+            {
+                return;
+            }
+
+            TrySetStoredRoutesBackground();
+        };
+        _storedRouteRetryTimer.Start();
     }
 
     private static string ResolveDataDirectory()
@@ -155,11 +165,11 @@ public partial class TrackPlanPage : UserControl
         TrackPlanStatus.Text = $"{IOPath.GetFileName(_planFilePath)} und {IOPath.GetFileName(_routesFilePath)} gespeichert.";
     }
 
-    private TrackPlanDocument LoadTrackPlanDocument()
+    private TrackPlanDocument LoadTrackPlanDocument(string filePath)
     {
         try
         {
-            return _trackPlanDocumentStore.Load(_planFilePath);
+            return _trackPlanDocumentStore.Load(filePath);
         }
         catch (Exception exception)
         {
@@ -462,6 +472,30 @@ public partial class TrackPlanPage : UserControl
 
     private bool TryApplyRoute(RouteResult route, bool storeOnFailure)
     {
+        var lineBlocksWithIncomingBeforeSet = route.Symbols
+            .Where(symbol => symbol.Kind is TrackSymbolKind.LineBlock)
+            .Select(symbol => FindSymbol(symbol.Id))
+            .Where(static symbol => symbol is not null &&
+                symbol.Properties.TryGetValue(Domino67PropertyNames.LineBlockDirection, out var dir) &&
+                string.Equals(dir, Domino67PropertyNames.LineBlockDirectionIncoming, StringComparison.OrdinalIgnoreCase))
+            .Cast<DrawnTrackSymbol>()
+            .ToList();
+
+        if (!CanSetRouteAcrossBoundaries(route, out var boundaryFailure))
+        {
+            if (storeOnFailure && CanStoreRoute(boundaryFailure))
+            {
+                StoreRoute(route, boundaryFailure);
+            }
+            else
+            {
+                TrackPlanStatus.Text = boundaryFailure;
+            }
+
+            RenderTrackPlan();
+            return false;
+        }
+
         if (!_interlockingRuntime.TryApplyRoute(
                 route,
                 _trackPlanEditor.Document,
@@ -498,6 +532,14 @@ public partial class TrackPlanPage : UserControl
             SetGreenSignal(signalId);
         }
 
+        foreach (var lineBlock in lineBlocksWithIncomingBeforeSet)
+        {
+            TryResetLineBlockToGrundstellung(lineBlock);
+            SyncBoundaryGrundstellung(lineBlock);
+        }
+
+        SyncBoundaryStateForRoute(route);
+        EnsureRemoteIncomingDisplayForRoute(route);
         UpdateActiveRouteText();
         TrackPlanStatus.Text = message + " Weichenbefehle: " + FormatSwitchCommands(switchCommands);
         SaveTrackPlan();
@@ -507,13 +549,42 @@ public partial class TrackPlanPage : UserControl
 
     private void ReleaseRoute_OnClick(object? sender, RoutedEventArgs e)
     {
-        _interlockingRuntime.ReleaseAllRoutes(_trackPlanEditor.Document, OnDelayedActionApplied);
+        var releasableRoutes = _activeRoutes
+            .Where(route =>
+            {
+                var target = FindSymbol(route.TargetSignal.Id);
+                return target is null || CanReleaseFromTargetSide(target);
+            })
+            .ToList();
+        var blockedRoutes = _activeRoutes.Count - releasableRoutes.Count;
+        if (releasableRoutes.Count == 0)
+        {
+            // Fallback gegen Deadlocks: wenn lokal aktive Routen existieren,
+            // muessen sie lokal zwangsweise aufloesbar bleiben.
+            releasableRoutes = _activeRoutes.ToList();
+            blockedRoutes = 0;
+        }
+
+        var previouslyActiveRoutes = releasableRoutes.ToList();
+        RemoveStoredRoutesMatching(previouslyActiveRoutes);
+        foreach (var route in releasableRoutes)
+        {
+            _ = _interlockingRuntime.ReleaseRoutesContainingSymbol(
+                route.TargetSignal.Id,
+                _trackPlanEditor.Document,
+                OnDelayedActionApplied);
+        }
         _activeRouteConnectionKeys.Clear();
         _releasedRouteConnectionKeys.Clear();
         ClearGreenSignals();
         _lockedSymbolIds.Clear();
         _operationStartSymbol = null;
-        TrackPlanStatus.Text = "Fahrstrasse aufgeloest.";
+        RebuildLockedSymbols();
+        TrackPlanStatus.Text = blockedRoutes > 0
+            ? $"{releasableRoutes.Count} Fahrstrasse(n) aufgeloest, {blockedRoutes} wegen AN-Seite uebersprungen."
+            : "Fahrstrasse aufgeloest.";
+        SyncBoundaryGrundstellungForRoutes(previouslyActiveRoutes);
+        SyncBoundaryStateForRoutes(previouslyActiveRoutes);
         TrySetStoredRoutes();
         UpdateActiveRouteText();
         RenderTrackPlan();
@@ -521,7 +592,8 @@ public partial class TrackPlanPage : UserControl
 
     private void ToggleSelectedBlock_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (_selectedOperationSymbol is null || _selectedOperationSymbol.Kind is not TrackSymbolKind.TrackBlock)
+        if (_selectedOperationSymbol is null ||
+            _selectedOperationSymbol.Kind is not TrackSymbolKind.LineBlock)
         {
             TrackPlanStatus.Text = "Waehle zuerst in der Bedienebene einen Streckenblock aus.";
             return;
@@ -534,7 +606,10 @@ public partial class TrackPlanPage : UserControl
             {
                 ReleaseActiveRouteElement(_selectedOperationSymbol);
             }
+            TryResetLineBlockToGrundstellung(_selectedOperationSymbol);
+            SyncBoundaryGrundstellung(_selectedOperationSymbol);
             TrackPlanStatus.Text = $"{_selectedOperationSymbol.Name} ist frei.";
+            SyncBoundaryState(_selectedOperationSymbol);
             TrySetStoredRoutes();
         }
         else
@@ -561,6 +636,7 @@ public partial class TrackPlanPage : UserControl
             }
 
             TrackPlanStatus.Text = $"{_selectedOperationSymbol.Name} ist belegt.";
+            SyncBoundaryState(_selectedOperationSymbol);
         }
 
         RenderTrackPlan();
@@ -568,6 +644,7 @@ public partial class TrackPlanPage : UserControl
 
     private void EmergencyStop_OnClick(object? sender, RoutedEventArgs e)
     {
+        var previouslyActiveRoutes = _activeRoutes.ToList();
         _activeRoutes.Clear();
         _activeRouteConnectionKeys.Clear();
         _releasedRouteConnectionKeys.Clear();
@@ -579,6 +656,7 @@ public partial class TrackPlanPage : UserControl
         _operationStartSymbol = null;
         UpdateActiveRouteText();
         TrackPlanStatus.Text = "Not-Halt ausgeloest.";
+        SyncBoundaryStateForRoutes(previouslyActiveRoutes);
         RenderTrackPlan();
     }
 
@@ -686,8 +764,8 @@ public partial class TrackPlanPage : UserControl
         signalA.SignalDirection = SignalDirection.LeftToRight;
         var switch1 = _trackPlanEditor.AddSymbol(TrackSymbolKind.Switch, 250, 220, "Weiche 1");
         switch1.Properties[SwitchOrientationProperty] = SwitchOrientation.LeftRightUp;
-        var track1 = _trackPlanEditor.AddSymbol(TrackSymbolKind.TrackBlock, 430, 160, "Block 1");
-        var track2 = _trackPlanEditor.AddSymbol(TrackSymbolKind.TrackBlock, 430, 280, "Block 2");
+        var track1 = _trackPlanEditor.AddSymbol(TrackSymbolKind.LineBlock, 430, 160, "Block 1");
+        var track2 = _trackPlanEditor.AddSymbol(TrackSymbolKind.LineBlock, 430, 280, "Block 2");
         var dkw = _trackPlanEditor.AddSymbol(TrackSymbolKind.DoubleSlipSwitch, 540, 220, "DKW 1");
         var signalB = _trackPlanEditor.AddSymbol(TrackSymbolKind.Signal, 620, 160, "Signal B");
         signalB.SignalDirection = SignalDirection.LeftToRight;
@@ -729,6 +807,11 @@ public partial class TrackPlanPage : UserControl
             var connectionKey = GetConnectionKey(from.Id, to.Id);
             var isReleased = _releasedRouteConnectionKeys.Contains(connectionKey);
             var isActive = _activeRouteConnectionKeys.Contains(connectionKey);
+            var isActiveShunting = _activeRoutes.Any(route =>
+                route.RouteType is RouteType.Shunting &&
+                route.Connections.Any(connection =>
+                    (connection.FromSymbolId == from.Id && connection.ToSymbolId == to.Id) ||
+                    (connection.FromSymbolId == to.Id && connection.ToSymbolId == from.Id)));
             var isHighlighted = _highlightedConnectionKeys.Contains(connectionKey);
             var line = new Line
             {
@@ -737,7 +820,9 @@ public partial class TrackPlanPage : UserControl
                 Stroke = isReleased
                     ? GetThemeBrush("TrackPlanRailBrush", Brushes.DimGray)
                     : isActive
-                    ? GetThemeBrush("SignalGreenBrush", Brushes.LimeGreen)
+                    ? (isActiveShunting
+                        ? GetThemeBrush("TrackPlanRouteHighlightBrush", Brushes.DeepSkyBlue)
+                        : GetThemeBrush("SignalGreenBrush", Brushes.LimeGreen))
                     : isHighlighted
                     ? GetThemeBrush("TrackPlanRouteHighlightBrush", Brushes.DeepSkyBlue)
                     : GetThemeBrush("TrackPlanRailBrush", Brushes.DimGray),
@@ -754,7 +839,7 @@ public partial class TrackPlanPage : UserControl
 
             if (_isOperationMode)
             {
-                ApplyIltisConnectionStyle(line, isReleased, isActive, isHighlighted);
+                ApplyIltisConnectionStyle(line, isReleased, isActive, isHighlighted, isActiveShunting);
             }
 
             TrackCanvas.Children.Add(line);
@@ -880,7 +965,7 @@ public partial class TrackPlanPage : UserControl
         var control = symbol.Kind switch
         {
             TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal => CreateOperationSignal(symbol),
-            TrackSymbolKind.TrackBlock or TrackSymbolKind.LineBlock => CreateOperationBlock(symbol),
+            TrackSymbolKind.LineBlock => CreateOperationBlock(symbol),
             TrackSymbolKind.Switch or TrackSymbolKind.DoubleSlipSwitch => CreateOperationSwitch(symbol),
             _ => CreateOperationAccessory(symbol)
         };
@@ -1110,10 +1195,11 @@ public partial class TrackPlanPage : UserControl
         Line line,
         bool isReleased,
         bool isActive,
-        bool isHighlighted)
+        bool isHighlighted,
+        bool isActiveShunting)
     {
         line.Stroke = isActive
-            ? IltisGreenBrush
+            ? (isActiveShunting ? IltisSelectionBrush : IltisGreenBrush)
             : isHighlighted
             ? IltisYellowBrush
             : isReleased
@@ -1192,6 +1278,17 @@ public partial class TrackPlanPage : UserControl
 
         if (_isOperationMode)
         {
+            if (symbol.Kind is TrackSymbolKind.LineBlock)
+            {
+                var setIncomingItem = new MenuItem { Header = "Auf AN stellen" };
+                setIncomingItem.Click += (_, _) => SetLineBlockToIncoming(symbol);
+                menu.Items.Add(setIncomingItem);
+
+                var resetItem = new MenuItem { Header = "Grundstellung" };
+                resetItem.Click += (_, _) => SetLineBlockToGrundstellung(symbol);
+                menu.Items.Add(resetItem);
+            }
+
             if (IsOperationRouteEndpoint(symbol) &&
                 _activeRoutes.Any(route => route.TargetSignal.Id == symbol.Id))
             {
@@ -1242,6 +1339,11 @@ public partial class TrackPlanPage : UserControl
             return;
         }
 
+        if (symbol.Kind is TrackSymbolKind.LineBlock)
+        {
+            _selectedBoundarySourceLineBlock = symbol;
+        }
+
         if (e.GetCurrentPoint(TrackCanvas).Properties.IsRightButtonPressed)
         {
             return;
@@ -1258,7 +1360,7 @@ public partial class TrackPlanPage : UserControl
             }
 
             _selectedOperationSymbol = symbol;
-            TrackPlanStatus.Text = symbol.Kind is TrackSymbolKind.TrackBlock or TrackSymbolKind.LineBlock
+            TrackPlanStatus.Text = symbol.Kind is TrackSymbolKind.LineBlock
                 ? $"{symbol.Name} ausgewaehlt. Block kann belegt oder freigegeben werden."
                 : $"{symbol.Name} ausgewaehlt.";
             RenderTrackPlan();
@@ -1415,13 +1517,14 @@ public partial class TrackPlanPage : UserControl
         var removeItem = new MenuItem { Header = "Verbindung entfernen" };
         removeItem.Click += (_, _) => RemoveConnection(connection);
 
-        return new ContextMenu
+        var menu = new ContextMenu
         {
             Items =
             {
                 removeItem
             }
         };
+        return menu;
     }
 
     private void Connection_OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -1634,6 +1737,10 @@ public partial class TrackPlanPage : UserControl
                 if (signalDirectionBox.SelectedItem is SignalDirection direction)
                 {
                     symbol.SignalDirection = direction;
+                    if (symbol.Kind is TrackSymbolKind.LineBlock)
+                    {
+                        symbol.Properties[Domino67PropertyNames.LineBlockTravelDirection] = direction.ToString();
+                    }
                 }
             };
 
@@ -1733,7 +1840,7 @@ public partial class TrackPlanPage : UserControl
             content.Children.Add(CreatePropertyTextBox(symbol, Domino67PropertyNames.OverlapSymbols, "Durchrutschweg-Symbole", "Symbol-IDs mit Komma trennen"));
         }
 
-        if (symbol.Kind is TrackSymbolKind.TrackBlock or TrackSymbolKind.LineBlock)
+        if (symbol.Kind is TrackSymbolKind.LineBlock)
         {
             content.Children.Add(CreatePropertyTextBox(symbol, Domino67PropertyNames.OverlapSymbols, "Durchrutschweg-Symbole", "Symbol-IDs mit Komma trennen"));
 
@@ -1875,7 +1982,6 @@ public partial class TrackPlanPage : UserControl
         return kind switch
         {
             TrackSymbolKind.Track => [new DemoSetting("Demo.Maintenance", "Gleis im Unterhalt", "true")],
-            TrackSymbolKind.TrackBlock => [new DemoSetting("Demo.ReserveOnly", "Nur Reservemanöver", "true")],
             TrackSymbolKind.LineBlock => [new DemoSetting("Demo.ReserveOnly", "Nur Reservemanöver", "true")],
             TrackSymbolKind.Signal => [new DemoSetting("Demo.HoldRed", "Signal auf Halt halten", "true")],
             TrackSymbolKind.ZwergSignal => [new DemoSetting("Demo.HoldRed", "Zwergsignal auf Halt halten", "true")],
@@ -2090,6 +2196,12 @@ public partial class TrackPlanPage : UserControl
 
     private void ReleaseActiveRouteElement(DrawnTrackSymbol symbol)
     {
+        if (!CanReleaseFromTargetSide(symbol))
+        {
+            TrackPlanStatus.Text = $"{symbol.Name} kann nur auf AB-Seite aufgeloest werden.";
+            return;
+        }
+
         var affectedRoutes = _interlockingRuntime.ReleaseRoutesContainingSymbol(
             symbol.Id,
             _trackPlanEditor.Document,
@@ -2099,6 +2211,8 @@ public partial class TrackPlanPage : UserControl
         {
             return;
         }
+
+        RemoveStoredRoutesMatching(affectedRoutes);
 
         var releasedKeys = affectedRoutes
             .SelectMany(route => route.Connections)
@@ -2127,6 +2241,10 @@ public partial class TrackPlanPage : UserControl
         {
             _releasedRouteConnectionKeys.Clear();
         }
+
+        SyncBoundaryGrundstellungForRoutes(affectedRoutes);
+        SyncBoundaryStateForRoutes(affectedRoutes);
+        TrySetStoredRoutes();
     }
 
     private void ReleaseRoutesByTargetSymbol(DrawnTrackSymbol targetSymbol)
@@ -2140,6 +2258,11 @@ public partial class TrackPlanPage : UserControl
             return;
         }
 
+        if (!CanReleaseFromTargetSide(targetSymbol))
+        {
+            TrackPlanStatus.Text = $"{targetSymbol.Name}: Zwangsaufloesung aktiv (AN-Seite).";
+        }
+
         var allReleased = new List<RouteResult>();
         foreach (var route in affectedRoutes)
         {
@@ -2149,6 +2272,7 @@ public partial class TrackPlanPage : UserControl
                 OnDelayedActionApplied);
             allReleased.AddRange(released);
         }
+        RemoveStoredRoutesMatching(allReleased);
 
         foreach (var connection in allReleased.SelectMany(route => route.Connections))
         {
@@ -2171,8 +2295,22 @@ public partial class TrackPlanPage : UserControl
         }
 
         TrackPlanStatus.Text = $"{allReleased.Count} Fahrstrasse(n) am Ziel {targetSymbol.Name} aufgeloest.";
+        SyncBoundaryGrundstellungForRoutes(allReleased);
+        SyncBoundaryStateForRoutes(allReleased);
+        TrySetStoredRoutes();
         SaveTrackPlan();
         RenderTrackPlan();
+    }
+
+    private static bool CanReleaseFromTargetSide(DrawnTrackSymbol symbol)
+    {
+        if (symbol.Kind is not TrackSymbolKind.LineBlock)
+        {
+            return true;
+        }
+
+        return symbol.Properties.TryGetValue(Domino67PropertyNames.LineBlockDirection, out var direction) &&
+               string.Equals(direction, Domino67PropertyNames.LineBlockDirectionOutgoing, StringComparison.OrdinalIgnoreCase);
     }
 
     private void UpdateActiveRouteText()
@@ -2188,9 +2326,15 @@ public partial class TrackPlanPage : UserControl
 
     private void StoreRoute(RouteResult route, string reason)
     {
+        if (_storedRoutes.Any(storedRoute => IsSameRoute(storedRoute, route)))
+        {
+            TrackPlanStatus.Text = $"{FormatRouteName(route)} bereits im Fahrstrassenspeicher. Grund: {reason}";
+            UpdateActiveRouteText();
+            return;
+        }
+
         _storedRoutes.Add(route);
-        var sameRouteCount = _storedRoutes.Count(storedRoute => IsSameRoute(storedRoute, route));
-        TrackPlanStatus.Text = $"{FormatRouteName(route)} im Fahrstrassenspeicher (#{sameRouteCount}). Grund: {reason}";
+        TrackPlanStatus.Text = $"{FormatRouteName(route)} im Fahrstrassenspeicher. Grund: {reason}";
         UpdateActiveRouteText();
     }
 
@@ -2219,6 +2363,28 @@ public partial class TrackPlanPage : UserControl
         }
 
         UpdateActiveRouteText();
+    }
+
+    private void TrySetStoredRoutesBackground()
+    {
+        if (_storedRoutes.Count == 0)
+        {
+            return;
+        }
+
+        var setCount = _interlockingRuntime.TrySetStoredRoutes(
+            _trackPlanEditor.Document,
+            CanStoreRoute,
+            OnDelayedActionApplied);
+        if (setCount <= 0)
+        {
+            return;
+        }
+
+        // Zustand fachlich aktualisieren, aber ohne UI-Text/Neurendern,
+        // damit offene Kontextmenues stabil bleiben.
+        RebuildActiveRouteConnectionKeys();
+        SaveTrackPlan();
     }
 
     private void OnDelayedActionApplied(RouteSettingContext context, RouteSettingResultBuilder delayedResult)
@@ -2305,7 +2471,11 @@ public partial class TrackPlanPage : UserControl
         return message.Contains("belegt", StringComparison.OrdinalIgnoreCase) ||
                message.Contains("verschlossen", StringComparison.OrdinalIgnoreCase) ||
                message.Contains("gesperrt", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("kollidiert", StringComparison.OrdinalIgnoreCase);
+               message.Contains("kollidiert", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("verriegelt", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("AB", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("grenzblock", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("gegenrichtung", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsSameRoute(RouteResult left, RouteResult right)
@@ -2313,6 +2483,18 @@ public partial class TrackPlanPage : UserControl
         return left.StartSignal.Id == right.StartSignal.Id &&
                left.TargetSignal.Id == right.TargetSignal.Id &&
                left.RouteType == right.RouteType;
+    }
+
+    private void RemoveStoredRoutesMatching(IEnumerable<RouteResult> releasedRoutes)
+    {
+        var released = releasedRoutes.ToList();
+        if (released.Count == 0 || _storedRoutes.Count == 0)
+        {
+            return;
+        }
+
+        _storedRoutes.RemoveAll(stored =>
+            released.Any(route => IsSameRoute(stored, route)));
     }
 
     private static bool IsOperationRouteEndpoint(DrawnTrackSymbol symbol)
@@ -2379,7 +2561,7 @@ public partial class TrackPlanPage : UserControl
             TrackSymbolKind.Signal or TrackSymbolKind.ZwergSignal => ["in", "out"],
             TrackSymbolKind.Switch => ["A", "B", "C"],
             TrackSymbolKind.DoubleSlipSwitch => ["A", "B", "C", "D"],
-            TrackSymbolKind.Track or TrackSymbolKind.TrackBlock or TrackSymbolKind.LineBlock => ["left", "right"],
+            TrackSymbolKind.Track or TrackSymbolKind.LineBlock => ["left", "right"],
             _ => ["left", "right"]
         };
     }
@@ -2496,7 +2678,6 @@ public partial class TrackPlanPage : UserControl
             TrackSymbolKind.ZwergSignal => GetThemeBrush("TrackPlanZwergSignalGreenBrush", Brushes.LightGreen),
             TrackSymbolKind.Switch => GetThemeBrush("TrackPlanSwitchBrush", Brushes.Blue),
             TrackSymbolKind.DoubleSlipSwitch => GetThemeBrush("TrackPlanDoubleSlipSwitchBrush", Brushes.LightSkyBlue),
-            TrackSymbolKind.TrackBlock => GetThemeBrush("TrackPlanBlockBrush", Brushes.Yellow),
             TrackSymbolKind.LineBlock => GetThemeBrush("TrackPlanBlockBrush", Brushes.Khaki),
             TrackSymbolKind.BufferStop => GetThemeBrush("TrackPlanSafetyBrush", Brushes.LightCoral),
             TrackSymbolKind.LevelCrossing or TrackSymbolKind.Uncoupler or TrackSymbolKind.Sensor => GetThemeBrush("TrackPlanAccessoryBrush", Brushes.LightGray),
@@ -2524,7 +2705,6 @@ public partial class TrackPlanPage : UserControl
             TrackSymbolKind.ZwergSignal => "ZW",
             TrackSymbolKind.Switch => "W",
             TrackSymbolKind.DoubleSlipSwitch => "DKW",
-            TrackSymbolKind.TrackBlock => "BLK",
             TrackSymbolKind.LineBlock => "SB",
             TrackSymbolKind.LevelCrossing => "BUE",
             TrackSymbolKind.TunnelPortal => "TUN",
@@ -2632,7 +2812,6 @@ public partial class TrackPlanPage : UserControl
         Signal,
         ZwergSignal,
         Track,
-        TrackBlock,
         LineBlock,
         SwitchLeftRightUp,
         SwitchLeftRightDown,
@@ -2659,7 +2838,6 @@ public partial class TrackPlanPage : UserControl
             TrackEditorTool.Signal => TrackSymbolKind.Signal,
             TrackEditorTool.ZwergSignal => TrackSymbolKind.ZwergSignal,
             TrackEditorTool.Track => TrackSymbolKind.Track,
-            TrackEditorTool.TrackBlock => TrackSymbolKind.TrackBlock,
             TrackEditorTool.LineBlock => TrackSymbolKind.LineBlock,
             TrackEditorTool.SwitchLeftRightUp
                 or TrackEditorTool.SwitchLeftRightDown
@@ -2810,4 +2988,777 @@ public partial class TrackPlanPage : UserControl
     private sealed record SymbolPort(
         DrawnTrackSymbol Symbol,
         string Name);
+
+    private void LoadStations()
+    {
+        Directory.CreateDirectory(_stationsDirectory);
+        var (entries, links) = ReadStationData();
+        _boundaryLinks.Clear();
+        _boundaryLinks.AddRange(links);
+        if (entries.Count == 0)
+        {
+            entries.Add(new StationEntry("bahnhof-1", "Bahnhof 1"));
+            WriteStationData(entries, _boundaryLinks);
+        }
+
+        _stations.Clear();
+        foreach (var entry in entries)
+        {
+            _stations[entry.Id] = CreateStationContext(entry.Id, entry.Name);
+        }
+        foreach (var link in _boundaryLinks)
+        {
+            MarkBoundaryHeartbeat(link.FromStationId, link.FromLineBlockId, link.ToStationId, link.ToLineBlockId);
+        }
+
+        StationSelector.ItemsSource = entries.Select(static x => x.Name).ToList();
+        RefreshBoundaryStationSelector();
+        SwitchToStation(entries[0].Id);
+    }
+
+    private StationContext CreateStationContext(string stationId, string stationName)
+    {
+        var stationDirectory = IOPath.Combine(_stationsDirectory, stationId);
+        Directory.CreateDirectory(stationDirectory);
+        var planFile = IOPath.Combine(stationDirectory, "plan.xml");
+        var routesFile = IOPath.Combine(stationDirectory, "Routes.xml");
+        var editor = new TrackPlanEditorModel(LoadTrackPlanDocument(planFile));
+        EnsureLineBlockTravelDirections(editor.Document);
+        var graph = editor.ToGraph();
+        List<RouteResult> routes;
+        try
+        {
+            routes = _routeDocumentStore.Load(routesFile, graph).ToList();
+        }
+        catch
+        {
+            routes = [];
+        }
+
+        return new StationContext(
+            stationId,
+            stationName,
+            planFile,
+            routesFile,
+            editor,
+            new StationInterlockingRuntime(new Domino67InterlockingProfile()),
+            routes);
+    }
+
+    private void SwitchToStation(string stationId)
+    {
+        if (_activeStationId is not null && _stations.TryGetValue(_activeStationId, out var current))
+        {
+            SaveTrackPlan();
+            SaveRoutes();
+            current.VisibleRoutes = _visibleRoutes;
+        }
+
+        if (!_stations.TryGetValue(stationId, out var next))
+        {
+            return;
+        }
+
+        _activeStationId = stationId;
+        _planFilePath = next.PlanFilePath;
+        _routesFilePath = next.RoutesFilePath;
+        _trackPlanEditor = next.Editor;
+        _interlockingRuntime = next.InterlockingRuntime;
+        _visibleRoutes = next.VisibleRoutes;
+        StationSelector.SelectedItem = next.Name;
+        RefreshBoundaryStationSelector();
+        UpdateBoundaryRemoteBlockSelector();
+
+        _highlightedConnectionKeys.Clear();
+        _activeRouteConnectionKeys.Clear();
+        _releasedRouteConnectionKeys.Clear();
+        _selectedOperationSymbol = null;
+        _operationStartSymbol = null;
+        _selectedOperationRoute = null;
+        _connectionStart = null;
+        _connectionStartPort = null;
+        RebuildActiveRouteConnectionKeys();
+
+        if (_trackPlanEditor.Document.Symbols.Count == 0)
+        {
+            LoadDemoTrackPlan();
+            TrackPlanStatus.Text = $"Neuer Gleisplan fuer {next.Name} erstellt.";
+        }
+        else
+        {
+            TrackPlanStatus.Text = $"Bahnhof {next.Name} geladen.";
+            RefreshRouteLists();
+        }
+
+        UpdateActiveRouteText();
+        RenderTrackPlan();
+    }
+
+    private (List<StationEntry> Stations, List<BoundaryLinkEntry> Links) ReadStationData()
+    {
+        if (!File.Exists(_stationsConfigPath))
+        {
+            return ([], []);
+        }
+
+        try
+        {
+            var xml = XDocument.Load(_stationsConfigPath);
+            var stations = xml.Root?.Elements("Station")
+                .Select(station => new StationEntry(
+                    (string?)station.Attribute("id") ?? string.Empty,
+                    (string?)station.Attribute("name") ?? string.Empty))
+                .Where(static station => !string.IsNullOrWhiteSpace(station.Id) && !string.IsNullOrWhiteSpace(station.Name))
+                .ToList() ?? [];
+
+            var links = xml.Root?.Element("BoundaryLinks")?.Elements("Link")
+                .Select(link => new BoundaryLinkEntry(
+                    (string?)link.Attribute("fromStationId") ?? string.Empty,
+                    (string?)link.Attribute("fromLineBlockId") ?? string.Empty,
+                    (string?)link.Attribute("toStationId") ?? string.Empty,
+                    (string?)link.Attribute("toLineBlockId") ?? string.Empty))
+                .Where(static link =>
+                    !string.IsNullOrWhiteSpace(link.FromStationId) &&
+                    !string.IsNullOrWhiteSpace(link.FromLineBlockId) &&
+                    !string.IsNullOrWhiteSpace(link.ToStationId) &&
+                    !string.IsNullOrWhiteSpace(link.ToLineBlockId))
+                .ToList() ?? [];
+
+            return (stations, links);
+        }
+        catch
+        {
+            return ([], []);
+        }
+    }
+
+    private void WriteStationData(IReadOnlyList<StationEntry> stations, IReadOnlyList<BoundaryLinkEntry> links)
+    {
+        var xml = new XDocument(
+            new XElement("Stations",
+                stations.Select(station => new XElement("Station",
+                    new XAttribute("id", station.Id),
+                    new XAttribute("name", station.Name))),
+                new XElement("BoundaryLinks",
+                    links.Select(link => new XElement("Link",
+                        new XAttribute("fromStationId", link.FromStationId),
+                        new XAttribute("fromLineBlockId", link.FromLineBlockId),
+                        new XAttribute("toStationId", link.ToStationId),
+                        new XAttribute("toLineBlockId", link.ToLineBlockId))))));
+        xml.Save(_stationsConfigPath);
+    }
+
+    private string CreateStationId(string name)
+    {
+        var normalized = new string(name.Trim().ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) ? c : '-')
+            .ToArray())
+            .Trim('-');
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            normalized = "bahnhof";
+        }
+
+        var candidate = normalized;
+        var index = 2;
+        while (_stations.ContainsKey(candidate))
+        {
+            candidate = $"{normalized}-{index}";
+            index++;
+        }
+
+        return candidate;
+    }
+
+    private void RefreshStationSelector()
+    {
+        var stations = _stations.Values.OrderBy(static s => s.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        StationSelector.ItemsSource = stations.Select(static station => station.Name).ToList();
+        if (_activeStationId is not null && _stations.TryGetValue(_activeStationId, out var active))
+        {
+            StationSelector.SelectedItem = active.Name;
+        }
+    }
+
+    private void AddStation_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var number = _stations.Count + 1;
+        var name = $"Bahnhof {number}";
+        while (_stations.Values.Any(station => station.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            number++;
+            name = $"Bahnhof {number}";
+        }
+
+        var id = CreateStationId(name);
+        var context = CreateStationContext(id, name);
+        _stations[id] = context;
+        WriteStationData(_stations.Values
+            .OrderBy(static station => station.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(static station => new StationEntry(station.Id, station.Name))
+            .ToList(), _boundaryLinks);
+        RefreshStationSelector();
+        RefreshBoundaryStationSelector();
+        SwitchToStation(id);
+    }
+
+    private void RemoveStation_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (_activeStationId is null || _stations.Count <= 1)
+        {
+            TrackPlanStatus.Text = "Mindestens ein Bahnhof muss vorhanden sein.";
+            return;
+        }
+
+        var removeId = _activeStationId;
+        if (!_stations.TryGetValue(removeId, out var removeStation))
+        {
+            return;
+        }
+
+        var next = _stations.Values.First(station => !station.Id.Equals(removeId, StringComparison.OrdinalIgnoreCase));
+        _stations.Remove(removeId);
+        _boundaryLinks.RemoveAll(link =>
+            link.FromStationId.Equals(removeId, StringComparison.OrdinalIgnoreCase) ||
+            link.ToStationId.Equals(removeId, StringComparison.OrdinalIgnoreCase));
+        WriteStationData(_stations.Values
+            .OrderBy(static station => station.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(static station => new StationEntry(station.Id, station.Name))
+            .ToList(), _boundaryLinks);
+
+        var removeDirectory = IOPath.Combine(_stationsDirectory, removeId);
+        if (Directory.Exists(removeDirectory))
+        {
+            Directory.Delete(removeDirectory, true);
+        }
+
+        RefreshStationSelector();
+        RefreshBoundaryStationSelector();
+        SwitchToStation(next.Id);
+        TrackPlanStatus.Text = $"Bahnhof {removeStation.Name} geloescht.";
+    }
+
+    private void StationSelector_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (StationSelector.SelectedItem is not string stationName)
+        {
+            return;
+        }
+
+        var station = _stations.Values.FirstOrDefault(value => value.Name.Equals(stationName, StringComparison.OrdinalIgnoreCase));
+        if (station is null || station.Id.Equals(_activeStationId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        SwitchToStation(station.Id);
+    }
+
+    private sealed record StationEntry(string Id, string Name);
+    private sealed record BoundaryLinkEntry(string FromStationId, string FromLineBlockId, string ToStationId, string ToLineBlockId);
+
+    private static void EnsureLineBlockTravelDirections(TrackPlanDocument document)
+    {
+        foreach (var symbol in document.Symbols.Where(static s => s.Kind is TrackSymbolKind.LineBlock))
+        {
+            if (!symbol.Properties.ContainsKey(Domino67PropertyNames.LineBlockTravelDirection))
+            {
+                symbol.Properties[Domino67PropertyNames.LineBlockTravelDirection] = symbol.SignalDirection.ToString();
+            }
+        }
+    }
+
+    private void RefreshBoundaryStationSelector()
+    {
+        if (_activeStationId is null)
+        {
+            return;
+        }
+
+        var stations = _stations.Values
+            .Where(station => !station.Id.Equals(_activeStationId, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(static station => station.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        BoundaryRemoteStationSelector.ItemsSource = stations.Select(static station => station.Name).ToList();
+        BoundaryRemoteStationSelector.SelectedIndex = stations.Count > 0 ? 0 : -1;
+    }
+
+    private void BoundaryRemoteStationSelector_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        UpdateBoundaryRemoteBlockSelector();
+    }
+
+    private void UpdateBoundaryRemoteBlockSelector()
+    {
+        if (BoundaryRemoteStationSelector.SelectedItem is not string remoteName)
+        {
+            BoundaryRemoteBlockSelector.ItemsSource = null;
+            return;
+        }
+
+        var remoteStation = _stations.Values.FirstOrDefault(station => station.Name.Equals(remoteName, StringComparison.OrdinalIgnoreCase));
+        if (remoteStation is null)
+        {
+            BoundaryRemoteBlockSelector.ItemsSource = null;
+            return;
+        }
+
+        var blocks = remoteStation.Editor.Document.Symbols
+            .Where(symbol => symbol.Kind is TrackSymbolKind.LineBlock)
+            .Select(symbol => $"{symbol.Name} ({symbol.Id})")
+            .OrderBy(static x => x, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        BoundaryRemoteBlockSelector.ItemsSource = blocks;
+        BoundaryRemoteBlockSelector.SelectedIndex = blocks.Count > 0 ? 0 : -1;
+    }
+
+    private void LinkLineBlock_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (_activeStationId is null)
+        {
+            return;
+        }
+
+        if (_selectedBoundarySourceLineBlock is null || _selectedBoundarySourceLineBlock.Kind is not TrackSymbolKind.LineBlock)
+        {
+            TrackPlanStatus.Text = "Waehle zuerst im Gleisplan einen lokalen Streckenblock aus.";
+            return;
+        }
+
+        if (BoundaryRemoteStationSelector.SelectedItem is not string remoteStationName ||
+            BoundaryRemoteBlockSelector.SelectedItem is not string remoteBlockSelection)
+        {
+            TrackPlanStatus.Text = "Waehle Zielbahnhof und Ziel-Streckenblock.";
+            return;
+        }
+
+        var remoteStation = _stations.Values.FirstOrDefault(station => station.Name.Equals(remoteStationName, StringComparison.OrdinalIgnoreCase));
+        if (remoteStation is null)
+        {
+            return;
+        }
+
+        var start = remoteBlockSelection.LastIndexOf('(');
+        var end = remoteBlockSelection.LastIndexOf(')');
+        if (start < 0 || end <= start + 1)
+        {
+            TrackPlanStatus.Text = "Ziel-Streckenblock ungueltig.";
+            return;
+        }
+
+        var remoteBlockId = remoteBlockSelection[(start + 1)..end];
+        var entry = new BoundaryLinkEntry(_activeStationId, _selectedBoundarySourceLineBlock.Id, remoteStation.Id, remoteBlockId);
+        var reverse = new BoundaryLinkEntry(remoteStation.Id, remoteBlockId, _activeStationId, _selectedBoundarySourceLineBlock.Id);
+
+        if (!_boundaryLinks.Any(link =>
+                link.FromStationId.Equals(entry.FromStationId, StringComparison.OrdinalIgnoreCase) &&
+                link.FromLineBlockId.Equals(entry.FromLineBlockId, StringComparison.OrdinalIgnoreCase) &&
+                link.ToStationId.Equals(entry.ToStationId, StringComparison.OrdinalIgnoreCase) &&
+                link.ToLineBlockId.Equals(entry.ToLineBlockId, StringComparison.OrdinalIgnoreCase)))
+        {
+            _boundaryLinks.Add(entry);
+        }
+
+        if (!_boundaryLinks.Any(link =>
+                link.FromStationId.Equals(reverse.FromStationId, StringComparison.OrdinalIgnoreCase) &&
+                link.FromLineBlockId.Equals(reverse.FromLineBlockId, StringComparison.OrdinalIgnoreCase) &&
+                link.ToStationId.Equals(reverse.ToStationId, StringComparison.OrdinalIgnoreCase) &&
+                link.ToLineBlockId.Equals(reverse.ToLineBlockId, StringComparison.OrdinalIgnoreCase)))
+        {
+            _boundaryLinks.Add(reverse);
+        }
+        MarkBoundaryHeartbeat(entry.FromStationId, entry.FromLineBlockId, entry.ToStationId, entry.ToLineBlockId);
+        MarkBoundaryHeartbeat(reverse.FromStationId, reverse.FromLineBlockId, reverse.ToStationId, reverse.ToLineBlockId);
+
+        WriteStationData(_stations.Values
+            .OrderBy(static station => station.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(static station => new StationEntry(station.Id, station.Name))
+            .ToList(), _boundaryLinks);
+
+        SyncBoundaryState(_selectedBoundarySourceLineBlock);
+        TrackPlanStatus.Text = $"{_selectedBoundarySourceLineBlock.Name} mit {remoteBlockSelection} verbunden.";
+    }
+
+    private void SyncBoundaryState(DrawnTrackSymbol localLineBlock)
+    {
+        if (_activeStationId is null || localLineBlock.Kind is not TrackSymbolKind.LineBlock)
+        {
+            return;
+        }
+
+        var hasLocalDirection = localLineBlock.Properties.TryGetValue(Domino67PropertyNames.LineBlockDirection, out var direction);
+        var localDirection = hasLocalDirection
+            ? direction!
+            : Domino67PropertyNames.LineBlockDirectionOutgoing;
+        var isBlocked = Domino67PropertyHelper.IsEnabled(localLineBlock, Domino67PropertyNames.BlockBlocked) ||
+                        _occupiedSymbolIds.Contains(localLineBlock.Id) ||
+                        _activeRoutes.Any(route => route.Symbols.Any(symbol => symbol.Id.Equals(localLineBlock.Id, StringComparison.OrdinalIgnoreCase)));
+
+        var links = _boundaryLinks.Where(link =>
+            link.FromStationId.Equals(_activeStationId, StringComparison.OrdinalIgnoreCase) &&
+            link.FromLineBlockId.Equals(localLineBlock.Id, StringComparison.OrdinalIgnoreCase));
+
+        foreach (var link in links)
+        {
+            if (!_stations.TryGetValue(link.ToStationId, out var remoteStation))
+            {
+                continue;
+            }
+
+            var remoteSymbol = remoteStation.Editor.Document.Symbols
+                .FirstOrDefault(symbol => symbol.Id.Equals(link.ToLineBlockId, StringComparison.OrdinalIgnoreCase));
+            if (remoteSymbol is not null)
+            {
+                if (isBlocked || hasLocalDirection)
+                {
+                    remoteStation.InterlockingRuntime.ApplyRemoteLineBlockState(
+                        link.ToLineBlockId,
+                        localDirection,
+                        isBlocked,
+                        remoteStation.Editor.Document);
+                }
+                else
+                {
+                    remoteSymbol.Properties.Remove(Domino67PropertyNames.BlockBlocked);
+                }
+
+                if (isBlocked)
+                {
+                    remoteStation.InterlockingRuntime.OccupiedSymbolIds.Add(remoteSymbol.Id);
+                }
+                else
+                {
+                    remoteStation.InterlockingRuntime.OccupiedSymbolIds.Remove(remoteSymbol.Id);
+                }
+            }
+
+            // Auch in der Gegenstation gespeicherte Fahrstrassen erneut pruefen,
+            // sobald sich ein gekoppelter Grenzblock aendert.
+            var remotelySetCount = remoteStation.InterlockingRuntime.TrySetStoredRoutes(
+                remoteStation.Editor.Document,
+                CanStoreRoute,
+                static (_, _) => { });
+            if (remotelySetCount > 0)
+            {
+                EnsureRemoteIncomingDisplayForStation(remoteStation);
+            }
+
+            _trackPlanDocumentStore.Save(remoteStation.PlanFilePath, remoteStation.Editor.Document);
+            MarkBoundaryHeartbeat(link.FromStationId, link.FromLineBlockId, link.ToStationId, link.ToLineBlockId);
+        }
+    }
+
+    private void TryResetLineBlockToGrundstellung(DrawnTrackSymbol symbol)
+    {
+        if (symbol.Kind is not TrackSymbolKind.LineBlock)
+        {
+            return;
+        }
+
+        var hasActiveRoute = _activeRoutes.Any(route =>
+            route.Symbols.Any(routeSymbol => routeSymbol.Id.Equals(symbol.Id, StringComparison.OrdinalIgnoreCase)));
+        var isOccupied = _occupiedSymbolIds.Contains(symbol.Id);
+        if (hasActiveRoute || isOccupied)
+        {
+            return;
+        }
+
+        symbol.Properties.Remove(Domino67PropertyNames.LineBlockDirection);
+        symbol.Properties.Remove(Domino67PropertyNames.BlockBlocked);
+    }
+
+    private void SyncBoundaryGrundstellung(DrawnTrackSymbol localLineBlock)
+    {
+        if (_activeStationId is null || localLineBlock.Kind is not TrackSymbolKind.LineBlock)
+        {
+            return;
+        }
+
+        var links = _boundaryLinks.Where(link =>
+            link.FromStationId.Equals(_activeStationId, StringComparison.OrdinalIgnoreCase) &&
+            link.FromLineBlockId.Equals(localLineBlock.Id, StringComparison.OrdinalIgnoreCase));
+
+        foreach (var link in links)
+        {
+            if (!_stations.TryGetValue(link.ToStationId, out var remoteStation))
+            {
+                continue;
+            }
+
+            var remoteSymbol = remoteStation.Editor.Document.Symbols
+                .FirstOrDefault(symbol => symbol.Id.Equals(link.ToLineBlockId, StringComparison.OrdinalIgnoreCase));
+            if (remoteSymbol is null)
+            {
+                continue;
+            }
+
+            remoteSymbol.Properties.Remove(Domino67PropertyNames.LineBlockDirection);
+            remoteSymbol.Properties.Remove(Domino67PropertyNames.BlockBlocked);
+            remoteStation.InterlockingRuntime.OccupiedSymbolIds.Remove(remoteSymbol.Id);
+
+            var remotelySetCount = remoteStation.InterlockingRuntime.TrySetStoredRoutes(
+                remoteStation.Editor.Document,
+                CanStoreRoute,
+                static (_, _) => { });
+            if (remotelySetCount > 0)
+            {
+                EnsureRemoteIncomingDisplayForStation(remoteStation);
+            }
+
+            _trackPlanDocumentStore.Save(remoteStation.PlanFilePath, remoteStation.Editor.Document);
+            MarkBoundaryHeartbeat(link.FromStationId, link.FromLineBlockId, link.ToStationId, link.ToLineBlockId);
+        }
+    }
+
+    private void SyncBoundaryGrundstellungForRoutes(IEnumerable<RouteResult> routes)
+    {
+        foreach (var lineBlockId in routes
+                     .SelectMany(route => route.Symbols)
+                     .Where(symbol => symbol.Kind is TrackSymbolKind.LineBlock)
+                     .Select(symbol => symbol.Id)
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var localSymbol = FindSymbol(lineBlockId);
+            if (localSymbol is not null)
+            {
+                SyncBoundaryGrundstellung(localSymbol);
+            }
+        }
+    }
+
+    private void EnsureRemoteIncomingDisplayForRoute(RouteResult route)
+    {
+        if (_activeStationId is null)
+        {
+            return;
+        }
+
+        var localLineBlockIds = route.Symbols
+            .Where(symbol => symbol.Kind is TrackSymbolKind.LineBlock)
+            .Select(symbol => symbol.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (localLineBlockIds.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var link in _boundaryLinks.Where(link =>
+                     link.FromStationId.Equals(_activeStationId, StringComparison.OrdinalIgnoreCase) &&
+                     localLineBlockIds.Contains(link.FromLineBlockId)))
+        {
+            if (!_stations.TryGetValue(link.ToStationId, out var remoteStation))
+            {
+                continue;
+            }
+
+            var remoteSymbol = remoteStation.Editor.Document.Symbols
+                .FirstOrDefault(symbol => symbol.Id.Equals(link.ToLineBlockId, StringComparison.OrdinalIgnoreCase));
+            if (remoteSymbol is null)
+            {
+                continue;
+            }
+
+            remoteSymbol.Properties[Domino67PropertyNames.LineBlockDirection] = Domino67PropertyNames.LineBlockDirectionIncoming;
+            _trackPlanDocumentStore.Save(remoteStation.PlanFilePath, remoteStation.Editor.Document);
+            MarkBoundaryHeartbeat(link.FromStationId, link.FromLineBlockId, link.ToStationId, link.ToLineBlockId);
+        }
+    }
+
+    private void EnsureRemoteIncomingDisplayForStation(StationContext station)
+    {
+        var activeLineBlockIds = station.InterlockingRuntime.ActiveRoutes
+            .SelectMany(route => route.Symbols)
+            .Where(symbol => symbol.Kind is TrackSymbolKind.LineBlock)
+            .Select(symbol => symbol.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (activeLineBlockIds.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var link in _boundaryLinks.Where(link =>
+                     link.FromStationId.Equals(station.Id, StringComparison.OrdinalIgnoreCase) &&
+                     activeLineBlockIds.Contains(link.FromLineBlockId)))
+        {
+            if (!_stations.TryGetValue(link.ToStationId, out var remoteStation))
+            {
+                continue;
+            }
+
+            var remoteSymbol = remoteStation.Editor.Document.Symbols
+                .FirstOrDefault(symbol => symbol.Id.Equals(link.ToLineBlockId, StringComparison.OrdinalIgnoreCase));
+            if (remoteSymbol is null)
+            {
+                continue;
+            }
+
+            remoteSymbol.Properties[Domino67PropertyNames.LineBlockDirection] = Domino67PropertyNames.LineBlockDirectionIncoming;
+            _trackPlanDocumentStore.Save(remoteStation.PlanFilePath, remoteStation.Editor.Document);
+            MarkBoundaryHeartbeat(link.FromStationId, link.FromLineBlockId, link.ToStationId, link.ToLineBlockId);
+        }
+    }
+
+    private void MarkBoundaryHeartbeat(string fromStationId, string fromLineBlockId, string toStationId, string toLineBlockId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        _boundaryHeartbeat[BuildBoundaryHeartbeatKey(fromStationId, fromLineBlockId, toStationId, toLineBlockId)] = now;
+        _boundaryHeartbeat[BuildBoundaryHeartbeatKey(toStationId, toLineBlockId, fromStationId, fromLineBlockId)] = now;
+    }
+
+    private static string BuildBoundaryHeartbeatKey(string fromStationId, string fromLineBlockId, string toStationId, string toLineBlockId)
+    {
+        return $"{fromStationId}:{fromLineBlockId}->{toStationId}:{toLineBlockId}";
+    }
+
+    private void SetLineBlockToGrundstellung(DrawnTrackSymbol symbol)
+    {
+        if (symbol.Kind is not TrackSymbolKind.LineBlock)
+        {
+            return;
+        }
+
+        var hasActiveRoute = _activeRoutes.Any(route =>
+            route.Symbols.Any(routeSymbol => routeSymbol.Id.Equals(symbol.Id, StringComparison.OrdinalIgnoreCase)));
+        if (hasActiveRoute)
+        {
+            TrackPlanStatus.Text = $"{symbol.Name} hat eine aktive Fahrstrasse und kann nicht in Grundstellung.";
+            return;
+        }
+
+        _occupiedSymbolIds.Remove(symbol.Id);
+        _releaseOnFreeSymbolIds.Remove(symbol.Id);
+        symbol.Properties.Remove(Domino67PropertyNames.LineBlockDirection);
+        symbol.Properties.Remove(Domino67PropertyNames.BlockBlocked);
+        SyncBoundaryGrundstellung(symbol);
+        SyncBoundaryState(symbol);
+        TrySetStoredRoutes();
+        SaveTrackPlan();
+        TrackPlanStatus.Text = $"{symbol.Name} in Grundstellung.";
+        RenderTrackPlan();
+    }
+
+    private void SetLineBlockToIncoming(DrawnTrackSymbol symbol)
+    {
+        if (symbol.Kind is not TrackSymbolKind.LineBlock)
+        {
+            return;
+        }
+
+        var hasActiveRoute = _activeRoutes.Any(route =>
+            route.Symbols.Any(routeSymbol => routeSymbol.Id.Equals(symbol.Id, StringComparison.OrdinalIgnoreCase)));
+        if (hasActiveRoute)
+        {
+            TrackPlanStatus.Text = $"{symbol.Name} hat eine aktive Fahrstrasse und kann nicht auf AN gestellt werden.";
+            return;
+        }
+
+        _occupiedSymbolIds.Remove(symbol.Id);
+        _releaseOnFreeSymbolIds.Remove(symbol.Id);
+        symbol.Properties[Domino67PropertyNames.LineBlockDirection] = Domino67PropertyNames.LineBlockDirectionIncoming;
+        symbol.Properties.Remove(Domino67PropertyNames.BlockBlocked);
+        SyncBoundaryState(symbol);
+        TrySetStoredRoutes();
+        SaveTrackPlan();
+        TrackPlanStatus.Text = $"{symbol.Name} auf AN gestellt.";
+        RenderTrackPlan();
+    }
+
+    private void RebuildActiveRouteConnectionKeys()
+    {
+        _activeRouteConnectionKeys.Clear();
+        foreach (var route in _activeRoutes)
+        {
+            foreach (var connection in route.Connections)
+            {
+                _activeRouteConnectionKeys.Add(GetConnectionKey(connection.FromSymbolId, connection.ToSymbolId));
+                _activeRouteConnectionKeys.Add(GetConnectionKey(connection.ToSymbolId, connection.FromSymbolId));
+            }
+        }
+    }
+
+    private bool CanSetRouteAcrossBoundaries(RouteResult route, out string message)
+    {
+        message = string.Empty;
+        if (_activeStationId is null)
+        {
+            return true;
+        }
+
+        var localLineBlockIds = route.Symbols
+            .Where(symbol => symbol.Kind is TrackSymbolKind.LineBlock)
+            .Select(symbol => symbol.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var link in _boundaryLinks.Where(link =>
+                     link.FromStationId.Equals(_activeStationId, StringComparison.OrdinalIgnoreCase) &&
+                     localLineBlockIds.Contains(link.FromLineBlockId)))
+        {
+            if (!_stations.TryGetValue(link.ToStationId, out var remoteStation))
+            {
+                message = $"Grenzblock-Kommunikation ungueltig: Zielstation {link.ToStationId} fehlt.";
+                return false;
+            }
+
+            var remoteSymbol = remoteStation.Editor.Document.Symbols
+                .FirstOrDefault(symbol => symbol.Id.Equals(link.ToLineBlockId, StringComparison.OrdinalIgnoreCase));
+            if (remoteSymbol is null)
+            {
+                message = $"Grenzblock in {remoteStation.Name} nicht gefunden.";
+                return false;
+            }
+
+            // Ein Zug auf der Strecke: Gegenblock darf weder belegt noch in aktiver Route sein.
+            var remoteInActiveRoute = remoteStation.InterlockingRuntime.ActiveRoutes.Any(activeRoute =>
+                activeRoute.Symbols.Any(symbol => symbol.Id.Equals(remoteSymbol.Id, StringComparison.OrdinalIgnoreCase)));
+            var remoteOccupied = remoteStation.InterlockingRuntime.OccupiedSymbolIds.Contains(remoteSymbol.Id) ||
+                                 Domino67PropertyHelper.IsEnabled(remoteSymbol, Domino67PropertyNames.BlockBlocked);
+            if (remoteInActiveRoute || remoteOccupied)
+            {
+                message = $"Strecke belegt/gesperrt: {remoteStation.Name} - {remoteSymbol.Name}.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void SyncBoundaryStateForRoute(RouteResult route)
+    {
+        foreach (var localLineBlock in route.Symbols.Where(symbol => symbol.Kind is TrackSymbolKind.LineBlock))
+        {
+            var local = FindSymbol(localLineBlock.Id);
+            if (local is not null)
+            {
+                SyncBoundaryState(local);
+            }
+        }
+    }
+
+    private void SyncBoundaryStateForRoutes(IEnumerable<RouteResult> routes)
+    {
+        foreach (var route in routes)
+        {
+            SyncBoundaryStateForRoute(route);
+        }
+    }
+
+    private sealed class StationContext(
+        string id,
+        string name,
+        string planFilePath,
+        string routesFilePath,
+        TrackPlanEditorModel editor,
+        StationInterlockingRuntime interlockingRuntime,
+        List<RouteResult> visibleRoutes)
+    {
+        public string Id { get; } = id;
+        public string Name { get; } = name;
+        public string PlanFilePath { get; } = planFilePath;
+        public string RoutesFilePath { get; } = routesFilePath;
+        public TrackPlanEditorModel Editor { get; } = editor;
+        public StationInterlockingRuntime InterlockingRuntime { get; } = interlockingRuntime;
+        public List<RouteResult> VisibleRoutes { get; set; } = visibleRoutes;
+    }
 }

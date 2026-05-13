@@ -42,6 +42,34 @@
                                    Classes="secondary"
                                    TextWrapping="Wrap" />
                     </StackPanel>
+                    
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Bahnhof"
+                                   FontWeight="SemiBold" />
+                        <ComboBox x:Name="StationSelector"
+                                  SelectionChanged="StationSelector_OnSelectionChanged" />
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="8">
+                            <Button Classes="tool"
+                                    Content="Bahnhof neu"
+                                    Click="AddStation_OnClick" />
+                            <Button Grid.Column="1"
+                                    Classes="tool"
+                                    Content="Bahnhof loeschen"
+                                    Click="RemoveStation_OnClick" />
+                        </Grid>
+                    </StackPanel>
+                    
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Streckenblock koppeln"
+                                   FontWeight="SemiBold" />
+                        <ComboBox x:Name="BoundaryRemoteStationSelector"
+                                  SelectionChanged="BoundaryRemoteStationSelector_OnSelectionChanged" />
+                        <ComboBox x:Name="BoundaryRemoteBlockSelector" />
+                        <Button Classes="tool"
+                                Content="Streckenblock verbinden"
+                                Click="LinkLineBlock_OnClick" />
+                    </StackPanel>
 
                     <Grid ColumnDefinitions="*,*"
                           ColumnSpacing="8">

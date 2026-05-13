@@ -15,6 +15,7 @@ public static class Domino67PropertyNames
     public const string LineBlockDirection = "Do67.LineBlockDirection";
     public const string LineBlockDirectionIncoming = "incoming";
     public const string LineBlockDirectionOutgoing = "outgoing";
+    public const string LineBlockTravelDirection = "Do67.LineBlockTravelDirection";
 
     // Weichen
     public const string SwitchLocked = "Do67.SwitchLocked";
