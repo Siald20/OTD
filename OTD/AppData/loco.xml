@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<locos>
+  <loco uid="f47ac10b-58cc-4372-a567-0e02b2c3d479" id="Re460Z" name="Re 460 rot" length="20" index="1">
+    <model manufacturer="Roco" scale="H0" catalognumber="43757">
+      <operator>SBB</operator>
+      <class>Re 460</class>
+      <serialnumber>460 023-5</serialnumber>
+      <tractiontype>electric</tractiontype>
+      <weight>80</weight>
+      <vmax>200</vmax>
+      <image>locoimages/re460_023_rot.png</image>
+      <notes>Werbelok Zürich Relax</notes>
+    </model>
+    <decoder>
+      <protocol>DCC128</protocol>
+      <address>3</address>
+      <addresstype>short</addresstype>
+      <functiontable>
+        <function no="0" description="3x weiss/1x weiss <> 1x weiss/3x weiss" actuation="toggle" category="headlight" visible="true" image="headlight.svg" />
+        <function no="1" description="Fahrgeräusch" actuation="toggle" type="sound" visible="true" image="speaker.svg" />
+        <function no="2" description="Horn hoch" actuation="impulse" type="sound" visible="true" image="horn.svg" />
+        <function no="3" description="Horn tief" actuation="impulse" type="sound" visible="true" image="horn.svg" />
+        <function no="4" description="Schaffnerpfiff" actuation="impulse" type="sound" visible="true" image="whistle.svg" />
+        <function no="6" description="Rangiergang" actuation="toggle" type="driving" visible="false" />
+        <function no="7" description="Führerstandsbeleuchtung" actuation="toggle" type="interiorlight" visible="false" image="light.svg" />        
+        <function no="8" description="Fernlicht" actuation="toggle" type="headlight" visible="true" image="beam.svg"/>
+        <function no="9" description="Kompressor" actuation="toggle" type="sound" visible="true"  image="speaker.svg" />
+        <function no="10" description="Ansage während der Fahrt" actuation="impulse" type="sound" visible="true" image="speaker.svg" />
+        <function no="11" description="Horn Zweiklang" actuation="impulse" type="sound" visible="true" image="horn.svg" />
+        <function no="12" description="Warnlicht rot" actuation="toggle" type="headlight" visible="true" image="headlight-warning.svg" />
+        <function no="13" description="starker Lüfter" actuation="toggle" type="sound" visible="true" image="speaker.svg" />        
+        <function no="14" description="Lautlos" actuation="toggle" type="sound" visible="true" image="mute.svg"/>     
+        <function no="15" description="Parklicht" actuation="toggle" type="headlight" visible="true" image="headlight-parking.svg" />
+        <function no="16" description="3x weiss/2x rot <> 2x rot/3x weiss" actuation="toggle" type="headlight" visible="false"/>
+        <function no="17" description="3x weiss/gelöscht <> 2x rot/gelöscht" actuation="toggle" type="headlight" visible="false" />
+        <function no="18" description="gelöscht/2x rot <> gelöscht/3x weiss" actuation="toggle" type="headlight" visible="false" />
+        <function no="19" description="gelöscht/1x weiss <> 1x weiss/gelöscht" actuation="toggle" type="headlight" visible="false" />
+        <function no="20" description="gelöscht/2x rot <> 2x rot/gelöscht" actuation="toggle" type="headlight" visible="false" />  
+      </functiontable>
+      <speedtable>
+        <speed step="1" v="1" />
+        <speed step="2" v="8" />
+        <speed step="3" v="16" />
+        <speed step="4" v="24" />
+        <speed step="5" v="32" />
+        <speed step="6" v="40" />
+        <speed step="7" v="48" />
+        <speed step="8" v="56" />
+        <speed step="9" v="64" />
+        <speed step="10" v="72" />
+        <speed step="11" v="80" />
+        <speed step="12" v="88" />
+        <speed step="13" v="90" />
+        <speed step="14" v="97" />
+        <speed step="15" v="105" />
+        <speed step="16" v="112" />
+        <speed step="17" v="120" />
+        <speed step="18" v="127" />
+        <speed step="19" v="135" />
+        <speed step="20" v="142" />
+        <speed step="21" v="150" />
+        <speed step="22" v="157" />
+        <speed step="23" v="165" />
+        <speed step="24" v="172" />
+        <speed step="25" v="180" />
+        <speed step="26" v="187" />
+        <speed step="27" v="200" />
+      </speedtable>
+    </decoder>
+    <operation>
+      <purchasedate>2022-05-01</purchasedate>
+      <operatingtime>20</operatingtime>
+      <traveldistance>1500</traveldistance>
+      <serviceinterval>40</serviceinterval>
+      <lastservice>2024-06-01</lastservice>
+      <servicecomment>Radsätze gereinigt</servicecomment>
+    </operation>
+  </loco>
+</locos>
