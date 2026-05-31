@@ -25,4 +25,8 @@
       <DependentUpon>TrackPlanPage.axaml</DependentUpon>
     </Compile>
   </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Stations\bahnhof-1\Routes.xml" />
+  </ItemGroup>
 </Project>

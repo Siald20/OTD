@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<trains>
+  <train uid="8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6c" id="DT612" name="Doppeltraktion VT 612" vmax="126" length="60">
+    <model>
+      <operator>DB</operator>
+      <class>VT612</class>
+      <serialnumber></serialnumber>
+      <tractiontype>diesel</tractiontype>
+      <weight>100</weight>
+      <vmax>126</vmax>
+      <image></image>
+      <notes></notes>
+    </model>
+    <composition>
+      <loco uid="f47ac10b-58cc-4372-a567-0e02b2c3d481" orientation="normal" headlight_forward="www-xxx" headlight_backward="rxr-xxx" />
+      <loco uid="f47ac10b-58cc-4372-a567-0e02b2c3d482" orientation="reverse" headlight_forward="www-xxx" headlight_backward="rxr-xxx" />
+    </composition>
+  </train>
+  <train uid="8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6e" id="SBB BR192" name="Vecron SBB Cargo" vmax="126" length="20">
+    <composition>
+      <loco uid="f47ac10b-58cc-4372-a567-0e02b2c3d479" orientation="normal" headlight_forward="www-xxr" headlight_backward="xxr-www" />
+    </composition>
+  </train>
+</trains>

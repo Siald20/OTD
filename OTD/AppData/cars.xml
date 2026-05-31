@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<cars>
+    <car uid="7c1b8f49-3b6f-4f14-b7bb-0f2b7ef9d8c1" id="IC2000B" name="IC 2000 DoSto 1" length="60" index="1">
+        <model manufacturer="Roco" scale="H0" catalognumber="43757">
+            <operator>DB AG</operator>
+            <class>Güterwagen 1</class>
+            <serialnumber></serialnumber>
+            <tractiontype>diesel</tractiontype>
+            <weight></weight>
+            <vmax>126</vmax>
+            <image></image>
+            <notes>VT 612 RegioSwinger Bwegt mit automatischen Kupplingen</notes>
+        </model>
+        <operation>
+            <purchasedate>2022-05-01</purchasedate>
+            <operatingtime>20</operatingtime>
+            <traveldistance>1500</traveldistance>
+            <serviceinterval>40</serviceinterval>
+            <lastservice>2024-06-01</lastservice>
+            <servicecomment>Radsätze gereinigt</servicecomment>
+        </operation>
+    </car>
+    <car uid="2e9d4a07-95cf-4a7d-9a66-1b8f57a6c2de" id="IC2000Bt" name="VT 612 (Autokupplungen)" length="60" index="1">
+        <model manufacturer="Roco" scale="H0" catalognumber="43757">
+            <operator>DB AG</operator>
+            <class>VT 612</class>
+            <serialnumber></serialnumber>
+            <tractiontype>diesel</tractiontype>
+            <weight></weight>
+            <vmax>126</vmax>
+            <image></image>
+            <notes>VT 612 RegioSwinger Bwegt mit automatischen Kupplingen</notes>
+        </model>
+        <decoder>
+            <protocol>DCC128</protocol>
+            <speedsteps>128</speedsteps>
+            <address>8</address>
+            <addresstype>short</addresstype>
+            <functiontable>
+                <function no="0" type="headlight" master="true" a="www-rxr" b="rxr-www"
+                          description="Stirnbeleuchtung ein/aus"/>
+                <function no="1" description="Beleuchtung Fahrgastraum" actuation="toggle" type="interiorlight"
+                          visible="true" image=""/>
+                <function no="21" type="headlight" a="www-xxx" b="rxr-xxx" description="Löschen Stirnbeleuchtung Cab2"
+                          visible="false"/>
+                <function no="22" type="headlight" a="xxx-rxr" b="xxx-www" description="Löschen Stirnbeleuchtung Cab1"
+                          visible="false"/>
+                <function no="23" type="autocoupling" side="1" activationtime="3000" visible="false"
+                          description="Kupplung Cab1"/>
+                <function no="24" type="autocoupling" side="2" activationtime="3000" visible="false"
+                          description="Kupplung Cab2"/>
+            </functiontable>
+        </decoder>
+        <operation>
+            <autocouplings>
+                <autocoupling side="Cab1">
+                    <function no="23" actuation="impulse" duration="3000"/>
+                </autocoupling>
+                <autocoupling side="Cab2">
+                    <function no="24" actuation="impulse" duration="3000"/>
+                </autocoupling>
+            </autocouplings>
+            <purchasedate>2022-05-01</purchasedate>
+            <operatingtime>20</operatingtime>
+            <traveldistance>1500</traveldistance>
+            <serviceinterval>40</serviceinterval>
+            <lastservice>2024-06-01</lastservice>
+            <servicecomment>Radsätze gereinigt</servicecomment>
+        </operation>
+    </car>
+</cars>
