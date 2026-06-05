@@ -572,3 +572,8 @@ C:\Users\saemi\RiderProjects\OTD\artifacts\verify-settings-window\OTD.deps.json
 C:\Users\saemi\RiderProjects\OTD\artifacts\verify-settings-window\OTD.runtimeconfig.json
 C:\Users\saemi\RiderProjects\OTD\artifacts\verify-settings-window\OTD.dll
 C:\Users\saemi\RiderProjects\OTD\artifacts\verify-settings-window\OTD.pdb
+C:\Users\saemi\RiderProjects\OTD\artifacts\verify-mainwindow-symbols\OTD.exe
+C:\Users\saemi\RiderProjects\OTD\artifacts\verify-mainwindow-symbols\OTD.deps.json
+C:\Users\saemi\RiderProjects\OTD\artifacts\verify-mainwindow-symbols\OTD.runtimeconfig.json
+C:\Users\saemi\RiderProjects\OTD\artifacts\verify-mainwindow-symbols\OTD.dll
+C:\Users\saemi\RiderProjects\OTD\artifacts\verify-mainwindow-symbols\OTD.pdb

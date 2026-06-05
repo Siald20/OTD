@@ -44,6 +44,9 @@
       <DependentUpon>AutomaticButtonTiles.axaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="MainWindow.axaml.cs">
+      <DependentUpon>MainWindow.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>
