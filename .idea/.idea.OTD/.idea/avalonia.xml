@@ -4,6 +4,20 @@
     <option name="projectPerEditor">
       <map>
         <entry key="OTD/App.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/ButtonTiles/AutomaticButtonTiles.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/ButtonTiles/ButtonTiles.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/ButtonTiles/ButtonTilesStyle.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/ButtonTiles/ControllButtonTiles.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/ButtonTiles/Styles/ButtonTilesStyle.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/ButtonTiles/SwitchButtonTiles.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/SignalTileMemory.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/SignalTileNoMemory.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/SignalTiles.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/SingalTiles/SignalTileMemory.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/SingalTiles/SignalTileNoMemory.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/SingalTiles/Styles/SignalTilesStyles.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/Styles/SignalTilesStyles.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/Controlls/InterlockingEnlements/TrackTiles/TrackTiles.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/MainWindow.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Styles/ModernRailTheme.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Styles/TrackPlanTheme.axaml" value="OTD/OTD.csproj" />

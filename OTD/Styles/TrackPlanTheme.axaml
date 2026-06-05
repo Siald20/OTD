@@ -55,6 +55,20 @@
       <SolidColorBrush x:Key="TrackPlanStructureBrush" Color="{DynamicResource TrackPlanStructureColor}" />
       <SolidColorBrush x:Key="TrackPlanSafetyBrush" Color="{DynamicResource TrackPlanSafetyColor}" />
       <SolidColorBrush x:Key="TrackPlanDefaultSymbolBrush" Color="{DynamicResource TrackPlanDefaultSymbolColor}" />
+      
+     
+        <SolidColorBrush x:Key="StellwerkGreen" Color="#7E9F88" />
+        <SolidColorBrush x:Key="GleisDunkel" Color="#333333" />
+    
+        <SolidColorBrush x:Key="LampOff" Color="#444444" />
+        <SolidColorBrush x:Key="SignalRed" Color="#ee2c2c"/>
+        <SolidColorBrush x:Key="SignalGreen" Color="#00FF66" />
+        <SolidColorBrush x:Key="LampYellow" Color="#FFCC00" />
+        <SolidColorBrush x:Key="LampRed" Color="#ee2c2c" />
+        <SolidColorBrush x:Key="LampWhite" Color="#FFFFEE" />
+
+        <BoxShadows x:Key="LampGlow">0 0 10 2 #FFFFFFFF</BoxShadows>
+      
     </ResourceDictionary>
   </Styles.Resources>
 </Styles>

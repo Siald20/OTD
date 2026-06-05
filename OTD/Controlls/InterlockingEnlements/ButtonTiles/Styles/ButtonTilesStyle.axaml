@@ -1,0 +1,92 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Style Selector="Button.Switch-Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.Switch-Button /template/ ContentPresenter">
+        <Setter Property="Background" Value="Blue"/>
+        <Setter Property="BorderBrush" Value="Blue"/>
+        <Setter Property="BorderThickness" Value="4"/>
+    </Style>
+    <Style Selector="Button.Switch-Button:pointerover">
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.Switch-Button:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Blue"/>
+        <Setter Property="BorderBrush" Value="#FFFFFF"/>
+        <Setter Property="BorderThickness" Value="4"/>
+    </Style>
+    <Style Selector="Button.Switch-Button:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="LightBlue"/>
+        <Setter Property="BorderBrush" Value="#DDDDDD"/>
+    </Style>
+
+    <Style Selector="Button.Control-Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.Control-Button /template/ ContentPresenter">
+        <Setter Property="Background" Value="Gray"/>
+        <Setter Property="BorderBrush" Value="Green"/>
+        <Setter Property="BorderThickness" Value="4"/>
+    </Style>
+    <Style Selector="Button.Control-Button:pointerover">
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.Control-Button:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="LightGray"/>
+        <Setter Property="BorderBrush" Value="Green"/>
+        <Setter Property="BorderThickness" Value="4"/>
+    </Style>
+    <Style Selector="Button.Control-Button:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="Black"/>
+        <Setter Property="BorderBrush" Value="Green"/>
+    </Style>
+    
+    <Style Selector="Button.Automatic-On-Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.Automatic-On-Button /template/ ContentPresenter">
+        <Setter Property="Background" Value="Gray"/>
+        <Setter Property="BorderBrush" Value="Green"/>
+        <Setter Property="BorderThickness" Value="4"/>
+    </Style>
+    <Style Selector="Button.Automatic-On-Button:pointerover">
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.Automatic-On-Button:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="LightGray"/>
+        <Setter Property="BorderBrush" Value="Green"/>
+        <Setter Property="BorderThickness" Value="4"/>
+    </Style>
+    <Style Selector="Button.Automatic-On-Button:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="Black"/>
+        <Setter Property="BorderBrush" Value="Green"/>
+    </Style>
+    
+    
+    <Style Selector="Button.Automatic-Off-Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.Automatic-Off-Button /template/ ContentPresenter">
+        <Setter Property="Background" Value="Gray"/>
+        <Setter Property="BorderBrush" Value="Green"/>
+        <Setter Property="BorderThickness" Value="4"/>
+    </Style>
+    <Style Selector="Button.Automatic-Off-Button:pointerover">
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.Automatic-Off-Button:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="LightGray"/>
+        <Setter Property="BorderBrush" Value="Green"/>
+        <Setter Property="BorderThickness" Value="4"/>
+    </Style>
+    <Style Selector="Button.Automatic-Off-Button:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="Black"/>
+        <Setter Property="BorderBrush" Value="Green"/>
+    </Style>
+    
+</Styles>

@@ -24,5 +24,25 @@
     <Compile Update="Views\TrackPlanPage.axaml.cs">
       <DependentUpon>TrackPlanPage.axaml</DependentUpon>
     </Compile>
+    <Compile Update="Controlls\InterlockingEnlements\SingalTiles\SignalTileMemory.axaml.cs">
+      <DependentUpon>SignalTileMemory.axaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Controlls\InterlockingEnlements\SingalTiles\SignalTileNoMemory.axaml.cs">
+      <DependentUpon>SignalTileNoMemory.axaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Controlls\InterlockingEnlements\TrackTiles\TrackTiles.axaml.cs">
+      <DependentUpon>TrackTiles.axaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Controlls\InterlockingEnlements\ButtonTiles\ControllButtonTiles.axaml.cs">
+      <DependentUpon>ControllButtonTiles.axaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Controlls\InterlockingEnlements\ButtonTiles\AutomaticButtonTiles.axaml.cs">
+      <DependentUpon>AutomaticButtonTiles.axaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
 </Project>

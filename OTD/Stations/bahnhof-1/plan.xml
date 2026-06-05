@@ -1,219 +1,27 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TrackPlan name="Neuer Gleisplan" version="1">
   <Symbols>
-    <Symbol id="G1" name="Gleis" kind="Track" x="720" y="200" signalDirection="Both" currentSwitchPosition="Straight">
+    <Symbol id="SB1" name="Block 1" kind="LineBlock" x="430" y="160" signalDirection="Both" currentSwitchPosition="Straight">
       <SwitchRouteOptions />
       <Properties />
     </Symbol>
-    <Symbol id="G2" name="Gleis" kind="Track" x="720" y="320" signalDirection="Both" currentSwitchPosition="Straight">
+    <Symbol id="SB2" name="Block 2" kind="LineBlock" x="430" y="280" signalDirection="Both" currentSwitchPosition="Straight">
       <SwitchRouteOptions />
       <Properties />
     </Symbol>
-    <Symbol id="G4" name="Gleis" kind="Track" x="900" y="520" signalDirection="Both" currentSwitchPosition="Straight">
+    <Symbol id="S1" name="Signal A" kind="Signal" x="80" y="220" signalDirection="LeftToRight" currentSwitchPosition="Straight">
       <SwitchRouteOptions />
       <Properties />
     </Symbol>
-    <Symbol id="G7" name="Gleis" kind="Track" x="1040" y="600" signalDirection="Both" currentSwitchPosition="Straight">
+    <Symbol id="S2" name="Signal B" kind="Signal" x="620" y="160" signalDirection="LeftToRight" currentSwitchPosition="Straight">
       <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
+      <Properties />
     </Symbol>
-    <Symbol id="SB1" name="Streckenblock" kind="LineBlock" x="1820" y="200" signalDirection="Both" currentSwitchPosition="Straight">
+    <Symbol id="S3" name="Signal C" kind="Signal" x="620" y="280" signalDirection="LeftToRight" currentSwitchPosition="Straight">
       <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.BlockBlocked" value="true" />
-        <Property key="Do67.LineBlockDirection" value="incoming" />
-        <Property key="Do67.LineBlockTravelDirection" value="Both" />
-      </Properties>
+      <Properties />
     </Symbol>
-    <Symbol id="SB2" name="Streckenblock" kind="LineBlock" x="1740" y="400" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.LineBlockTravelDirection" value="LeftToRight" />
-      </Properties>
-    </Symbol>
-    <Symbol id="SB3" name="Streckenblock" kind="LineBlock" x="200" y="420" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.LineBlockTravelDirection" value="BottomToTop" />
-      </Properties>
-    </Symbol>
-    <Symbol id="SB4" name="Streckenblock" kind="LineBlock" x="1820" y="520" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.BlockBlocked" value="true" />
-        <Property key="Do67.LineBlockDirection" value="outgoing" />
-        <Property key="Do67.LineBlockTravelDirection" value="LeftToRight" />
-      </Properties>
-    </Symbol>
-    <Symbol id="SB5" name="Streckenblock" kind="LineBlock" x="100" y="600" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.BlockBlocked" value="true" />
-        <Property key="Do67.LineBlockDirection" value="incoming" />
-        <Property key="Do67.LineBlockTravelDirection" value="BottomToTop" />
-      </Properties>
-    </Symbol>
-    <Symbol id="SB6" name="Streckenblock" kind="LineBlock" x="60" y="320" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.BlockBlocked" value="true" />
-        <Property key="Do67.LineBlockDirection" value="outgoing" />
-        <Property key="Do67.LineBlockTravelDirection" value="TopToBottom" />
-      </Properties>
-    </Symbol>
-    <Symbol id="SB7" name="Streckenblock" kind="LineBlock" x="1800" y="620" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.LineBlockTravelDirection" value="LeftToRight" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S1" name="Signal" kind="Signal" x="180" y="200" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S13" name="Signal" kind="Signal" x="220" y="520" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S14" name="Signal" kind="Signal" x="1700" y="520" signalDirection="RightToLeft" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S15" name="Signal" kind="Signal" x="760" y="520" signalDirection="RightToLeft" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S16" name="Signal" kind="Signal" x="1180" y="600" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="true" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S17" name="Signal" kind="Signal" x="220" y="600" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="true" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S18" name="Signal" kind="Signal" x="220" y="680" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S19" name="Signal" kind="Signal" x="900" y="600" signalDirection="RightToLeft" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S2" name="Signal" kind="Signal" x="180" y="320" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S20" name="Signal" kind="Signal" x="1180" y="520" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S21" name="Signal" kind="Signal" x="1460" y="660" signalDirection="RightToLeft" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S3" name="Signal" kind="Signal" x="580" y="200" signalDirection="RightToLeft" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S4" name="Signal" kind="Signal" x="580" y="320" signalDirection="RightToLeft" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="true" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S5" name="Signal" kind="Signal" x="860" y="200" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S6" name="Signal" kind="Signal" x="860" y="320" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S7" name="Signal" kind="Signal" x="1580" y="320" signalDirection="RightToLeft" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="S8" name="Signal" kind="Signal" x="1580" y="200" signalDirection="RightToLeft" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="true" />
-      </Properties>
-    </Symbol>
-    <Symbol id="ZS2" name="Zwergsignal" kind="ZwergSignal" x="340" y="520" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="ZS3" name="Zwergsignal" kind="ZwergSignal" x="760" y="600" signalDirection="RightToLeft" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="true" />
-      </Properties>
-    </Symbol>
-    <Symbol id="ZS5" name="Zwergsignal" kind="ZwergSignal" x="1040" y="520" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="ZS6" name="Zwergsignal" kind="ZwergSignal" x="1560" y="520" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="ZS7" name="Zwergsignal" kind="ZwergSignal" x="620" y="520" signalDirection="RightToLeft" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="ZS8" name="Zwergsignal" kind="ZwergSignal" x="340" y="600" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="ZS9" name="Zwergsignal" kind="ZwergSignal" x="340" y="680" signalDirection="LeftToRight" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.SignalIsGreen" value="false" />
-      </Properties>
-    </Symbol>
-    <Symbol id="W1" name="Weiche" kind="Switch" x="320" y="320" signalDirection="Both" currentSwitchPosition="Straight">
+    <Symbol id="W1" name="Weiche 1" kind="Switch" x="250" y="220" signalDirection="Both" currentSwitchPosition="Straight">
       <SwitchRouteOptions>
         <Option fromPort="A" toPort="B" position="Straight" />
         <Option fromPort="B" toPort="A" position="Straight" />
@@ -224,117 +32,7 @@
         <Property key="SwitchOrientation" value="LeftRightUp" />
       </Properties>
     </Symbol>
-    <Symbol id="W10" name="Weiche" kind="Switch" x="480" y="600" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions>
-        <Option fromPort="A" toPort="B" position="Straight" />
-        <Option fromPort="B" toPort="A" position="Straight" />
-        <Option fromPort="A" toPort="C" position="Diverging" />
-        <Option fromPort="C" toPort="A" position="Diverging" />
-      </SwitchRouteOptions>
-      <Properties>
-        <Property key="SwitchOrientation" value="RightLeftDown" />
-      </Properties>
-    </Symbol>
-    <Symbol id="W11" name="Weiche" kind="Switch" x="1320" y="600" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions>
-        <Option fromPort="A" toPort="B" position="Straight" />
-        <Option fromPort="B" toPort="A" position="Straight" />
-        <Option fromPort="A" toPort="C" position="Diverging" />
-        <Option fromPort="C" toPort="A" position="Diverging" />
-      </SwitchRouteOptions>
-      <Properties>
-        <Property key="SwitchOrientation" value="LeftRightDown" />
-      </Properties>
-    </Symbol>
-    <Symbol id="W2" name="Weiche" kind="Switch" x="440" y="200" signalDirection="Both" currentSwitchPosition="Diverging">
-      <SwitchRouteOptions>
-        <Option fromPort="A" toPort="B" position="Straight" />
-        <Option fromPort="B" toPort="A" position="Straight" />
-        <Option fromPort="A" toPort="C" position="Diverging" />
-        <Option fromPort="C" toPort="A" position="Diverging" />
-      </SwitchRouteOptions>
-      <Properties>
-        <Property key="SwitchOrientation" value="RightLeftDown" />
-      </Properties>
-    </Symbol>
-    <Symbol id="W3" name="Weiche" kind="Switch" x="1000" y="320" signalDirection="Both" currentSwitchPosition="Diverging">
-      <SwitchRouteOptions>
-        <Option fromPort="A" toPort="B" position="Straight" />
-        <Option fromPort="B" toPort="A" position="Straight" />
-        <Option fromPort="A" toPort="C" position="Diverging" />
-        <Option fromPort="C" toPort="A" position="Diverging" />
-      </SwitchRouteOptions>
-      <Properties>
-        <Property key="SwitchOrientation" value="LeftRightUp" />
-      </Properties>
-    </Symbol>
-    <Symbol id="W4" name="Weiche" kind="Switch" x="1000" y="200" signalDirection="Both" currentSwitchPosition="Diverging">
-      <SwitchRouteOptions>
-        <Option fromPort="A" toPort="B" position="Straight" />
-        <Option fromPort="B" toPort="A" position="Straight" />
-        <Option fromPort="A" toPort="C" position="Diverging" />
-        <Option fromPort="C" toPort="A" position="Diverging" />
-      </SwitchRouteOptions>
-      <Properties>
-        <Property key="SwitchOrientation" value="LeftRightDown" />
-      </Properties>
-    </Symbol>
-    <Symbol id="W5" name="Weiche" kind="Switch" x="1280" y="320" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions>
-        <Option fromPort="A" toPort="B" position="Straight" />
-        <Option fromPort="B" toPort="A" position="Straight" />
-        <Option fromPort="A" toPort="C" position="Diverging" />
-        <Option fromPort="C" toPort="A" position="Diverging" />
-      </SwitchRouteOptions>
-      <Properties>
-        <Property key="SwitchOrientation" value="RightLeftUp" />
-      </Properties>
-    </Symbol>
-    <Symbol id="W6" name="Weiche" kind="Switch" x="1280" y="200" signalDirection="Both" currentSwitchPosition="Diverging">
-      <SwitchRouteOptions>
-        <Option fromPort="A" toPort="B" position="Straight" />
-        <Option fromPort="B" toPort="A" position="Straight" />
-        <Option fromPort="A" toPort="C" position="Diverging" />
-        <Option fromPort="C" toPort="A" position="Diverging" />
-      </SwitchRouteOptions>
-      <Properties>
-        <Property key="SwitchOrientation" value="RightLeftDown" />
-      </Properties>
-    </Symbol>
-    <Symbol id="W7" name="Weiche" kind="Switch" x="480" y="520" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions>
-        <Option fromPort="A" toPort="B" position="Straight" />
-        <Option fromPort="B" toPort="A" position="Straight" />
-        <Option fromPort="A" toPort="C" position="Diverging" />
-        <Option fromPort="C" toPort="A" position="Diverging" />
-      </SwitchRouteOptions>
-      <Properties>
-        <Property key="SwitchOrientation" value="LeftRightDown" />
-      </Properties>
-    </Symbol>
-    <Symbol id="W8" name="Weiche" kind="Switch" x="1420" y="520" signalDirection="Both" currentSwitchPosition="Diverging">
-      <SwitchRouteOptions>
-        <Option fromPort="A" toPort="B" position="Straight" />
-        <Option fromPort="B" toPort="A" position="Straight" />
-        <Option fromPort="A" toPort="C" position="Diverging" />
-        <Option fromPort="C" toPort="A" position="Diverging" />
-      </SwitchRouteOptions>
-      <Properties>
-        <Property key="SwitchOrientation" value="RightLeftDown" />
-      </Properties>
-    </Symbol>
-    <Symbol id="W9" name="Weiche" kind="Switch" x="620" y="600" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions>
-        <Option fromPort="A" toPort="B" position="Straight" />
-        <Option fromPort="B" toPort="A" position="Straight" />
-        <Option fromPort="A" toPort="C" position="Diverging" />
-        <Option fromPort="C" toPort="A" position="Diverging" />
-      </SwitchRouteOptions>
-      <Properties>
-        <Property key="SwitchOrientation" value="RightLeftUp" />
-      </Properties>
-    </Symbol>
-    <Symbol id="DKW1" name="Kreuzungsweiche" kind="DoubleSlipSwitch" x="1140" y="260" signalDirection="Both" currentSwitchPosition="Left">
+    <Symbol id="DKW1" name="DKW 1" kind="DoubleSlipSwitch" x="540" y="220" signalDirection="Both" currentSwitchPosition="Left">
       <SwitchRouteOptions>
         <Option fromPort="A" toPort="B" position="Straight" />
         <Option fromPort="B" toPort="A" position="Straight" />
@@ -347,88 +45,14 @@
       </SwitchRouteOptions>
       <Properties />
     </Symbol>
-    <Symbol id="PR1" name="Prellbock" kind="BufferStop" x="60" y="200" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties />
-    </Symbol>
-    <Symbol id="PR2" name="Prellbock" kind="BufferStop" x="100" y="680" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties />
-    </Symbol>
-    <Symbol id="BU1" name="Bahnuebergang" kind="LevelCrossing" x="1420" y="200" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.AutoClose" value="true" />
-        <Property key="Do67.Closed" value="true" />
-        <Property key="Domino67.AutoClose" value="true" />
-      </Properties>
-    </Symbol>
-    <Symbol id="BU2" name="BUE1" kind="LevelCrossing" x="1420" y="320" signalDirection="Both" currentSwitchPosition="Straight">
-      <SwitchRouteOptions />
-      <Properties>
-        <Property key="Do67.AutoClose" value="true" />
-        <Property key="Do67.AutoCloseDelaySeconds" value="5" />
-        <Property key="Do67.Closed" value="false" />
-        <Property key="Domino67.AutoClose" value="true" />
-      </Properties>
-    </Symbol>
   </Symbols>
   <Connections>
-    <Connection fromSymbolId="BU1" fromPort="right" toSymbolId="S8" toPort="out" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="BU2" fromPort="right" toSymbolId="S7" toPort="out" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="DKW1" fromPort="B" toSymbolId="W6" toPort="C" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="DKW1" fromPort="D" toSymbolId="W5" toPort="C" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="G1" fromPort="right" toSymbolId="S5" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="G2" fromPort="left" toSymbolId="S4" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="G4" fromPort="left" toSymbolId="S15" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="G4" fromPort="right" toSymbolId="ZS5" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="G7" fromPort="left" toSymbolId="S19" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="G7" fromPort="right" toSymbolId="S16" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="PR1" fromPort="right" toSymbolId="S1" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="PR2" fromPort="right" toSymbolId="S18" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S1" fromPort="out" toSymbolId="W2" toPort="B" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S13" fromPort="out" toSymbolId="ZS2" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S14" fromPort="in" toSymbolId="SB4" toPort="left" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S17" fromPort="out" toSymbolId="ZS8" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S18" fromPort="out" toSymbolId="ZS9" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S19" fromPort="out" toSymbolId="ZS3" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S2" fromPort="out" toSymbolId="W1" toPort="A" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S20" fromPort="out" toSymbolId="W8" toPort="B" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S21" fromPort="in" toSymbolId="SB7" toPort="left" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S3" fromPort="in" toSymbolId="G1" toPort="left" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S5" fromPort="out" toSymbolId="W4" toPort="A" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S6" fromPort="in" toSymbolId="G2" toPort="right" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="S7" fromPort="in" toSymbolId="SB2" toPort="left" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="SB1" fromPort="left" toSymbolId="S8" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="SB1" fromPort="right" toSymbolId="SB4" toPort="right" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="SB2" fromPort="right" toSymbolId="SB3" toPort="left" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="SB3" fromPort="right" toSymbolId="S13" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="SB5" fromPort="right" toSymbolId="S17" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="SB6" fromPort="left" toSymbolId="SB5" toPort="left" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="SB6" fromPort="right" toSymbolId="S2" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W1" fromPort="B" toSymbolId="S4" toPort="out" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W10" fromPort="A" toSymbolId="W9" toPort="B" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W11" fromPort="A" toSymbolId="S16" toPort="out" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W11" fromPort="B" toSymbolId="W8" toPort="C" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W11" fromPort="C" toSymbolId="S21" toPort="out" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W2" fromPort="A" toSymbolId="S3" toPort="out" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W2" fromPort="C" toSymbolId="W1" toPort="C" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W3" fromPort="A" toSymbolId="S6" toPort="out" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W3" fromPort="B" toSymbolId="W5" toPort="B" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W3" fromPort="C" toSymbolId="DKW1" toPort="C" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W4" fromPort="B" toSymbolId="W6" toPort="B" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W4" fromPort="C" toSymbolId="DKW1" toPort="A" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W5" fromPort="A" toSymbolId="BU2" toPort="left" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W6" fromPort="A" toSymbolId="BU1" toPort="left" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W7" fromPort="B" toSymbolId="ZS7" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W8" fromPort="A" toSymbolId="ZS6" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W9" fromPort="A" toSymbolId="ZS3" toPort="out" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="W9" fromPort="C" toSymbolId="W7" toPort="C" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="ZS2" fromPort="out" toSymbolId="W7" toPort="A" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="ZS5" fromPort="out" toSymbolId="S20" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="ZS6" fromPort="out" toSymbolId="S14" toPort="out" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="ZS7" fromPort="out" toSymbolId="S15" toPort="out" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="ZS8" fromPort="out" toSymbolId="W10" toPort="B" cost="1" isEnabled="True" isBidirectional="True" />
-    <Connection fromSymbolId="ZS9" fromPort="out" toSymbolId="W10" toPort="C" cost="1" isEnabled="True" isBidirectional="True" />
+    <Connection fromSymbolId="DKW1" fromPort="B" toSymbolId="S2" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
+    <Connection fromSymbolId="DKW1" fromPort="D" toSymbolId="S3" toPort="in" cost="1" isEnabled="True" isBidirectional="True" />
+    <Connection fromSymbolId="S1" fromPort="out" toSymbolId="W1" toPort="A" cost="1" isEnabled="True" isBidirectional="True" />
+    <Connection fromSymbolId="SB1" fromPort="right" toSymbolId="DKW1" toPort="A" cost="1" isEnabled="True" isBidirectional="True" />
+    <Connection fromSymbolId="SB2" fromPort="right" toSymbolId="DKW1" toPort="C" cost="1" isEnabled="True" isBidirectional="True" />
+    <Connection fromSymbolId="W1" fromPort="B" toSymbolId="SB1" toPort="left" cost="1" isEnabled="True" isBidirectional="True" />
+    <Connection fromSymbolId="W1" fromPort="C" toSymbolId="SB2" toPort="left" cost="1" isEnabled="True" isBidirectional="True" />
   </Connections>
 </TrackPlan>
