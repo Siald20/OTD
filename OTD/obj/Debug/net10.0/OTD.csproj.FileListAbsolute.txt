@@ -567,3 +567,8 @@ C:\Users\saemi\RiderProjects\OTD\OTD\build_verify\runtimes\osx\native\libSkiaSha
 C:\Users\saemi\RiderProjects\OTD\OTD\build_verify\runtimes\win-arm64\native\libSkiaSharp.dll
 C:\Users\saemi\RiderProjects\OTD\OTD\build_verify\runtimes\win-x64\native\libSkiaSharp.dll
 C:\Users\saemi\RiderProjects\OTD\OTD\build_verify\runtimes\win-x86\native\libSkiaSharp.dll
+C:\Users\saemi\RiderProjects\OTD\artifacts\verify-settings-window\OTD.exe
+C:\Users\saemi\RiderProjects\OTD\artifacts\verify-settings-window\OTD.deps.json
+C:\Users\saemi\RiderProjects\OTD\artifacts\verify-settings-window\OTD.runtimeconfig.json
+C:\Users\saemi\RiderProjects\OTD\artifacts\verify-settings-window\OTD.dll
+C:\Users\saemi\RiderProjects\OTD\artifacts\verify-settings-window\OTD.pdb

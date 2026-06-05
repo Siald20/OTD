@@ -52,3 +52,12 @@ build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
 [C:/Users/saemi/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/TrackTiles/TrackTiles.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
+
+[C:/Users/saemi/RiderProjects/OTD/OTD/MainWindow.axaml]
+build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
+
+[C:/Users/saemi/RiderProjects/OTD/OTD/Styles/ModernRailTheme.axaml]
+build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
+
+[C:/Users/saemi/RiderProjects/OTD/OTD/Styles/TrackPlanTheme.axaml]
+build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
