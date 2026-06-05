@@ -45,4 +45,8 @@
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Stations\bahnhof-1\Routes.xml" />
+  </ItemGroup>
 </Project>

@@ -1,0 +1,250 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<locos>
+    <loco uid="f47ac10b-58cc-4372-a567-0e02b2c3d481" id="VT612K" name="VT 612 (Autokupplungen)" length="60" index="1">
+        <model manufacturer="Roco" scale="H0" catalognumber="43757">
+            <operator>DB AG</operator>
+            <class>VT 612</class>
+            <serialnumber></serialnumber>
+            <tractiontype>diesel</tractiontype>
+            <vmax>126</vmax>
+            <weight>116</weight>
+            <image></image>
+            <notes>VT 612 RegioSwinger Bwegt mit automatischen Kupplungen</notes>
+        </model>
+        <decoder>
+            <protocol>DCC128</protocol>
+            <speedsteps>126</speedsteps>
+            <address>8</address>
+            <functiontable>
+                <function no="0" type="headlight" master="true" forward="www-rxr" backward="rxr-www"
+                          description="Stirnbeleuchtung ein/aus"/>
+                <function no="1" type="light" description="Beleuchtung Fahrgastraum" actuation="toggle"
+                          visible="true" image=""/>
+                <function no="2" type="light" description="Zielanzeige" actuation="toggle" visible="true"
+                          image=""/>
+                <function no="3" type="sound" description="Motor 1" actuation="toggle" visible="true" image=""/>
+                <function no="4" type="sound" description="Motor 2" actuation="toggle" visible="true" image=""/>
+                <function no="5" type="sound" description="Horn hoch" actuation="toggle" visible="true" image=""/>
+                <function no="6" type="sound" description="Horn tief" actuation="toggle" visible="true" image=""/>
+                <function no="21" type="headlight" forward="www-xxx" backward="rxr-xxx"
+                          description="Löschen Stirnbeleuchtung Cab2"
+                          visible="false"/>
+                <function no="22" type="headlight" forward="xxx-rxr" backward="xxx-www"
+                          description="Löschen Stirnbeleuchtung Cab1"
+                          visible="false"/>
+                <function no="23" type="autocoupling" direction="forward" activationtime="3000" visible="false"
+                          description="Kupplung Cab1"/>
+                <function no="24" type="autocoupling" direction="backward" activationtime="3000" visible="false"
+                          description="Kupplung Cab2"/>
+            </functiontable>
+            <speedtable>
+                <speed step="1" v="3"/>
+                <speed step="28" v="126"/>
+            </speedtable>
+        </decoder>
+        <operation>
+            <purchasedate>2022-05-01</purchasedate>
+            <operatingtime>20</operatingtime>
+            <traveldistance>1500</traveldistance>
+            <serviceinterval>40</serviceinterval>
+            <lastservice>2024-06-01</lastservice>
+            <servicecomment>Radsätze gereinigt</servicecomment>
+        </operation>
+    </loco>
+    <loco uid="f47ac10b-58cc-4372-a567-0e02b2c3d482" id="VT612N" name="VT 612" vmax="126" length="60" index="2">
+        <model manufacturer="Roco" scale="H0" catalognumber="43757">
+            <operator>DB AG</operator>
+            <class>VT 612</class>
+            <serialnumber></serialnumber>
+            <tractiontype>diesel</tractiontype>
+            <weight>116</weight>
+            <vmax>126</vmax>
+            <image></image>
+            <notes>VT 612 RegioSwinger Bwegt</notes>
+        </model>
+        <decoder>
+            <protocol>DCC128</protocol>
+            <speedsteps>126</speedsteps>
+            <address>6</address>
+            <addresstype>short</addresstype>
+            <functiontable>
+                <function no="0" type="headlight" master="true" forward="www-rxr" backward="rxr-www"
+                          description="Stirnbeleuchtung ein/aus"/>
+                <function no="1" description="Beleuchtung Fahrgastraum" actuation="toggle" type="interiorlight"
+                          visible="true" image=""/>
+                <function no="2" description="Zielanzeige" actuation="toggle" type="interiorlight" visible="true"
+                          image=""/>
+                <function no="3" description="Motor 1" actuation="toggle" type="sound" visible="true" image=""/>
+                <function no="4" description="Motor 2" actuation="toggle" type="sound" visible="true" image=""/>
+                <function no="5" description="Horn hoch" actuation="toggle" type="sound" visible="true" image=""/>
+                <function no="6" description="Horn tief" actuation="toggle" type="sound" visible="true" image=""/>
+                <function no="21" type="headlight" forward="www-xxx" backward="rxr-xxx"
+                          description="Löschen Stirnbeleuchtung Cab2"
+                          visible="false"/>
+                <function no="22" type="headlight" forward="xxx-rxr" backward="xxx-www"
+                          description="Löschen Stirnbeleuchtung Cab1"
+                          visible="false"/>
+            </functiontable>
+            <speedtable>
+                <speed step="1" v="3"/>
+                <speed step="28" v="126"/>
+            </speedtable>
+        </decoder>
+        <operation>
+            <purchasedate>2022-05-01</purchasedate>
+            <operatingtime>20</operatingtime>
+            <traveldistance>1500</traveldistance>
+            <serviceinterval>40</serviceinterval>
+            <lastservice>2024-06-01</lastservice>
+            <servicecomment>Radsätze gereinigt</servicecomment>
+        </operation>
+    </loco>
+    <loco uid="f47ac10b-58cc-4372-a567-0e02b2c3d479" id="BR193" name="BR 193 SBB Cargo" vmax="126" length="20"
+          index="1">
+        <model manufacturer="Roco" scale="H0" catalognumber="43757">
+            <operator>SBB</operator>
+            <class>Re 460</class>
+            <serialnumber>193 053-6</serialnumber>
+            <tractiontype>electric</tractiontype>
+            <weight>80</weight>
+            <vmax>200</vmax>
+            <image></image>
+            <notes>BR 193 SBB Cargo International</notes>
+        </model>
+        <decoder>
+            <protocol>DCC128</protocol>
+            <speedsteps>126</speedsteps>
+            <address>55</address>
+            <addresstype>short</addresstype>
+            <functiontable>
+                <function no="0" type="headlight" master="true" forward="www-xxw" backward="www-xxw" description="3x weiss/1x weiss - 1x weiss/3x weiss" actuation="toggle"
+                          visible="true" image="headlight.svg"/>
+                <function no="1" type="sound" description="Fahrgeräusch" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="2" type="sound" description="Horn hoch" actuation="impulse" visible="true"
+                          image="horn.svg"/>
+                <function no="3" type="sound" description="Horn tief" actuation="impulse" visible="true"
+                          image="horn.svg"/>
+                <function no="4" type="sound" description="Kompressor" actuation="toggle" visible="true"
+                          image="sound.svg"/>
+                <function no="6" type="driving" description="Rangiergang" actuation="toggle" visible="false"/>
+                <function no="7" type="light" description="Fernlicht" actuation="toggle" visible="true"
+                          image="beam.svg"/>
+                <function no="8" type="sound" description="Horn hoch kurz" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="9" type="sound" description="Horn tief kurz" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="10" type="light" description="Führerstandsbeleuchtung" actuation="toggle"
+                          visible="false" image="light.svg"/>
+                <function no="11" type="sound" description="Kurvenquietschen" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="12" type="sound" description="Schaffnerpfiff" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="13" type="sound" description="starker Lüfter" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="14" type="sound"  description="Lautlos" actuation="toggle" visible="true"
+                          image="mute.svg"/>
+                <function no="15" type="headlight" forward="www-xxr" backward="xxr-www"
+                          description="3x weiss/1x rot - 1x rot/3x weiss" actuation="toggle"/>
+                <function no="16" type="headlight" forward="www-xxx" backward="rxr-xxx"
+                          description="3x weiss/gelöscht - 2x rot/gelöscht" actuation="toggle" visible="false"/>
+                <function no="17" type="headlight" forward="xxx-rxr" backward="xxx-www"
+                          description="gelöscht/2x rot - gelöscht/3x weiss" actuation="toggle"/>
+                <function no="18" type="headlight" forward="xxx-xxr" backward="xxr-xxx"
+                          description="gelöscht/1x rot - 1x rot/gelöscht" actuation="toggle"/>
+                <function no="19" type="headlight" forward="www-xxw" backward="xxw-xxx"
+                          description="gelöscht/1x weiss - 1x weiss/gelöscht" actuation="toggle"/>
+                <function no="20" type="headlight" forward="xxx-xxx" backward="xxx-xxx"
+                          description="gelöscht/gelöscht - gelöscht/gelöscht" actuation="toggle"/>
+                <function no="21" type="sound" description="Zwangsbremsung Funktionsablauf" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="22" type="sound" description="Türe" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="23" type="sound" description="Störung" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="24" type="sound" description="Zugbeeinflussung" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="25" type="sound" description="Sicherheitsfahrschalter" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="26" type="sound" description="Bremsquietschen" actuation="toggle" visible="true"
+                          image="speaker.svg"/>
+                <function no="27" type="headlight" mode="parking" description="Parklicht 1x weiss/1x weiss"
+                          actuation="toggle"/>
+                <function no="28" type="headlight" mode="shunting" description="2x weiss/1 x weiss - 1x weiss/2x weiss"
+                          actuation="toggle"/>
+            </functiontable>
+            <speedtable>
+                <speed step="1" v="3"/>
+                <speed step="2" v="9"/>
+                <speed step="3" v="16"/>
+                <speed step="4" v="24"/>
+                <speed step="5" v="32"/>
+                <speed step="6" v="40"/>
+                <speed step="7" v="48"/>
+                <speed step="8" v="56"/>
+                <speed step="9" v="64"/>
+                <speed step="10" v="72"/>
+                <speed step="11" v="80"/>
+                <speed step="12" v="88"/>
+                <speed step="13" v="90"/>
+                <speed step="14" v="97"/>
+                <speed step="15" v="105"/>
+                <speed step="16" v="112"/>
+                <speed step="17" v="120"/>
+                <speed step="18" v="127"/>
+                <speed step="19" v="135"/>
+                <speed step="20" v="142"/>
+                <speed step="21" v="150"/>
+                <speed step="22" v="157"/>
+                <speed step="23" v="165"/>
+                <speed step="24" v="172"/>
+                <speed step="25" v="180"/>
+                <speed step="26" v="187"/>
+                <speed step="27" v="194"/>
+                <speed step="28" v="200"/>
+            </speedtable>
+        </decoder>
+        <operation>
+            <purchasedate>2022-05-01</purchasedate>
+            <operatingtime>20</operatingtime>
+            <traveldistance>1500</traveldistance>
+            <serviceinterval>40</serviceinterval>
+            <lastservice>2024-06-01</lastservice>
+            <servicecomment>Radsätze gereinigt</servicecomment>
+        </operation>
+    </loco>
+    <loco uid="f47ac10b-58cc-4372-a567-0e02b2c3d480" id="Dummy" name="Dummy" vmax="200" length="20" index="1">
+        <model manufacturer="Roco" scale="H0" catalognumber="43757">
+            <operator></operator>
+            <class></class>
+            <serialnumber>460 023-5</serialnumber>
+            <tractiontype>electric</tractiontype>
+            <weight>80</weight>
+            <vmax>200</vmax>
+            <image></image>
+            <notes>Dummy für Test</notes>
+        </model>
+        <decoder>
+            <protocol>DCC128</protocol>
+            <speedsteps>126</speedsteps>
+            <address>3</address>
+            <addresstype>short</addresstype>
+            <functiontable>
+                <function no="0" type="headlight" master="true" forward="www-xxw" backward="xxw-www"
+                          description="3x weiss/1x weiss - 1x weiss/3x weiss" visible="true"/>
+           </functiontable>
+            <speedtable>
+                <speed step="5" v="10"/>
+                <speed step="27" v="200"/>
+            </speedtable>
+        </decoder>
+        <operation>
+            <purchasedate>2022-05-01</purchasedate>
+            <operatingtime>20</operatingtime>
+            <traveldistance>1500</traveldistance>
+            <serviceinterval>40</serviceinterval>
+            <lastservice>2024-06-01</lastservice>
+            <servicecomment>Radsätze gereinigt</servicecomment>
+        </operation>
+    </loco>
+</locos>
