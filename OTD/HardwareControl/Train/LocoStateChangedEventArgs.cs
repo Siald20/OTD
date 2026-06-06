@@ -29,7 +29,7 @@ namespace OTD.HardwareControl.Train;
 /// Enthält entweder ein Fahrstufen-/Richtungsupdate oder ein Funktionsupdate.
 /// Protocol-unabhängige Abstraktion für alle Command Stations.
 /// </summary>
-public sealed class LocoStateChangedEventArgs : EventArgs, IDecoderStateChangedEventArgs
+public sealed class LocoStateChangedEventArgs : EventArgs
 {
     public int Address { get; }
     public int? SpeedStep { get; }

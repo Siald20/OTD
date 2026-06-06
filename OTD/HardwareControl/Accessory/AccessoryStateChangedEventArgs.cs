@@ -26,7 +26,7 @@ namespace OTD.HardwareControl.Accessory;
 /// <summary>
 /// Event arguments for accessory decoder state changes reported by a command station.
 /// </summary>
-public class AccessoryStateChangedEventArgs : EventArgs, IDecoderStateChangedEventArgs
+public class AccessoryStateChangedEventArgs : EventArgs
 {
     /// <summary>
     /// Address of the accessory decoder.
