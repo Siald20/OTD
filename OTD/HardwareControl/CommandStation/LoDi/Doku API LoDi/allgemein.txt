@@ -1,0 +1,185 @@
+Allgemeine API
+Verwendete Ports
+Jedes LoDi-Gerät hat eine eigene IP-Adresse. Die Kommunikation erfolgt über UDP auf
+Port 11092.
+Zur Kontrolle der Kommunikation werden Ping-Anfragen per ICMP beantwortet. Diese
+Möglichkeit ist eher für den Anwender gedacht und sollte von der Steuersoftware nicht
+verwendet werden. Siehe Verbindungsaufbau weiter unten.
+LoDi LX-Geräte wie z.B der LoDi-S88-Commander LX kommunizieren zusätzlich
+über TCP auf Port 11092.
+
+Paketformat
+Ein UDP-Datenpaket besteht aus mindestens 3 Bytes.
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Payload
+
+Ein TCP-Datenpaket besteht aus mindestens 5 Bytes.
+Länge high
+
+Länge low
+
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Payload
+
+Die Länge umfasst alle Bytes beginnend mit dem Pakettyp bis zum letzten Payload Byte.
+Diese Information wird benötigt, um die Pakete in einem TCP-Stream voneinander
+abzugrenzen.
+Die folgenden Pakettypen sind definiert:
+•
+
+0x20: REQ - Anfrage, wird entweder mit ACK, NACK, oder mit BUSY beantwortet
+0x21: ACK - Das REQ-Paket wurde erfolgreich bearbeitet
+0x22: EVT - Automatisch versendetes Paket über Änderungen an den Sensoren
+0x23: BUSY - Die Ausführung des REQ-Pakets wurde noch nicht abgeschlossen
+0x3F: NACK - Das REQ-Paket ist fehlerhaft. Die Anfrage kann nicht bearbeitet
+werden.
+
+Im Feld Kommando muss ein vom Gerät unterstütztes Kommando stehen.
+Die Paketnummer kann frei vergeben werden. Sie wird im Antwort-Paket gespiegelt. Die
+Paketnummer von EVT-Paketen wird von unseren Geräten sequentiell vergeben.
+Der Payload ist optional. Seine Länge hängt vom jeweiligen Kommando ab.
+
+Kommunikationsablauf
+Anfragen von der Steuersoftware
+Die Kommunikation erfolgt nach dem Halbduplex-Verfahren. Jede Anfrage durch die
+Steuersoftware wird mit einem REQ-Paket eingeleitet. Das Gerät antwortet mit
+einem ACK- oder einem NACK-Paket.
+Bei Kommandos, die eine Kommunikation mit Untergeräten benötigen kann ein REQPaket auch mit BUSY quittiert werden. In diesem Fall ist das REQ-Paket solange zu
+senden, bis entweder ACK- oder NACK- zurückkommt. Dazwischen können aber auch
+andere Anfragen gesendet werden. Kommandos, die mit BUSY antworten können sind
+entsprechend markiert.
+Erfolgt bei UDP innerhalb von 200ms keine Antwort vom Gerät kann von
+einem Paketverlust ausgegangen werden. In diesem Fall ist das REQ-Paket erneut zu
+senden. Erfolgt nach drei REQ-Paketen keine Antwort, so ist
+von Kommunikationsverlust zu diesem Gerät auszugehen.
+Bei TCP erfolgt bei Paketverlust die erneute Übertragung automatisch.
+Beispiel: Anfrage der Firmwareversion des Geräts
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+0x20
+
+0x0F
+
+0x01
+
+REQ-Paket von der Steuersoftware
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+0x21
+
+0x0F
+
+0x01
+
+Payload
+0x03
+
+0x01
+
+0x03
+
+0x01
+
+ACK-Paket vom Gerät: LoDi-Rektor v01.03.01
+Events
+Ein Gerät kann einen ungefragten Event an die Steuersoftware schicken. Events werden
+immer mit einem EVT-Paket verschickt. EVT-Pakete dürfen nicht von der Steuersoftware
+quittiert werden. EVT-Pakete werden mit aufsteigender Paketnummer versendet. Nicht
+empfangene EVT-Pakete werden so aufgedeckt.
+Beispiel: Event von einem LoDi-S88-Commander
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Payload
+
+0x22
+
+0x31
+
+0x02
+
+0x02 0x02 0x06 0x01 0x02 0x07 0x00
+
+EVT-Paket: 2 Melder, [S88-Adr 2, Eingang 6, ein], [S88-Adr 2, Eingang 7, aus]
+
+Verbindungsaufbau
+Der Verbindungsaufbau sollte in den folgenden Schritten erfolgen:
+1. UDP-Port lokal in der Steuersoftware öffnen oder eine TCP-Verbindung zum Gerät
+aufbauen. Die lokale Portnummer ist dabei egal.
+2. Ein REQ-Paket mit dem Kommando 0x0F (Abfrage FW-Version) an die IP-Adresse
+des Geräts an Port 11092 senden.
+3. Antwort prüfen, Timeout 200ms
+4. zyklisch: Event-Pakete bearbeiten, weitere Kommandos, ggf. zyklisches Pollen
+von benötigten Informationen
+
+Suchen nach Geräten
+Unsere Geräte antworten auch auf UDP Broadcast-Anfragen. Zum Scannen nach
+Geräten genügt es auf allen Netzwerkanschlüssen mit einer Netzwerkmaske ungleich
+255.255.255.255 per UDP-Broadcast an die entsprechende Broadcast-Adresse des
+Netzwerkanschlusses ein REQ-Paket mit dem Kommando 0x0F zu senden. Die Geräte
+antworten dann per ACK-Paket mit ihrer Geräte-Kennung und der Firmware-Version. Die
+folgenden Geräte-Kennungen sind definiert:
+•
+
+0x03: LoDi-Rektor
+
+•
+
+0x09: LoDi-Shift-Commander
+
+•
+
+0x0A: LoDi-S88-Commander (LX)
+
+Bei dem LoDi-S88-Commander kann zwischen der alten Variante und dem LX
+unterschieden werden. Der LX hat eine Firmware ab Version v06.00.00.
+Sollten sich die Netzwerkanschlüsse nicht abfragen lassen, so kann die allgemeine
+Broadcast-Adresse 255.255.255.255 verwendet werden.
+
+Beispiel:
+gefundene Netzwerke:
+wlan: 192.168.1.2 netmask 255.255.255.0 broadcast 192.168.1.255
+lan0: 192.168.2.1 netmask 255.255.255.0 broadcast 192.168.2.255
+
+Es sind zwei UDP Broadcast-Pakete zu versenden:
+1. Zieladresse 192.168.1.255, Zielport 11092, Inhalt des UDP-Pakets 0x20, 0x0F,
+0x00
+2. Zieladresse 192.168.2.255, Zielport 11092, Inhalt des UDP-Pakets 0x20, 0x0F,
+0x01
+Antwort der Geräte:
+1. Adresse 192.168.2.88, Inhalt des UDP-Pakets 0x21, 0x0F, 0x01, 0x0A, 0x04, 0x02,
+0x04
+LoDi-S88-Commander v04.02.04
+2. Adresse 192.168.2.44, Inhalt des UDP-Pakets 0x21, 0x0F, 0x01, 0x03, 0x01, 0x03,
+0x01
+LoDi-Rektor v01.03.01
+Alle Geräte befinden sich also am Netzwerkanschluss lan0.
+
+Lokstoredigital e.K.
+Andreas Hornung
+Stäffelsbergstrasse 13
+76889 Dörrenbach
+info@lokstoredigital.de
+
+

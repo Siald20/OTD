@@ -1,0 +1,158 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// OpenTrainDrive - DecoderControl
+// Copyright (C) 2026
+//
+// Authors:
+// - Hansueli Alder <info@batec.net>
+//
+// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
+// der GNU General Public License, wie von der Free Software Foundation,
+// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
+// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+//
+// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
+// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
+// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
+// Siehe die GNU General Public License für weitere Details.
+//
+// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
+// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Xml.Linq;
+
+namespace OTD.HardwareControl.Train;
+
+/// <summary>
+/// Controls a car decoder, including function handling and direction synchronization,
+/// with configuration loaded from XML.
+/// Cars are non-powered vehicles; speed is always 0.
+/// </summary>
+public class Car : IVehicle
+{
+    private readonly LocoDecoder? _locoDecoder;
+
+    /// <summary>
+    /// Unique identifier of this car.
+    /// </summary>
+    public Guid VehicleId { get; }
+
+    /// <summary>
+    /// Raw XML configuration element from cars.xml for this car.
+    /// Accessible via <see cref="VehicleConfig"/> through <see cref="IVehicle"/>.
+    /// </summary>
+    public readonly XElement? CarConfig;
+
+    /// <inheritdoc/>
+    public XElement? VehicleConfig => CarConfig;
+
+    /// <summary>
+    /// Indicates whether this car has a configured decoder.
+    /// </summary>
+    [MemberNotNullWhen(true, nameof(_locoDecoder))]
+    public bool HasDecoder => _locoDecoder is not null;
+
+    /// <summary>
+    /// Direct access to the configured car decoder, if available.
+    /// </summary>
+    public ILocoDecoder? LocoDecoder => _locoDecoder;
+
+    /// <summary>
+    /// Current decoder direction.
+    /// </summary>
+    public VehicleDirection Direction => _locoDecoder?.Direction ?? VehicleDirection.Undefined;
+
+    /// <summary>
+    /// Gets the configured car length.
+    /// </summary>
+    public int Length { get; }
+
+    /// <summary>
+    /// Scale-based minimum speed (km/h, mph) at speed step 1.
+    /// Not applicable for cars, value is always 0.
+    /// </summary>
+    public int VMin { get; } = 0;
+
+    /// <summary>
+    /// Scale-based maximum speed (km/h, mph).
+    /// </summary>
+    public int VMax { get; }
+
+    /// <summary>
+    /// Scale-based weight (tons, etc.).
+    /// </summary>
+    public int Weight { get; }
+
+    /// <summary>
+    /// Creates a car instance and loads the car configuration from XML.
+    /// Command stations can be subscribed directly via <see cref="LocoDecoder"/>.
+    /// </summary>
+    /// <param name="vehicleId">The unique identifier of the car.</param>
+    public Car(Guid vehicleId)
+    {
+        try
+        {
+            VehicleId = vehicleId;
+            CarConfig = TrainUtils.ReadXConfiguration("car", vehicleId);
+            if (CarConfig is null)
+            {
+                throw new InvalidOperationException(
+                    $"Car configuration not found for car '{vehicleId}'.");
+            }
+
+            // LocoDecoder-Konfiguration laden, falls vorhanden. Nicht alle Wagen müssen zwingend einen LocoDecoder haben;
+            // ein fehlender oder leerer <decoder>-Knoten bedeutet: kein LocoDecoder vorhanden.
+            var decoderConfig = CarConfig.Element("decoder");
+            if (decoderConfig is not null && decoderConfig.HasElements)
+            {
+                _locoDecoder = new LocoDecoder(decoderConfig);
+            }
+
+            var modelElement = CarConfig.Element("model");
+            Length = TrainUtils.GetVehicleLength(CarConfig.Attribute("length")?.Value);
+            VMax = TrainUtils.GetVehicleVMax(modelElement);
+            Weight = TrainUtils.GetVehicleWeight(modelElement);
+        }
+        catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
+        {
+            Console.WriteLine($"Fehler beim Laden der Wagen-Konfiguration '{vehicleId}': {ex.Message}");
+            throw new InvalidOperationException($"Car configuration could not be loaded for '{vehicleId}'.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Configured decoder functions (e.g. headlights, couplings).
+    /// </summary>
+    public IReadOnlyList<VehicleFunctions> Functions => _locoDecoder?.Functions ?? Array.Empty<VehicleFunctions>();
+
+    /// <summary>
+    /// Sets the decoder direction for this car (speed step always 0).
+    /// Keeps the decoder direction in sync with the train for headlight logic.
+    /// Has no effect when no decoder is configured.
+    /// </summary>
+    public async Task SetDirectionAsync(
+        TrainDirection trainDirection,
+        VehicleOrientation orientation,
+        bool forceSend = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (!HasDecoder)
+            return;
+
+        var decoder = _locoDecoder;
+        var decoderDirection = LocoDecoderUtils.ResolveDecoderDirection(trainDirection, orientation);
+
+        if (!forceSend && decoder.Direction == decoderDirection && decoder.SpeedStep == 0)
+            return;
+
+        await decoder.SetSpeedStepAsync(decoderDirection, 0, forceSend, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+
+}

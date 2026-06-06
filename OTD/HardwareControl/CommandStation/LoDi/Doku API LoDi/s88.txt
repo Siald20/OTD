@@ -1,0 +1,745 @@
+API LoDi-S88-Commander LX
+Einführung
+Im folgenden werden die vom LoDi-S88-Commander LX verstandenen Kommandos
+aufgelistet. Die Kommunikation zum Gerät wird im Abschnitt Allgemeine API erklärt.
+
+Basis-Kommandos
+GetVersion
+Dieses Kommando liefert die Gerätekennung sowie die FW-Version des Geräts.
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+0x20
+
+0x0F
+
+0x00 .. 0xFF
+
+Von Steuersoftware zu senden
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Gerätetyp
+
+0x21
+
+0x0F
+
+0x00 .. 0xFF
+
+0x0A
+
+Major
+
+Minor
+
+Patch
+
+Antwort vom Gerät
+Der Gerätetyp ist beim LoDi-S88-Commander immer 0x0A.
+Die Firmware-Version setzt sich aus den drei Komponenten Major, Minor und Patch
+zusammen. Sie wird im Format "v<Major>.<Minor>.<Patch>" angezeigt. Beispiel:
+"v01.01.01"
+Die Major-Version ändert sich nur, wenn eine komplett neue Hardware mit geänderten
+Eigenschaften und Funktionsumfang herausgebracht wird.
+Die Minor-Version ändert sich, wenn Ergänzungen an der API erfolgen. Diese können bei
+einzelnen Kommandos auch inkompatibel sein.
+Die Patch-Version ändert sich bei allgemeinen Fehlerbehebungen, die nicht die API
+betreffen.
+
+DeviceConfigGet
+Dieses Kommando liest die Einstellungen des LoDi-S88-Commanders.
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+0x20
+
+0x35
+
+0x00 .. 0xFF
+
+Von Steuersoftware zu senden
+Paket
+Länge
+Geschwindigkeit
+Pakettyp Kommando numm
+er
+Bus1 Bus2 Bus1
+Bus2
+
+0x21
+
+0x35
+
+0x00 ..
+0..48 0..48 0..2
+0xFF
+
+Busse
+trennen
+
+µConKomp
+at
+
+Adressen
+
+0..1
+
+0
+
+1
+
+verw.
+
+0..2
+
+Regenmodus
+
+0..1
+
+Einschaltverz.
+
+Ausschaltverz.
+
+Bus1
+
+Bus2
+
+Bus1
+
+0,10,
+
+0,10,
+
+0,10,
+
+100,250
+
+100,250 100,250
+
+Bus2
+0,10,
+100,25
+0
+
+Railcom Railcom Baudrate Baudra
+Geschw.
+QoS
+high
+te low
+1
+
+0..1
+
+9500..11000
+
+Antwort vom Gerät
+Die Felder Länge Bus1 und Länge Bus2 geben die Anzahl der am jeweiligen Bus
+angeschlossenen Module wieder. Ein Modul ist dabei immer 16 Eingänge lang.
+Insgesamt dürfen 96 Module angeschlossen werden.
+Die Einträge Geschwindigkeit Bus1 und Geschwindigkeit Bus2 enthalten die S88Busgeschwindigkeit.
+•
+
+0: Schnell
+
+•
+
+1: Normal
+
+•
+
+2: Langsam
+
+Die Busgeschwindigkeit ist vor allem bei langen Bussen wichtig, um eine hohe
+Abfragerate zu erreichen. Der erste Takt eines Buszyklus hält sich immer an die im S88Standard definierten Werte. Alle am Markt erhältlichen Module sollten die Einstellung 1
+(Normal) vertragen, da diese dem S88-Standard entspricht. Oft funktioniert die
+Einstellung 0 (Schnell). Alle LoDi-Rückmelder unterstützen die Einstellung schnell.
+
+Die Felder Einschaltverzögerung Bus1 und Einschaltverzögerung Bus 2 bestimmen,
+wie schnell eine erkannte Belegtmeldung auslösen soll. In der Regel sollte hier der Wert
+0 (Keine) eingetragen werden.
+•
+
+0: Keine
+
+•
+
+10: Kurz (100 ms)
+
+•
+
+100: Mittel (1 s)
+
+•
+
+250: Lang (2,5 s)
+
+Die Felder Ausschaltverzögerung Bus1 und Ausschaltverzögerung Bus 2 bestimmen,
+wie lange eine Belegtmeldung noch aktiv sein soll, wenn kein Signal erkannt wurde. In
+der Regel sollte hier der Wert 100 (Mittel) eingetragen werden, um ein Flackern der
+Belegtmeldung und einen ausreichend großen Sicherheitsabstand zu erreichen.
+•
+
+0: Keine
+
+•
+
+10: Kurz (100 ms)
+
+•
+
+100: Mittel (1 s)
+
+•
+
+250: Lang (2,5 s)
+
+Das Feld Busse trennen wird aktuell nicht unterstützt und sollte deshalb den Wert 0
+haben.
+Mit der Einstellung µCon Kompatibilität kann man den LoDi-S88-Commander in einem
+zum µCon-S88-Master kompatiblen Modus schalten. Das Gerät öffnet einen
+zusätzlichen UDP Port (11082) und hört dort auf µCon-S88-Master kompatible
+Kommandos. Alle Events werden im µCon-kompatiblen Format gesendet. Es sind kein
+RailCom und keine Strommessung verfügbar.
+Das Feld Adressen verwenden wird derzeit nicht unterstützt. Es sollte den Wert 1
+haben.
+
+S88-Module
+S88BusModulesGet
+List alle an den beiden S88-Bussen angeschlossenen Geräte sortiert nach ihren S88Adressen ein.
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+0x20
+
+0xA0
+
+0x00 .. 0xFF
+
+Von Steuersoftware zu senden
+Pakettyp Kommando Paketnummer Anzahl Moduladresse1
+
+0x21
+
+0xA0
+
+0x00 .. 0xFF 0..192
+
+0 .. 127
+
+Modultyp
+
+0, 0x31, 0x32
+
+Moduladresse2 Moduladresse3
+
+0 .. 255
+
+0 .. 127
+
+Antwort vom Gerät
+Im Feld Anzahl wird die Anzahl der folgenden Bytes übergeben, wobei die Anzahl der
+Bytes mal zwei zu nehmen ist, da zwei Blöcke mit Informationen folgen, die jeweils so
+lang sind, wie der in Anzahl angegebene Wert.
+Der erste Block beinhaltet die tatsächlich am Bus gescannten Module. Eine 0 in diesem
+Block bedeutet, dass es sich um ein Standard S88-Modul handelt. S88.2-kompatible
+Module haben im Modultyp die Kennung 0x31 oder 0x32.
+•
+
+0x31 LoDi-8-GBM
+
+•
+
+0x32 LoDi-RM-16+
+
+•
+
+0x34 LoDi-8-GBM-P
+
+Die Moduladresse1 ist im Falle eines Standard S88-Moduls 0. Sonst gibt sie die in
+einem S88.2-kompatiblen Modul hinterlegte Adresse an.
+Der zweite Block führt die Adressen aller S88-Module zusammen. Jede Position im Block
+bildet die resultierende Adresse im S88-Bus ab. Da S88-Module in der Regel zwei Byte
+lang sind, folgt also zwei Mal dieselbe Adresse hintereinander. In Moduladresse2 kann
+zusätzlich noch das oberste Bit gesetzt sein, um anzuzeigen, dass dieses Modul bereit
+ist eine neue Adresse zu erhalten. Es befindet sich also im Programmiermodus. Ist die
+Moduladresse2 255 so hat das Modul noch keine Adresse erhalten.
+
+S88ModulNameGet
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Moduladresse
+
+0x20
+
+0xA3
+
+0x00 .. 0xFF
+
+0 .. 127
+
+Von der Steuersoftware zu senden
+Das Feld Moduladresse enthält die S88-Adresse des zu lesenden Moduls.
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Länge
+
+0x21
+
+0xA3
+
+0x00 .. 0xFF
+
+0 .. 16
+
+Zeichen 0
+
+..
+
+Zeichen n
+
+Antwort vom Gerät
+Das Feld Länge bestimmt die Anzahl der in Zeichen 0 bis Zeichen n folgenden Zeichen.
+Der daraus resultierende String enthält den Namen des Moduls.
+S88ChannelNamesGet
+List die Kanalnamen eines S88.2-kompatiblen Moduls aus.
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Moduladresse
+
+0x20
+
+0xA5
+
+0x00 .. 0xFF
+
+0 .. 127
+
+Von Steuersoftware zu senden
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Länge
+
+0x21
+
+0xA5
+
+0x00 .. 0xFF
+
+0 .. 16
+
+Zeichen 0
+
+..
+
+Zeichen n
+
+Antwort vom Gerät
+Das Antwortpaket enthält eine Liste der Kanalnamen in der Reihenfolge der Kanäle.
+Jeder Eintrag besteht aus der Länge gefolgt von den Zeichen. Die Gesamtanzahl der
+Einträge kann entweder vom Modultyp des angefragten Moduls oder der Paketlänge
+abgeleitet werden.
+Das Feld Länge bestimmt die Anzahl der in Zeichen 0 bis Zeichen n folgenden Zeichen.
+Der daraus resultierende String enthält den Namen des Kanals
+
+Modulstatus
+S88MelderGet
+Liest die Melder aller Module aus.
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+0x20
+
+0x30
+
+0x00 .. 0xFF
+
+Von Steuersoftware zu senden
+Pakettyp Kommando Paketnummer Anzahl Moduladresse StatusHigh StatusLow
+0x21
+
+0x30
+
+0x00 .. 0xFF
+
+0 .. 96
+
+0 .. 127
+
+Antwort vom Gerät
+Das Feld Anzahl bestimmt, wie viele Module nachfolgend gesendet werden.
+StatusHigh und StatusLow ergeben zusammen die bit-codierte Belegtmeldung des
+Moduls.
+S88LokAddrGet
+Holt die Railcom-Rückmeldungen zu einem bestimmten Kanal eines S88.2-Moduls.
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Moduladresse
+
+0x20
+
+0xA7
+
+0x00 .. 0xFF
+
+0 .. 127
+
+Von Steuersoftware zu senden
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Anzahl
+
+Kanalnummer
+
+0x21
+
+0xA7
+
+0x00 .. 0xFF
+
+0 .. 64
+
+0 .. 15
+
+LokAddrHigh
+
+LokAddrLow
+
+Antwort vom Gerät
+Anzahl gibt an wie viele Lok-Meldungen folgen werden. Die Lokmeldungen haben keine
+spezifische Reihenfolge.
+Die Felder LokAddrHigh und LokAddrLow ergeben die DCC-Adresse und die Richtung
+der Lok.
+LokAddr = LokAddrHigh*256 + LokAddrLow
+LokDirection = LokAddrHigh & 0x80
+
+S88CurrentLevelsGet
+Liest die gemessene Stromstärke aller Kanäle von einem S88.2-Modul.
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Moduladresse
+
+0x20
+
+0xAA
+
+0x00 .. 0xFF
+
+0 .. 127
+
+Von Steuersoftware zu senden
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Anzahl
+
+Stromstärke
+
+0x21
+
+0xAA
+
+0x00 .. 0xFF
+
+0 .. 16
+
+0 .. 255
+
+Antwort vom Gerät
+Anzahl gibt an wie viele Kanäle folgen werden. Die Strommessungen werden in der
+Reihenfolge der Kanäle gesendet.
+Das Feld Stromstärke enthält den gemessenen Strom. Dieser Wert dient nur als
+Indikator und kann zum Einstellen der Belegt- und Kurzschlussschwelle verwendet
+werden.
+
+Events
+Events werden ungefragt an jeden aktiven Kommunikationspartner gesendet. Sie
+enthalten in der Regel Änderungen an den unter Modulstatus aufgeführten Zuständen.
+Weiterhin werden Rückmeldungen von CV-Kommandos, die an Railcom-fähige Loks
+gehen über diesen Weg zurückgemeldet.
+Die Event-Meldungen werden vom LoDi-S88-Commander im Feld Paketnummer von 0
+bis 255 durchnummeriert. Hierüber kann ein Paketausfall erkannt werden und ggf. die
+Informationen über die Status-Kommandos aktualisiert werden.
+
+S88EventsActivate
+Dieses Kommando aktiviert die Events für eine Verbindung.
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+Aktiv
+
+0x20
+
+0x01
+
+0x00 .. 0xFF
+
+0 .. 1
+
+Von Steuersoftware zu senden
+Pakettyp
+
+Kommando
+
+Paketnummer
+
+0x21
+
+0x01
+
+0x00 .. 0xFF
+
+Antwort vom Gerät
+Das Feld Aktiv bestimmt. ob Events gesendet werden sollen oder nicht.
+•
+
+0: Events nicht senden (abmelden)
+
+•
+
+1: Events senden (anmelden)
+
+S88MelderEvent
+Dieser Event enthält Änderungen in der Belegtmeldung. Es können mehrere Änderungen
+auf einmal übertragen werden,
+Pakettyp
+
+Event
+
+Paketnummer
+
+0x22
+
+0x31
+
+0x00 .. 0xFF
+
+Anzahl
+
+Moduladresse
+
+Kanal
+
+Status
+
+1 .. 127
+
+1 .. 16
+
+0 .. 1
+
+Event vom Gerät
+Das Feld Anzahl gibt an, wie viele Meldungen folgen werden.
+Sollte sich nichts am Melder geändert haben wird alle 1 Sekunden ein Keepalive über
+den Event 0x31 änderung 0 gesendet.
+Jede Meldung enthält die Felder Moduladresse, welche die S88-Adresse des
+meldenden Moduls angibt, Kanal, der den meldenden Kanal innerhalb des Moduls
+enthält und Status, der anzeigt, ob die Meldung kommend oder gehend ist.
+•
+
+0: Meldung geht, es befindet sich keine Lok im Block
+
+•
+
+1: Meldung kommt, es ist eine Lok in den Block eingefahren
+
+S88LokAddrEvent
+Dieser Event wird bei Änderungen in den RailCom-Rückmeldungen gesendet. Er wird
+ausgelöst, wenn eine Lok neu in einem Block erkannt wird, oder eine Lok eine gewisse
+Zeit (ca. 1s) nicht mehr im Block erkannt wurde.
+Pakettyp Event Paketnummer Anzahl Moduladresse Kanal LokAddrHigh LokAddrLow Status
+0x22
+
+0x3C
+
+0x00 .. 0xFF
+
+1 .. 127
+
+0 .. 15
+
+0 .. 1
+
+Event vom Gerät
+Das Feld Anzahl gibt an, wie viele Meldungen folgen werden.
+Jede Meldung enthält die Felder Moduladresse, Kanal, LokAddrHigh, LokAddrLow und
+Status.
+Die Moduladresse enthält die S88-Adresse des meldenden Moduls.
+Das Feld Kanal enthält den auslösenden Kanal innerhalb des Moduls.
+Die Felder LokAddrHigh und LokAddrLow ergeben zusammen die DCC-Adresse und
+die Richtung der Lok:
+LokAddr = LokAddrHigh*256 + LokAddrLow
+LokDirection = LokAddrHigh & 0x80
+Das Feld Status gibt an, ob es sich um eine kommende oder gehende Meldung handelt.
+•
+
+0: Die Lok-Adresse wurde neu im Block erkannt.
+
+•
+
+1: Die Lok-Adresse wurde für ca. 1s nicht mehr im Block erkannt.
+
+S88RawEvent
+Dieser Event leitet Daten, die von einem S88.2-Modul gesendet und nicht anderweitig
+verarbeitet wurden weiter. Er wird aktuell nur für die Strommessung und den
+Modulstatus verwendet.
+Pakettyp Event Paketnummer Anzahl Moduladresse
+0x22
+
+0x3A
+
+0x00 .. 0xFF
+
+1 .. 127
+
+Eventtyp_Kanal
+
+Status
+
+Typ | 0 .. 15
+
+0 .. 255
+
+Event vom Gerät
+Das Feld Anzahl gibt an, wie viele Meldungen folgen werden.
+Jede Meldung enthält die Felder Moduladresse, Eventtyp+Kanal und Status.
+Die Moduladresse enthält die S88-Adresse des meldenden Moduls.
+Das Feld Eventtyp_Kanal enthält den auslösenden Kanal innerhalb des Moduls sowie
+den Eventtyp. Es ist wie folgt kodiert:
+•
+
+Eventtyp = Eventtyp_Kanal / 16
+
+•
+
+Kanal = Eventtyp_Kanal & 0x0F
+
+Das Feld Status gibt den Inhalt der Meldung wieder. Es ist je nach Eventtyp kodiert.
+Eventtyp
+
+Status
+
+0x1X
+
+Bit 0: ProgMode aktiv
+Bit 4: DCC-Power an
+Bit 5: Railcom-Signal gefunden
+
+0x2X
+
+Strommessung
+
+0x3X
+
+Gleisqualität 0..100%, ab Firmware v05.02.02
+
+Bedeutung des Feldes Eventtyp
+Die Gleisqualität wird auf den Belegtmeldeabschnitt und nicht auf die Lok bezogen. Für
+die Ermittlung der Gleisqualität wird eine von zwei Methoden verwendet:
+1. Ohne Railcom: Die Kontaktqualität wird über den Jitter in der Strommessung
+bestimmt.
+2. Mit Railcom: Wenn eine Lok fährt, wird ermittelt, wie oft das Railcom der Lok
+empfangen wird, wenn diese im DCC adressiert wird. Stehende Loks werden
+nicht betrachtet.
+
+S88RailcomResponseEvent
+Dieser Event dient als Rückmeldung auf CV-Befehle, die über DCC an eine Lok gesendet
+wurden.
+Pakettyp Event Paketnummer Eventtyp Moduladresse Kanal LokAddrHigh LokAddrLow Daten
+0x22
+
+0x3B
+
+0x00 .. 0xFF
+
+1 .. 127
+
+0 .. 15
+
+Event vom Gerät
+Der Eventtyp kann die folgenden Werte annehmen:
+•
+
+0x01: ACK, Bestätigung eines Kommandos (nicht implementiert)
+
+•
+
+0x11: CV Byte lesen, Daten enthält das gelesene Byte
+
+•
+
+0x20: Geschwindigkeit der Lok, die vom Dekoder über Railcom DYN 0 übertragen
+wird 0..255 in km/h, ab Firmware v05.02.02
+
+•
+
+0x21: Geschwindigkeit der Lok, die vom Dekoder über Railcom DYN 1 übertragen
+wird 256 + Daten in km/h, ab Firmware v05.02.02
+
+•
+
+0x27: DCC-Qualität, die vom Dekoder über Railcom DYN 7 übertragen wird
+0..100%, ab Firmware v05.02.02
+
+Im Feld Moduladresse ist die S88-Adresse des S88.2-Moduls kodiert.
+Das Feld Kanal gibt die Kanalnummer innerhalb des Moduls an.
+Die DCC-Adresse der Lok wird aus den beiden
+Feldern LokAddrHigh und LokAddrLow berechnet.
+LokAddr = LokAddrHigh*256 + LokAddrLow
+
+Lokstoredigital e.K.
+Andreas Hornung
+Stäffelsbergstrasse 13
+76889 Dörrenbach
+info@lokstoredigital.de
+
+
