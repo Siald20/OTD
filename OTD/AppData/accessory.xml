@@ -64,6 +64,9 @@
         </states>
     </accessory>
     <!-- Signal Typ SBB-L (Basis-Protokoll, Aktivierungszeit 500 ms, keine Pause zwischen Schaltvorgängen) -->
+    <!-- Die Idee wäre, die beiden Ausgänge bei Adresse 203 alternativ für Hilfssignal/Besetzte Einfahrt zu nutzen
+     mit der aktuell programmierten "Flip-Flop" Funktion bei Dauerschaltung lassn sich jedoch nicht beide ausschalten.
+     Das muss noch gefixt werden (und auch am Decoder getestet werden, ob überhaupt so möglich) -->
     <accessory uid="b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e" type="signal" subtype="SBB-L" id="S1" interlocking="Bi" >
         <model>
             <signalsystem>SBB-L</signalsystem>
@@ -74,25 +77,30 @@
         </decoder>
         <states>
             <state id="Halt" description="Halt">
-                <decoder address="20" outputvalue="0"/>
-                <decoder address="51" outputvalue="0"/>
-                <decoder address="52" outputvalue="0"/>
+                <decoder address="200" outputvalue="0"/>
+                <decoder address="201" outputvalue="0"/>
+                <decoder address="202" outputvalue="0"/>
             </state>
             <state id="Im1" description="Freie Fahrt">
-                <decoder address="50" outputvalue="1"/>
-                <decoder address="51" outputvalue="0"/>
-                <decoder address="52" outputvalue="0"/>
+                <decoder address="200" outputvalue="1"/>
+                <decoder address="201" outputvalue="0"/>
+                <decoder address="202" outputvalue="0"/>
             </state>
             <state id="Im2" description="Fahrbegriff 2 (40 km/h)">
-                <decoder address="50" outputvalue="1"/>
-                <decoder address="51" outputvalue="1"/>
-                <decoder address="52" outputvalue="0"/>
+                <decoder address="200" outputvalue="1"/>
+                <decoder address="201" outputvalue="1"/>
+                <decoder address="202" outputvalue="0"/>
+            </state>
+            <state id="Im3" description="Fahrbegriff 3 (60 km/h)">
+                <decoder address="200" outputvalue="1"/>
+                <decoder address="201" outputvalue="0"/>
+                <decoder address="202" outputvalue="1"/>
             </state>
             <state id="HS" description="Hilfssignal">
-                <decoder address="53" outputvalue="1"/>
+                <decoder address="203" outputvalue="1"/>
             </state>
             <state id="BS" description="besetzte Einfahrt">
-                <decoder address="54" outputvalue="1"/>
+                <decoder address="203" outputvalue="1"/>
             </state>
         </states>
     </accessory>
@@ -103,25 +111,25 @@
         </decoder>
         <states>
             <state id="Halt" description="Halt (rot)">
-                <decoder address="200" outputvalue="0"/>
+                <decoder address="300" outputvalue="0"/>
             </state>
             <state id="Freie Fahrt" description="freie Fahrt (grün)">
-                <decoder address="200" outputvalue="1"/>
+                <decoder address="300" outputvalue="1"/>
             </state>
             <state id="Ausf60" description="Ausführung 60 km/h (grün mit Anzeige 6)">
-                <decoder address="200" outputvalue="2"/>
+                <decoder address="300" outputvalue="2"/>
             </state>
             <state id="Warnung" description="Warnung (orange)">
-                <decoder address="200" outputvalue="3"/>
+                <decoder address="300" outputvalue="3"/>
             </state>
             <state id="Vorwarnung" description="Vorwarnung (orange mit Anzeige V)">
-                <decoder address="200" outputvalue="4"/>
+                <decoder address="300" outputvalue="4"/>
             </state>
             <state id="Ank60" description="Ankündigung 60 km/h (orange mit Anzeige 6)">
-                <decoder address="200" outputvalue="6"/>
+                <decoder address="300" outputvalue="6"/>
             </state>
             <state id="Hilfssignal" description="Hilfssignal (rot blinkend)">
-                <decoder address="200" outputvalue="7"/>
+                <decoder address="300" outputvalue="7"/>
             </state>
         </states>
     </accessory>
