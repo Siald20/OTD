@@ -1,0 +1,57 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Style Selector="Button.signal-button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.signal-button /template/ ContentPresenter">
+        <Setter Property="Background" Value="#A00"/>
+        <Setter Property="BorderBrush" Value="#a00"/>
+        <Setter Property="BorderThickness" Value="4"/>
+    </Style>
+    <Style Selector="Button.signal-button:pointerover">
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.signal-button:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#CC2222"/>
+        <Setter Property="BorderBrush" Value="#FFFFFF"/>
+        <Setter Property="BorderThickness" Value="4"/>
+    </Style>
+    <Style Selector="Button.signal-button:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#7A0000"/>
+        <Setter Property="BorderBrush" Value="#DDDDDD"/>
+    </Style>
+
+    <!-- Speicher-Taste: gelb, mit optionalem Blink-/Leuchteffekt über Klasse "blinking" -->
+    <Style Selector="Button.signal-button-storage">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.signal-button-storage /template/ ContentPresenter">
+        <Setter Property="Background" Value="#5A4A00"/>
+        <Setter Property="BorderBrush" Value="#E6C200"/>
+        <Setter Property="BorderThickness" Value="3"/>
+    </Style>
+    <Style Selector="Button.signal-button-storage:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#7A6500"/>
+        <Setter Property="BorderBrush" Value="#FFDD33"/>
+    </Style>
+    <Style Selector="Button.signal-button-storage:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#3D3200"/>
+        <Setter Property="BorderBrush" Value="#D4B200"/>
+    </Style>
+
+    <Style Selector="Button.signal-button-storage.blinking /template/ ContentPresenter">
+        <Setter Property="Background" Value="#FFD400"/>
+        <Setter Property="BorderBrush" Value="#FFF3A3"/>
+    </Style>
+    <Style Selector="Button.signal-button-storage.blinking-offphase /template/ ContentPresenter">
+        <Setter Property="Background" Value="#6B5600"/>
+        <Setter Property="BorderBrush" Value="#D9B800"/>
+    </Style>
+    <Style Selector="Button.signal-button-storage.blinking:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#B89400"/>
+        <Setter Property="BorderBrush" Value="#FFF0A0"/>
+        <Setter Property="BorderThickness" Value="3"/>
+    </Style>
+</Styles>
