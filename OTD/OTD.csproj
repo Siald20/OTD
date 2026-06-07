@@ -47,6 +47,12 @@
     <Compile Update="MainWindow.axaml.cs">
       <DependentUpon>MainWindow.axaml</DependentUpon>
     </Compile>
+    <Compile Update="WsrTestWindow.axaml.cs">
+      <DependentUpon>WsrTestWindow.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="RelayPlanWindow.axaml.cs">
+      <DependentUpon>RelayPlanWindow.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>

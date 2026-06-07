@@ -19,6 +19,7 @@
         <entry key="OTD/Controlls/InterlockingEnlements/Styles/SignalTilesStyles.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Controlls/InterlockingEnlements/TrackTiles/TrackTiles.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/MainWindow.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/RelayPlanWindow.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Styles/ModernRailTheme.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Styles/TrackPlanTheme.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/UI/Styles/Styles.axaml" value="OTD/OTD.csproj" />
@@ -37,6 +38,7 @@
         <entry key="OTD/Views/MainPage.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Views/SettingsWindow.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Views/TrackPlanPage.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/WsrTestWindow.axaml" value="OTD/OTD.csproj" />
       </map>
     </option>
   </component>
