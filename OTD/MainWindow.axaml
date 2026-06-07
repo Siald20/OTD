@@ -1,245 +1,89 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="OTD.MainWindow"
-        Title="OTD"
-        Width="1200"
-        Height="800"
-        MinWidth="800"
-        MinHeight="600"
-        WindowStartupLocation="CenterScreen"
-        Background="#ECEFF3">
-    <Grid ColumnDefinitions="260,*"
-          RowDefinitions="*,Auto">
-        <Border Grid.RowSpan="2"
-                Background="#17202A"
-                Padding="24">
-            <StackPanel Spacing="18">
-                <TextBlock Text="OTD"
-                           FontSize="32"
-                           FontWeight="Bold"
-                           Foreground="White" />
-                <TextBlock Text="Open Train Dispatcher"
-                           FontSize="14"
-                           Foreground="#B7C1CC" />
-                <TextBlock Text="Settings"
-                           FontSize="16"
-                           Foreground="#D8DEE6"
-                           Margin="0,8,0,0" />
-                <TextBlock Text="Anlage"
-                           FontSize="16"
-                           Foreground="#D8DEE6"
-                           Margin="0,8,0,0" />
-                <TextBlock Text="Hardware"
-                           FontSize="16"
-                           Foreground="#D8DEE6"
-                           Margin="0,8,0,0" />
-                <TextBlock Text="Diagnose"
-                           FontSize="16"
-                           Foreground="#D8DEE6"
-                           Margin="0,8,0,0" />
-            </StackPanel>
-        </Border>
+        Title="OTD - Open Train Dispatcher"
+        Width="1000"
+        Height="700"
+        MinWidth="760"
+        MinHeight="520"
+        WindowState="Maximized"
+        SystemDecorations="Full"
+        CanResize="True"
+        ShowInTaskbar="True">
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_Anlage">
+                <MenuItem Header="_Neue Anlage" />
+                <MenuItem Header="Anlage _öffnen..." />
+                <MenuItem Header="Anlage _speichern"
+                          InputGesture="Ctrl+S" />
+                <MenuItem Header="Speichern _unter..." />
+                <Separator />
+                <MenuItem Header="_Beenden"
+                          InputGesture="Alt+F4"
+                          Click="ExitApplication" />
+            </MenuItem>
 
-        <Grid Grid.Column="1"
-              Margin="32"
-              RowDefinitions="Auto,*">
-            <StackPanel Spacing="6">
-                <TextBlock Text="Settings"
-                           FontSize="30"
-                           FontWeight="SemiBold"
-                           Foreground="#111827" />
-                <TextBlock Text="Startparameter, Verbindung und lokale Daten"
-                           FontSize="14"
-                           Foreground="#5B6472" />
-            </StackPanel>
+            <MenuItem Header="_Betrieb">
+                <MenuItem Header="Betrieb _starten" />
+                <MenuItem Header="Betrieb _pausieren" />
+                <MenuItem Header="Betrieb _beenden" />
+                <Separator />
+                <MenuItem Header="_Nothalt"
+                          InputGesture="F12" />
+                <MenuItem Header="Gleisspannung _einschalten" />
+                <MenuItem Header="Gleisspannung _ausschalten" />
+            </MenuItem>
 
-            <TabControl Grid.Row="1"
-                        Margin="0,28,0,0">
-                <TabItem Header="Allgemein">
-                    <Border Background="White"
-                            BorderBrush="#DDE3EA"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="24">
-                        <StackPanel Spacing="18">
-                            <Grid ColumnDefinitions="220,*">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Station"
-                                               FontWeight="SemiBold"
-                                               Foreground="#1F2937" />
-                                    <TextBlock Text="Welche Anlage beim Start geladen wird."
-                                               FontSize="12"
-                                               TextWrapping="Wrap"
-                                               Foreground="#6B7280" />
-                                </StackPanel>
-                                <ComboBox x:Name="StationSelector"
-                                          Grid.Column="1"
-                                          SelectedIndex="0"
-                                          MinWidth="220">
-                                    <ComboBoxItem>bahnhof-1</ComboBoxItem>
-                                    <ComboBoxItem>Demo-Anlage</ComboBoxItem>
-                                    <ComboBoxItem>Keine Station</ComboBoxItem>
-                                </ComboBox>
-                            </Grid>
+            <MenuItem Header="_Fahrzeuge">
+                <MenuItem Header="_Lokomotiven..." />
+                <MenuItem Header="_Wagen..." />
+                <MenuItem Header="_Züge..." />
+                <Separator />
+                <MenuItem Header="Neue Lokomotive _anlegen..." />
+                <MenuItem Header="Lokomotive _programmieren..." />
+            </MenuItem>
 
-                            <Grid ColumnDefinitions="220,*">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Oberflaeche"
-                                               FontWeight="SemiBold"
-                                               Foreground="#1F2937" />
-                                    <TextBlock Text="Fenster- und Layoutzustand merken."
-                                               FontSize="12"
-                                               TextWrapping="Wrap"
-                                               Foreground="#6B7280" />
-                                </StackPanel>
-                                <CheckBox x:Name="RestoreLayoutCheckBox"
-                                          Grid.Column="1"
-                                          Content="Letztes Layout wiederherstellen"
-                                          IsChecked="True" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-                </TabItem>
+            <MenuItem Header="_Gleisbild">
+                <MenuItem Header="_Bearbeiten" />
+                <MenuItem Header="_Relaissätze verdrahten..."
+                          Click="OpenRelayPlan" />
+                <MenuItem Header="_Fahrstraßen..." />
+                <MenuItem Header="_Signale..." />
+                <MenuItem Header="_Weichen..." />
+                <MenuItem Header="_Rückmelder..." />
+                <Separator />
+                <MenuItem Header="Ansicht _vergrößern" />
+                <MenuItem Header="Ansicht ver_kleinern" />
+                <MenuItem Header="_Gesamtansicht" />
+            </MenuItem>
 
-                <TabItem Header="Zentrale">
-                    <Border Background="White"
-                            BorderBrush="#DDE3EA"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="24">
-                        <StackPanel Spacing="18">
-                            <Grid ColumnDefinitions="220,*">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Typ"
-                                               FontWeight="SemiBold"
-                                               Foreground="#1F2937" />
-                                    <TextBlock Text="Hardware-Profil fuer die Verbindung."
-                                               FontSize="12"
-                                               TextWrapping="Wrap"
-                                               Foreground="#6B7280" />
-                                </StackPanel>
-                                <ComboBox x:Name="CommandStationSelector"
-                                          Grid.Column="1"
-                                          SelectedIndex="0"
-                                          MinWidth="220">
-                                    <ComboBoxItem>Mock</ComboBoxItem>
-                                    <ComboBoxItem>LoDi-Rektor</ComboBoxItem>
-                                </ComboBox>
-                            </Grid>
+            <MenuItem Header="_Zentrale">
+                <MenuItem Header="_Verbinden" />
+                <MenuItem Header="Verbindung _trennen" />
+                <Separator />
+                <MenuItem Header="_Digitalzentrale konfigurieren..." />
+                <MenuItem Header="_Rückmeldemodule..." />
+                <MenuItem Header="_Schaltdecoder..." />
+            </MenuItem>
 
-                            <Grid ColumnDefinitions="220,*">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Host"
-                                               FontWeight="SemiBold"
-                                               Foreground="#1F2937" />
-                                    <TextBlock Text="Adresse der Digitalzentrale."
-                                               FontSize="12"
-                                               TextWrapping="Wrap"
-                                               Foreground="#6B7280" />
-                                </StackPanel>
-                                <TextBox x:Name="HostTextBox"
-                                         Grid.Column="1"
-                                         Text="127.0.0.1"
-                                         Watermark="IP-Adresse oder Hostname" />
-                            </Grid>
+            <MenuItem Header="_Extras">
+                <MenuItem Header="_WSR-Test..."
+                          Click="OpenWsrTest" />
+                <Separator />
+                <MenuItem Header="_Automatikbetrieb..." />
+                <MenuItem Header="_Fahrplan..." />
+                <MenuItem Header="_Diagnose..." />
+                <Separator />
+                <MenuItem Header="_Einstellungen..." />
+            </MenuItem>
 
-                            <Grid ColumnDefinitions="220,*">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Port"
-                                               FontWeight="SemiBold"
-                                               Foreground="#1F2937" />
-                                    <TextBlock Text="TCP-Port der Digitalzentrale."
-                                               FontSize="12"
-                                               TextWrapping="Wrap"
-                                               Foreground="#6B7280" />
-                                </StackPanel>
-                                <TextBox x:Name="PortTextBox"
-                                         Grid.Column="1"
-                                         Text="11082"
-                                         Watermark="Port" />
-                            </Grid>
+            <MenuItem Header="_Hilfe">
+                <MenuItem Header="_Dokumentation" />
+                <MenuItem Header="_Über OTD" />
+            </MenuItem>
+        </Menu>
 
-                            <Grid ColumnDefinitions="220,*">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Autostart"
-                                               FontWeight="SemiBold"
-                                               Foreground="#1F2937" />
-                                    <TextBlock Text="Verbindung beim Programmstart aufbauen."
-                                               FontSize="12"
-                                               TextWrapping="Wrap"
-                                               Foreground="#6B7280" />
-                                </StackPanel>
-                                <CheckBox x:Name="AutoConnectCheckBox"
-                                          Grid.Column="1"
-                                          Content="Beim Start automatisch verbinden" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-                </TabItem>
-
-                <TabItem Header="Daten">
-                    <Border Background="White"
-                            BorderBrush="#DDE3EA"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="24">
-                        <StackPanel Spacing="18">
-                            <Grid ColumnDefinitions="220,*">
-                                <TextBlock Text="Stationsdaten"
-                                           FontWeight="SemiBold"
-                                           Foreground="#1F2937" />
-                                <TextBox Grid.Column="1"
-                                         Text="OTD/Stations"
-                                         IsReadOnly="True" />
-                            </Grid>
-                            <Grid ColumnDefinitions="220,*">
-                                <TextBlock Text="Fahrzeuge"
-                                           FontWeight="SemiBold"
-                                           Foreground="#1F2937" />
-                                <TextBox Grid.Column="1"
-                                         Text="OTD/AppData"
-                                         IsReadOnly="True" />
-                            </Grid>
-                            <Grid ColumnDefinitions="220,*">
-                                <TextBlock Text="Status"
-                                           FontWeight="SemiBold"
-                                           Foreground="#1F2937" />
-                                <TextBox Grid.Column="1"
-                                         Text="Lokale Einstellungen sind noch nicht dauerhaft gespeichert."
-                                         IsReadOnly="True" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-                </TabItem>
-            </TabControl>
-        </Grid>
-
-        <Border Grid.Column="1"
-                Grid.Row="1"
-                Background="White"
-                BorderBrush="#D4DAE3"
-                BorderThickness="1,1,0,0"
-                Padding="24,14">
-            <Grid ColumnDefinitions="*,Auto,Auto">
-                <TextBlock x:Name="StatusText"
-                           Text="Bereit"
-                           VerticalAlignment="Center"
-                           Foreground="#4B5563" />
-                <Button Grid.Column="1"
-                        Content="Zuruecksetzen"
-                        MinWidth="120"
-                        Margin="10,0,0,0"
-                        HorizontalAlignment="Right"
-                        Click="ResetSettings" />
-                <Button Grid.Column="2"
-                        Content="Speichern"
-                        MinWidth="120"
-                        Margin="10,0,0,0"
-                        HorizontalAlignment="Right"
-                        Background="#1F6FEB"
-                        Foreground="White"
-                        Click="SaveSettings" />
-            </Grid>
-        </Border>
-    </Grid>
+        <Grid />
+    </DockPanel>
 </Window>
