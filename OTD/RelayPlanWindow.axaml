@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="OTD.RelayPlanWindow"
+        Title="DO67 Relaissatz-Verdrahtung"
+        Width="1400" Height="850" MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterOwner">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Border Background="#17212B" Padding="12">
+            <WrapPanel VerticalAlignment="Center">
+                <TextBlock Text="Relaissätze:" Foreground="White" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                <Button Content="+ GRS" Click="AddGrs" Margin="0,0,6,0" />
+                <Button Content="+ WSR" Click="AddWsr" Margin="0,0,6,0" />
+                <Button Content="+ HSR" Click="AddHsr" Margin="0,0,6,0" />
+                <Button Content="+ ZGR" Click="AddZgr" Margin="0,0,6,0" />
+                <Button Content="+ ZSR" Click="AddZsr" Margin="0,0,6,0" />
+                <Button Content="+ VSR" Click="AddVsr" Margin="0,0,6,0" />
+                <Button Content="+ Prüfkabel" Click="AddTestSource" Margin="0,0,18,0" />
+                <Button Content="Zentrale testen" Click="SelectCentralControl" Margin="0,0,18,0" />
+                <Button Content="Simulationsschritt" Click="RunSimulation" Margin="0,0,6,0" />
+                <Button Content="10 Schritte" Click="RunTenSimulations" Margin="0,0,6,0" />
+                <Button Content="Auswahl trennen" Click="DisconnectSelected" Margin="0,0,6,0" />
+                <Button Content="Alles löschen" Click="ClearPlan" />
+            </WrapPanel>
+        </Border>
+        <Grid Grid.Row="1" ColumnDefinitions="*,390">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto" Background="#0D1319">
+                <Canvas x:Name="PlanCanvas" Width="2200" Height="1300" />
+            </ScrollViewer>
+            <Border Grid.Column="1" Background="#111B23" BorderBrush="#405463"
+                    BorderThickness="1,0,0,0" Padding="12">
+                <ScrollViewer>
+                    <StackPanel x:Name="InspectorPanel" Spacing="8">
+                        <TextBlock Text="Testpanel" Foreground="White"
+                                   FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock Text="Relaissatz-Kopf anklicken oder die Zentrale wählen."
+                                   Foreground="#AFC0CC" TextWrapping="Wrap" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+        <Border Grid.Row="2" Background="#17212B" Padding="10,7">
+            <TextBlock x:Name="StatusText" Foreground="#D7E4EE"
+                       Text="Stecker anklicken: erster Klick wählt, zweiter Klick verbindet." />
+        </Border>
+    </Grid>
+</Window>
