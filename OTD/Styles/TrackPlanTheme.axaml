@@ -1,0 +1,8 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Style Selector="Border.tile">
+        <Setter Property="Background" Value="#F2F2F2" />
+        <Setter Property="BorderBrush" Value="#B8B8B8" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+</Styles>
