@@ -76,6 +76,13 @@ public static class TrainTest
         await commandStation.SetPowerAsync(true);
         await Task.Delay(TimeSpan.FromSeconds(3));
 
+        var selectedTest = Environment.GetEnvironmentVariable("OTD_TRAIN_TEST");
+        if (!string.IsNullOrWhiteSpace(selectedTest))
+        {
+            await RunSelectedTrainTestAsync(selectedTest, commandStation);
+            return;
+        }
+
         
         var runAccessoryExamplesOnly = Environment.GetEnvironmentVariable("OTD_RUN_ACCESSORY_EXAMPLES_ONLY") != "0";
         if (runAccessoryExamplesOnly)
@@ -93,6 +100,46 @@ public static class TrainTest
         //await Task.Delay(TimeSpan.FromSeconds(1));
         // await commandStation.SetPowerAsync(false);
         // await commandStation.SetPowerAsync(false);
+    }
+
+    private static async Task RunSelectedTrainTestAsync(
+        string selectedTest,
+        CommandStation.CommandStation commandStation)
+    {
+        switch (selectedTest.Trim().ToUpperInvariant())
+        {
+            case "ACCESSORY_EXAMPLES":
+            case "ACCESSORY":
+                await AccessoryDecoderIntegrationExample.RunAllExamplesAsync(commandStation);
+                return;
+
+            case "READBACK_ACCESSORY":
+                await ReadBackTest_Accessory(commandStation);
+                return;
+
+            case "VT612":
+                await VT612_Test(commandStation);
+                return;
+
+            case "VT612_UNCOUPLING":
+                await VT612_Uncoupling(commandStation);
+                return;
+
+            case "DECODER":
+                await Decoder_Test(commandStation);
+                return;
+
+            case "BR193":
+                await BR193_Test(commandStation);
+                return;
+
+            case "READBACK_LOCO":
+                await ReadBackTest_Loco(commandStation);
+                return;
+
+            default:
+                throw new InvalidOperationException($"Unknown OTD_TRAIN_TEST: {selectedTest}");
+        }
     }
 
     public static async Task ReadBackTest_Accessory(CommandStation.CommandStation commandStation)
