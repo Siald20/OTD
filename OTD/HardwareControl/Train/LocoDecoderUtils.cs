@@ -189,7 +189,8 @@ internal static class LocoDecoderUtils
                 f.Number,
                 GetAttributeOrEmpty(f, "description"),
                 GetAttributeOrDefault(f, "actuation", "toggle"),
-                !string.Equals(GetAttributeOrDefault(f, "visible", "true"), "false", StringComparison.OrdinalIgnoreCase),
+                !string.Equals(GetAttributeOrDefault(f, "visible", "true"), "false",
+                    StringComparison.OrdinalIgnoreCase),
                 GetAttributeOrEmpty(f, "image")))
             .ToList();
     }
@@ -199,14 +200,15 @@ internal static class LocoDecoderUtils
     {
         return functions
             .Where(f => !HasFunctionType(f, "headlight")
-                     && !HasFunctionType(f, "sound")
-                     && !HasFunctionType(f, "autocoupling"))
+                        && !HasFunctionType(f, "sound")
+                        && !HasFunctionType(f, "autocoupling"))
             .Select(f => new OtherFunction(
                 f.Number,
                 f.Type,
                 GetAttributeOrEmpty(f, "description"),
                 GetAttributeOrDefault(f, "actuation", "toggle"),
-                !string.Equals(GetAttributeOrDefault(f, "visible", "true"), "false", StringComparison.OrdinalIgnoreCase),
+                !string.Equals(GetAttributeOrDefault(f, "visible", "true"), "false",
+                    StringComparison.OrdinalIgnoreCase),
                 GetAttributeOrEmpty(f, "image")))
             .ToList();
     }
@@ -238,220 +240,48 @@ internal static class LocoDecoderUtils
         value = string.Empty;
         return false;
     }
-    
-    /// <summary>
-    /// Builds a speedV-to-decoder-step lookup table from the decoder configuration.
-    /// Reads <c>&lt;speedtable&gt;</c> interpolates missing speed steps,
-    /// and creates a 1 km/h speedV grid mapped to the nearest decoder step.
-    /// Returns an empty list if no <c>&lt;speedtable&gt;</c> element is provided.
-    /// </summary>
-    /// <param name="speedTableElement">The <c>speedtable</c> XML element.</param>
-    /// <param name="effectiveSpeedSteps">Effective count of decoder speed steps.</param>
-    /// <param name="vMax">Output: configured maximum speed (Vmax) from the speed table.</param>
-    /// <returns>
-    /// A list of <see cref="SpeedEntry"/> values ordered by speedV,
-    /// where each speedV is mapped to a decoder step.
-    /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="effectiveSpeedSteps"/> is smaller than 2.</exception>
-    /// <exception cref="FormatException">Thrown when one or more speed entries contain invalid numeric values.</exception>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when the speed table contains fewer than two valid <c>speed</c> entries
-    /// or when the smallest configured step is not <c>1</c>.
-    /// </exception>
-    internal static List<SpeedEntry> CreateSpeedStepsTable(XElement? speedTableElement, int effectiveSpeedSteps,
-        out int vMin, out int vMax)
-    {
-        vMin = 0;
-        vMax = 0;
-
-        if (speedTableElement is null)
-            return [];
-
-        if (effectiveSpeedSteps < 2)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(effectiveSpeedSteps),
-                effectiveSpeedSteps,
-                $"Speed mapping requires at least 2 effective speed steps. Received: {effectiveSpeedSteps}.");
-        }
-
-        var baseEntries = new List<SpeedEntry>();
-
-        foreach (var speedElement in speedTableElement.Elements("speed"))
-        {
-            var speedVRaw = speedElement.Attribute("v")?.Value.Trim();
-            var stepRaw = speedElement.Attribute("step")?.Value.Trim();
-
-            if (!int.TryParse(speedVRaw, out var speedV) || !int.TryParse(stepRaw, out var step))
-            {
-                throw new FormatException(
-                    $"Invalid <speed> entry in <speedtable>: v='{speedVRaw}', step='{stepRaw}'. Both values must be integers.");
-            }
-
-            baseEntries.Add(new SpeedEntry(speedV, step));
-        }
-
-        if (baseEntries.Count < 2)
-        {
-            throw new InvalidOperationException(
-                "Speed mapping requires at least two valid <speed> entries in <speedtable>.");
-        }
-
-        var minStep = baseEntries.Min(e => e.SpeedStep);
-        if (minStep != 1)
-        {
-            throw new InvalidOperationException(
-                $"Speed mapping requires the smallest step in <speedtable> to be 1, but the smallest configured step is {minStep}.");
-        }
-
-        baseEntries = baseEntries.OrderBy(e => e.SpeedStep).ToList();
-
-        var result = InterpolateSpeedSteps(baseEntries, effectiveSpeedSteps);
-
-        vMin = (int)Math.Round(baseEntries.First(e => e.SpeedStep == 1).SpeedV);
-        vMax = (int)Math.Round(baseEntries.Max(e => e.SpeedV));
-        result = BuildSpeedStageTable(result, vMax);
-
-        return result.OrderBy(e => e.SpeedV).ToList();
-    }
-
-    /// <summary>
-    /// Interpolates intermediate speed entries between the given base speed points.
-    /// </summary>
-    /// <param name="baseEntries">Base speed points sorted by decoder step.</param>
-    /// <param name="effectiveSpeedSteps">Total number of decoder speed steps to generate.</param>
-    /// <returns>Interpolated speed entries from step 1 to <paramref name="effectiveSpeedSteps"/>.</returns>
-    /// <exception cref="ArgumentException">Thrown when fewer than two base entries are provided.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="effectiveSpeedSteps"/> is smaller than 2.</exception>
-private static List<SpeedEntry> InterpolateSpeedSteps(List<SpeedEntry> baseEntries, int effectiveSpeedSteps)
-{
-    if (baseEntries.Count < 2)
-        throw new ArgumentException(
-            $"Speed interpolation requires at least 2 base speed entries. Invalid value: {baseEntries.Count}.",
-            nameof(baseEntries));
-
-    if (effectiveSpeedSteps < 2)
-        throw new ArgumentOutOfRangeException(
-            nameof(effectiveSpeedSteps),
-            effectiveSpeedSteps,
-            $"Speed interpolation requires at least 2 effective speed steps (<speedsteps> in decoder configuration). Invalid value: {effectiveSpeedSteps}.");
-
-    // Kurvenform beibehalten:
-    // Wir verwenden die Reihenfolge der vorhandenen Basispunkte als Stützstellen
-    // und strecken diese stückweise linear auf die gewünschte Schrittanzahl.
-    var orderedBaseEntries = baseEntries.OrderBy(e => e.SpeedStep).ToList();
-    var result = new List<SpeedEntry>(effectiveSpeedSteps);
-
-    var lastSourceIndex = orderedBaseEntries.Count - 1;
-
-    for (var targetStep = 1; targetStep <= effectiveSpeedSteps; targetStep++)
-    {
-        // Zielschritt auf kontinuierliche Position im Quell-Stützstellenraum abbilden.
-        // targetStep=1 => sourcePosition=0
-        // targetStep=effectiveSpeedSteps => sourcePosition=lastSourceIndex
-        var ratio = (double)(targetStep - 1) / (effectiveSpeedSteps - 1);
-        var sourcePosition = ratio * lastSourceIndex;
-
-        var lowerIndex = (int)Math.Floor(sourcePosition);
-        var upperIndex = (int)Math.Ceiling(sourcePosition);
-
-        double interpolatedSpeedV;
-
-        if (lowerIndex == upperIndex)
-        {
-            interpolatedSpeedV = orderedBaseEntries[lowerIndex].SpeedV;
-        }
-        else
-        {
-            var lower = orderedBaseEntries[lowerIndex];
-            var upper = orderedBaseEntries[upperIndex];
-
-            // Lokale Interpolation zwischen zwei benachbarten Stützpunkten.
-            var localRatio = sourcePosition - lowerIndex;
-            interpolatedSpeedV = lower.SpeedV + (upper.SpeedV - lower.SpeedV) * localRatio;
-        }
-
-        result.Add(new SpeedEntry(interpolatedSpeedV, targetStep));
-    }
-
-    return result;
-}
-    
-    /// <summary>
-    /// Creates a speedV-based lookup table (1 km/h resolution) from step-based entries.
-    /// </summary>
-    /// <param name="stepBasedEntries">Step-based speed entries.</param>
-    /// <param name="vMax">Maximum speedV for the generated table.</param>
-    /// <returns>speedV-indexed speed entries from 1 to <paramref name="vMax"/>.</returns>
-    /// <exception cref="ArgumentException">Thrown when no step-based entries are provided.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="vMax"/> is smaller than 1.</exception>
-    private static List<SpeedEntry> BuildSpeedStageTable(List<SpeedEntry> stepBasedEntries, int vMax)
-    {
-        if (stepBasedEntries.Count == 0)
-            throw new ArgumentException("At least one step-based entry is required.", nameof(stepBasedEntries));
-
-        if (vMax < 1)
-            throw new ArgumentOutOfRangeException(nameof(vMax), vMax, "Maximum speed (VMax) must be at least 1.");
-
-        var result = new List<SpeedEntry>();
-
-        for (var v = 1; v <= vMax; v++)
-        {
-            var closestStep = stepBasedEntries.MinBy(e => Math.Abs(e.SpeedV - v));
-            // speedV ist exakt die Geschwindigkeitsstufe (1 km/h Raster)
-            result.Add(closestStep with { SpeedV = v });
-        }
-
-        return result;
-    }
 }
 
 /// <summary>
-/// Represents a speedV-to-decoder-step mapping entry.
-/// </summary>
-public readonly record struct SpeedEntry(double SpeedV, int SpeedStep);
+    /// Represents a generic decoder function parsed from <c>&lt;functiontable&gt;</c>.
+    /// </summary>
+    /// <param name="Number">Function number from attribute <c>no</c>.</param>
+    /// <param name="Type">Function type from attribute <c>type</c>.</param>
+    /// <param name="Attributes">All remaining attributes as key/value pairs.</param>
+    public readonly record struct VehicleFunctions(
+        int Number,
+        string Type,
+        IReadOnlyList<KeyValuePair<string, string>> Attributes);
 
-/// <summary>
-/// Represents a generic decoder function parsed from <c>&lt;functiontable&gt;</c>.
-/// </summary>
-/// <param name="Number">Function number from attribute <c>no</c>.</param>
-/// <param name="Type">Function type from attribute <c>type</c>.</param>
-/// <param name="Attributes">All remaining attributes as key/value pairs.</param>
-public readonly record struct VehicleFunctions(
-    int Number,
-    string Type,
-    IReadOnlyList<KeyValuePair<string, string>> Attributes);
+    /// <summary>
+    /// Represents a sound function parsed from <c>&lt;functiontable&gt;</c>.
+    /// </summary>
+    /// <param name="FunctionNumber">LocoDecoder function number.</param>
+    /// <param name="Description">Human-readable description.</param>
+    /// <param name="Actuation">Actuation mode (e.g. toggle, momentary).</param>
+    /// <param name="Visible">Whether this function is shown in the UI.</param>
+    /// <param name="Image">Optional image identifier for the UI.</param>
+    public readonly record struct SoundFunction(
+        int FunctionNumber,
+        string Description,
+        string Actuation,
+        bool Visible,
+        string Image);
 
-/// <summary>
-/// Represents a sound function parsed from <c>&lt;functiontable&gt;</c>.
-/// </summary>
-/// <param name="FunctionNumber">LocoDecoder function number.</param>
-/// <param name="Description">Human-readable description.</param>
-/// <param name="Actuation">Actuation mode (e.g. toggle, momentary).</param>
-/// <param name="Visible">Whether this function is shown in the UI.</param>
-/// <param name="Image">Optional image identifier for the UI.</param>
-public readonly record struct SoundFunction(
-    int FunctionNumber,
-    string Description,
-    string Actuation,
-    bool Visible,
-    string Image);
-
-/// <summary>
-/// Represents a decoder function that is neither a headlight, sound nor auto-coupling function,
-/// as parsed from <c>&lt;functiontable&gt;</c>.
-/// </summary>
-/// <param name="FunctionNumber">LocoDecoder function number.</param>
-/// <param name="Type">Raw function type string from the configuration.</param>
-/// <param name="Description">Human-readable description.</param>
-/// <param name="Actuation">Actuation mode (e.g. toggle, momentary).</param>
-/// <param name="Visible">Whether this function is shown in the UI.</param>
-/// <param name="Image">Optional image identifier for the UI.</param>
-public readonly record struct OtherFunction(
-    int FunctionNumber,
-    string Type,
-    string Description,
-    string Actuation,
-    bool Visible,
-    string Image);
-
+    /// <summary>
+    /// Represents a decoder function that is neither a headlight, sound nor auto-coupling function,
+    /// as parsed from <c>&lt;functiontable&gt;</c>.
+    /// </summary>
+    /// <param name="FunctionNumber">LocoDecoder function number.</param>
+    /// <param name="Type">Raw function type string from the configuration.</param>
+    /// <param name="Description">Human-readable description.</param>
+    /// <param name="Actuation">Actuation mode (e.g. toggle, momentary).</param>
+    /// <param name="Visible">Whether this function is shown in the UI.</param>
+    /// <param name="Image">Optional image identifier for the UI.</param>
+    public readonly record struct OtherFunction(
+        int FunctionNumber,
+        string Type,
+        string Description,
+        string Actuation,
+        bool Visible,
+        string Image);

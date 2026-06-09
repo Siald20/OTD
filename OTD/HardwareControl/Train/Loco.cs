@@ -110,7 +110,7 @@ public class Loco : IVehicle
             }
 
             _locoDecoder = new LocoDecoder(decoderConfig);
-            _speedTable = LocoDecoderUtils.CreateSpeedStepsTable(
+            _speedTable = LocoUtils.CreateSpeedStepsTable(
                 decoderConfig.Element("speedtable"),
                 _locoDecoder.TotalSpeedSteps, out var vMinFromSpeedTable, out var vMaxFromSpeedTable);
             VMin = vMinFromSpeedTable;
@@ -118,6 +118,9 @@ public class Loco : IVehicle
             VMax = TrainUtils.GetVehicleVMax(modelElement, vMaxFromSpeedTable); // Fallback auf vMax aus speedtable
             Weight = TrainUtils.GetVehicleWeight(modelElement);
             Length = TrainUtils.GetVehicleLength(VehicleConfig.Attribute("length")?.Value);
+
+            // Externe Fahrstufen-Updates (z.B. von einem anderen Steuergerät) in km/h rückrechnen.
+            _locoDecoder.StateChanged += OnDecoderStateChanged;
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
         {
@@ -187,17 +190,21 @@ public class Loco : IVehicle
             throw new InvalidOperationException(
                 "SetSpeedVAsync requires a non-empty speed table. Configure <speedtable> before driving by velocity.");
 
-        if (speed < 0 || (_speedTable.Count > 0 && speed > _speedTable.Count))
+        if (speed < 0)
         {
             Console.WriteLine($"Fehler: Ungültige Geschwindigkeit {speed} für Decoderadresse {_locoDecoder.Address}.");
             return;
         }
 
-        var speedStep = speed == 0 ? 0 : _speedTable[speed - 1].SpeedStep;
+        var speedStep = 0;
+
+        if (speed > 0)
+            speedStep = LocoUtils.ResolveSpeedStepForSpeedV(_speedTable, speed);
 
         await _locoDecoder.SetSpeedStepAsync(_locoDecoder.Direction, speedStep, forceSend, cancellationToken)
             .ConfigureAwait(false);
 
+        Console.WriteLine($"Fahrbefehl: {speed} km/h (SpeedStep {speedStep}), Richtung {_locoDecoder.Direction} (Lokadresse {_locoDecoder.Address}).");
         Speed = speed;
     }
 
@@ -206,4 +213,20 @@ public class Loco : IVehicle
     /// </summary>
     protected internal Task EmergencyStopAsync(CancellationToken cancellationToken = default)
         => _locoDecoder.EmergencyStopAsync(cancellationToken);
+
+
+    /// <summary>
+    /// Wird aufgerufen, wenn der Decoder eine Fahrstufen-Änderung von der Zentrale meldet
+    /// (z.B. durch ein externes Steuergerät). Rechnet den SpeedStep kongruent zur
+    /// Floor-Logik in <see cref="SetSpeedVAsync"/> zurück in km/h um.
+    /// </summary>
+    private void OnDecoderStateChanged(object? sender, LocoStateChangedEventArgs args)
+    {
+        // ToDo: Event-Kaskate endet momentan hier, Folgeevents auf Ebene Train müssen noch definiert werden.
+        if (!args.HasSpeedUpdate)
+            return;
+
+        Speed = LocoUtils.ResolveSpeedVForSpeedStep(_speedTable, args.SpeedStep!.Value);
+        Console.WriteLine($"Decoder-Update: Gemeldete Geschwindigkeit {Speed} km/h (SpeedStep {args.SpeedStep}), Richtung {_locoDecoder.Direction} (Lokadresse {_locoDecoder.Address}).");
+    }
 }
