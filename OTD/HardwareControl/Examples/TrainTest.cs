@@ -26,6 +26,7 @@ using System.Threading.Tasks;
 using OTD.HardwareControl.Accessory;
 using OTD.HardwareControl.CommandStation;
 using OTD.HardwareControl.CommandStation.LoDi;
+using OTD.HardwareControl.CommandStation.Mock;
 using OTD.HardwareControl.Train;
 using TrainFunctionState = OTD.HardwareControl.Train.FunctionState;
 
@@ -61,10 +62,17 @@ public static class TrainTest
             return;
         }
 
-        // Zentrale erstellen
-        var loDiDriver = new LoDiRektor { DiagnosticLogging = true };
-        ICommandStation driver = loDiDriver;
-        //ICommandStation driver = new MockCommandStation();
+        // Zentrale erstellen – Treiber via OTD_DRIVER wählbar (LODI | MOCK, Standard: LODI)
+        var driverName = (Environment.GetEnvironmentVariable("OTD_DRIVER") ?? "LODI")
+            .Trim().ToUpperInvariant();
+
+        ICommandStation driver = driverName switch
+        {
+            "MOCK" => new MockCommandStation(),
+            "LODI" => new LoDiRektor { DiagnosticLogging = true },
+            _ => throw new InvalidOperationException($"Unbekannter OTD_DRIVER-Wert: '{driverName}'. Gültige Werte: LODI, MOCK")
+        };
+
         var commandStation = new CommandStation.CommandStation(driver);
 
         // Verbindung nur aufbauen, wenn noch nicht verbunden
@@ -84,22 +92,12 @@ public static class TrainTest
         }
 
         
-        var runAccessoryExamplesOnly = Environment.GetEnvironmentVariable("OTD_RUN_ACCESSORY_EXAMPLES_ONLY") != "0";
-        if (runAccessoryExamplesOnly)
-        {
-            await AccessoryDecoderIntegrationExample.RunAllExamplesAsync(commandStation);
-            return;
-        }
-        
-        //await VT612_Uncoupling(commandStation);
-        //await Decoder_Test(commandStation);
-        //await ReadBackTest_Accessory(commandStation);
-        //await VT612_Test(commandStation);
-        //await BR193_Test(commandStation);
-        //await ReadBackTest_Loco(commandStation);
-        //await Task.Delay(TimeSpan.FromSeconds(1));
-        // await commandStation.SetPowerAsync(false);
-        // await commandStation.SetPowerAsync(false);
+        // var runAccessoryExamplesOnly = Environment.GetEnvironmentVariable("OTD_RUN_ACCESSORY_EXAMPLES_ONLY") != "0";
+        // if (runAccessoryExamplesOnly)
+        // {
+        //     await AccessoryDecoderIntegrationExample.RunAllExamplesAsync(commandStation);
+        //     return;
+        // }
     }
 
     private static async Task RunSelectedTrainTestAsync(
@@ -162,9 +160,7 @@ public static class TrainTest
     {
         var trainId = Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6c");
         var train = new Train.Train(trainId, commandStation);
-        await Task.Delay(TimeSpan.FromSeconds(30));
         Console.WriteLine("1---------");
-        await Task.Delay(TimeSpan.FromSeconds(30));
         await train.SetFunctionStateAsync(0, TrainFunctionState.On, [train.TrainComposition[0].VehicleId]);
         train.OperatingMode = TrainOperatingMode.Parking;
         //train.HeadlightMode = HeadlightMode.Auto;
@@ -174,7 +170,7 @@ public static class TrainTest
         train.OperatingMode = TrainOperatingMode.Travelling;
         Console.WriteLine("3---------");
         await Task.Delay(TimeSpan.FromSeconds(7));
-        await train.SetSpeedVAsync(7);
+        await train.SetSpeedVAsync(40);
         Console.WriteLine("4---------");
         // 10 Sekunden warten
         await Task.Delay(TimeSpan.FromSeconds(10));
@@ -248,7 +244,7 @@ public static class TrainTest
         Console.WriteLine("→ Nach OperatingMode=Parking gesetzt");
 //        await train.SetFunctionStateAsync(27, FunctionState.On, [train.TrainComposition[0].VehicleId]);
 //        await train.SetFunctionStateAsync(0, FunctionState.On, [train.TrainComposition[0].VehicleId]);
-        await Task.Delay(TimeSpan.FromSeconds(7));
+        await Task.Delay(TimeSpan.FromSeconds(60));
         Console.WriteLine("→ Nach Task.Delay");
         CheckFunctionStates(train);
         Console.WriteLine("---------");
@@ -544,8 +540,8 @@ public static class TrainTest
         await commandStation.SetAccessoryValueAsync(
                 address,
                 value,
-                OTD.HardwareControl.Accessory.DecoderProtocol.Dcc,
-                OTD.HardwareControl.Accessory.FunctionState.On,
+                Accessory.DecoderProtocol.Dcc,
+                Accessory.FunctionState.On,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
