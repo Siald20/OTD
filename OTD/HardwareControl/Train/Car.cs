@@ -43,7 +43,7 @@ public class Car : IVehicle
     public Guid VehicleId { get; }
 
     /// <summary>
-    /// Raw XML configuration element from cars.xml for this car.
+    /// Raw XML configuration element from car.xml for this car.
     /// Accessible via <see cref="VehicleConfig"/> through <see cref="IVehicle"/>.
     /// </summary>
     public readonly XElement? CarConfig;

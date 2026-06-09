@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feedbacks>
+  <provider uid="lodi-s88-main" driver="lodi-s88-commander">
+    <connection ip="192.168.1.51" port="11092" />
+    <startup queryOnStartup="true" subscribeOnStartup="true" />
+    <modules>
+      <module address="1" />
+      <module address="2" />
+    </modules>
+  </provider>
+</feedbacks>
