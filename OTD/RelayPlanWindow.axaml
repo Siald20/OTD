@@ -17,6 +17,7 @@
                 <Button Content="+ VSR" Click="AddVsr" Margin="0,0,6,0" />
                 <Button Content="+ Prüfkabel" Click="AddTestSource" Margin="0,0,18,0" />
                 <Button Content="Zentrale testen" Click="SelectCentralControl" Margin="0,0,18,0" />
+                <Button Content="Block/Sperre testen" Click="OpenBlockTest" Margin="0,0,18,0" />
                 <Button Content="Simulationsschritt" Click="RunSimulation" Margin="0,0,6,0" />
                 <Button Content="10 Schritte" Click="RunTenSimulations" Margin="0,0,6,0" />
                 <Button Content="Auswahl trennen" Click="DisconnectSelected" Margin="0,0,6,0" />

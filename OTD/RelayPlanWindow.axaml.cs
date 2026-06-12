@@ -195,6 +195,11 @@ public partial class RelayPlanWindow : Window
         RunSimulationSteps(1);
     }
 
+    private void OpenBlockTest(object? sender, RoutedEventArgs e)
+    {
+        new BlockTestWindow().Show(this);
+    }
+
     private void RunTenSimulations(object? sender, RoutedEventArgs e)
     {
         RunSimulationSteps(10);

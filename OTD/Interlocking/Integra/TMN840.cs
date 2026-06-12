@@ -1,211 +1,223 @@
-using System;
-
 /// <summary>
-/// TMN840_BS: Vollständige 1:1 Übersetzung des Streckenblock-Satzes.
-/// Basierend auf der gelieferten TMN840_BS.cpp und .h Logik.
+/// Vereinfachter Relaisblock fuer die Modellbahn.
+/// Alle Bedienungen sind Zweitastenbedienungen mit der Blocktaste.
+/// Zwei Blocksätze kommunizieren ueber die Schleife.
 /// </summary>
 public interface ITMNBlock
 {
-    // Falls deine Engine ein ITMNBlock Interface für Streckenblöcke nutzt.
 }
 
 public class TMN840_BS : RelaisSatz, ITMNBlock
 {
-    // --- Externe Referenzen / Pointer ---
-    public TMN841_SP m_sp;
-    public TMN825_AS_AE m_as;
+    private TMN840_BS? m_other;
 
-    // --- Relais-Instanzen (Exakt aus C++ Logik) ---
-    public Relais E = new Relais();
-    public Relais F = new Relais();
-    public Relais RF = new Relais();
-    public Relais S1 = new Relais();
-    public Relais A1 = new Relais();
-    public Relais SS1 = new Relais();
-    public Relais SP = new Relais();
-    public Relais A = new Relais();
-    public Relais S2 = new Relais();
-    public Relais A2 = new Relais();
-    public Relais V = new Relais();
-    public Relais SS2 = new Relais();
-    public Relais BLU = new Relais();
+    public Schleife m_schleife = new();
+    public Schleife m_sperrschleife = new();
 
-    // --- Inputs (Projektierungs-Brücken) ---
-    public Input c_RF_RM = new Input();   // 19.11 / 4g.1
-    public Input c_FA_FAN = new Input();  // 14.11 - 15.11 / 4b.1 - 4c.1
-    public Input c_FA_FFZ = new Input();  // 5d.3 - 6d.3 / 7e.3 - 7f.3
-    public Input c_FFZ = new Input();     // 2d.3 - 3d.3 / 7b.3 - 7c.3
-    public Input c_FFZ_h = new Input();   // 2d.3 - 4d.3 / 7b.3 - 7d.3
-    public Input c_A1_RM = new Input();   // 17.11 - 18.11 / 4e.1 - 4f.1
-    public Input c_BLI_FAN = new Input(); // 7d.3 - 8d.3 / 7g.3 - 7h.3
-    public Input c_SS1_F = new Input();   // 9l.1 - 9m.1
-    public Input c_SS1_A = new Input();   // 4g.1 - 4i.1
-    public Input c_BLW = new Input();     // 8i.1 - 6i.1 / 10m.1 - 10k.1
-    public Input c_BLW_h = new Input();   // 8i.1 - 7i.1 / 10m.1 - 10l.1
+    // Bedieninputs
+    public Input t_BT = new();
+    public Input t_FA = new();
+    public Input t_VB = new();
+    public Input t_RB = new();
+    public Input t_BL = new();
+    public Input t_FBH = new();
+    public Input t_FBF = new();
+    public Input t_SE = new();
+    public Input t_SA = new();
 
-    // Interne Block-Inputs (aus TMN840_BS.h)
-    public Input i_A = new Input();
-    public Input i_BLU = new Input();
-    public Input i_BLU_h = new Input();
-    public Input i_V_SP = new Input();
-    public Input i_V_nA = new Input();
-    public Input i_V_h = new Input();
-    public Input i_V_dir = new Input();
-    public Input i_nA = new Input();
-    public Input i_RF_A1_o = new Input();
-    public Input i_A1_vA2 = new Input();
-    public Input i_A1_oA2 = new Input();
-    public Input i_SS1_vA1 = new Input();
-    public Input i_F_FA = new Input();
-    public Input i_E_vF = new Input();
+    // Bedienrelais
+    public Relais B_FA = new();
+    public Relais B_VB = new();
+    public Relais B_RB = new();
+    public Relais B_BL = new();
+    public Relais B_FBH = new();
+    public Relais B_FBF = new();
+    public Relais B_SE = new();
+    public Relais B_SA = new();
 
-    // --- Konfigurationen (Statische Bools) ---
-    public bool c_SV;
-    public bool c_S2;
-    public bool c_S1;
-    public bool c_SP;
-    public bool c_SP_L;
-    public bool c_E;
-    public bool c_F;
+    // Blockrelais
+    public Relais F = new();   // Fahrtrichtung abgehend
+    public Relais VB = new();  // Vorgeblockt
+    public Relais B = new();   // Geblockt
+    public Relais AF = new();  // Anfangsfeld
+    public Relais EF = new();  // Endfeld
+    public Relais FBH = new(); // Freie Bahn lokal festgehalten
+    public Relais VE = new();  // Vorblock empfangen
+    public Relais BE = new();  // Block empfangen
+    public Relais RB = new();  // Rueckblock empfangen
+    public Relais GF = new();  // Gegenblock frei / nichts eingestellt
+    public Relais RBS = new(); // Rueckblocksperre fuer das Endfeld
 
-    // --- SL Inputs ---
-    public bool sl_PWR;
-    public bool sl_ML;
-    public bool sl_ML_BLI;
+    // Sperrsatzrelais
+    public Relais SP = new();  // Sperre eingeschaltet
+    public Relais SPE = new(); // Sperre vom Gegenblock empfangen
+    public Relais SAK = new(); // Lokale Aufhebungsbestaetigung
+    public Relais SAE = new(); // Aufhebungsbestaetigung vom Gegenblock empfangen
+    public Relais SPA = new(); // Aufhebung beidseitig erkannt
 
-    // --- Lampen ---
-    public Lampe l_w_ab = new Lampe();
-    public Lampe l_S2 = new Lampe();
-    public Lampe l_S1 = new Lampe();
-    public Lampe l_A = new Lampe();
-    public Lampe l_SP = new Lampe();
-    public Lampe l_E_F = new Lampe();
-    public Lampe l_RF_A1 = new Lampe();
+    // Belegtmeldung fuer den integrierten Sperrsatz
+    public Input c_FFZ = new();
 
-    // --- Hardware / Spezialkomponenten ---
-    public Kontakt k_BLI = new Kontakt();
-    public Kontakt k_BLW = new Kontakt();
-    public Schleife m_schleife = new Schleife();
+    // Anzeigen
+    public Lampe l_F = new();
+    public Lampe l_VB = new();
+    public Lampe l_B = new();
+    public Lampe l_RB = new();
+    public Lampe l_FBH = new();
+    public Lampe l_AF = new();
+    public Lampe l_EF = new();
+    public Lampe l_SP = new();
 
-    public TMN840_BS()
+    public static void Connect(TMN840_BS first, TMN840_BS second)
     {
-        m_sp = null;
-        m_as = null;
-
-        // Timer initialisieren
-        k_BLI.Init(25, 20, 0);
-        k_BLW.Init(50, 1, 0);
-
-        // Hardware-Defaults
-        c_SV = true;
-        c_S2 = true;
-        c_S1 = true;
-        c_SP = true;
-        c_SP_L = true;
-
-        sl_PWR = true;
-        sl_ML = true;
-        sl_ML_BLI = false;
-
-        c_E = true;
-        c_F = true;
-        c_SS1_F.Value = true;
-        c_SS1_A.Value = true;
-    }
-
-    public bool V_sa(bool c_sa_is = true)
-    {
-        return (!F.Value && !A.Value && SP.Value && c_sa_is && (m_sp != null ? !m_sp.SP.Value : true) && (m_as != null ? m_as.Gsk() : true)) || BLU.Value;
-    }
-
-    public bool V_ss2(bool c_ss2_zu = true)
-    {
-        return (A.Value && !SP.Value && c_ss2_zu) || BLU.Value;
+        first.m_other = second;
+        second.m_other = first;
+        Schleife.Connect(first.m_schleife, second.m_schleife);
+        Schleife.Connect(first.m_sperrschleife, second.m_sperrschleife);
     }
 
     public override void Update()
     {
-        bool t;
-        bool t2;
-
-        // --- Block 606/1 ---
-        if (SP.Value && i_A.Value) A.Value = true;
-        t = m_sp != null ? m_sp.SP.Value : true;
-        BLU.Value = (i_BLU.Value && t) || (BLU.Value && i_BLU_h.Value);
-        V.Value = ((((i_V_SP.Value && SP.Value) || (i_V_nA.Value && !A.Value)) || (i_V_h.Value && (V.Value || BLU.Value))) && !S2.Value && !F.Value && !E.Value && !RF.Value) || i_V_dir.Value;
-        
-        if (i_nA.Value) A.Value = false;
-
-        k_BLW.Update(c_BLW.Value, c_BLW_h.Value);
-        k_BLI.Update(c_BLI_FAN.Value && !k_BLW.O(), false);
-
-        // --- Block 606/2 ---
-        t = V_sa() && !V_ss2();
-        A2.Value = (((S1.Value && !A1.Value) || A2.Value) && A.Value && t) || BLU.Value;
-
-        t2 = m_as != null ? m_as.IsAus() : true;
-        S2.Value = (((A2.Value && (!SS2.Value || c_FFZ.Value)) || S2.Value) && A.Value && t && t2) || BLU.Value;
-
-        t = c_FFZ_h.Value ? c_FFZ.Value : true;
-        S1.Value = ((((S2.Value && t2) || S1.Value) && A.Value && !A1.Value && !SS1.Value && !SS2.Value && t) || BLU.Value) && c_S1;
-
-        A1.Value = (((A2.Value && i_A1_vA2.Value) || (S2.Value && i_A1_oA2.Value) || A1.Value) && A.Value && (!c_A1_RM.Value || !c_RF_RM.Value) && !SS2.Value) || BLU.Value;
-
-        SS2.Value = (((c_FA_FFZ.Value && c_FA_FAN.Value) || SS2.Value) && A.Value) || BLU.Value;
-
-        SP.Value = (((SS2.Value && A1.Value) || SP.Value) && !V.Value && !S2.Value && !S1.Value && !RF.Value && !F.Value && !E.Value && !SS1.Value) || BLU.Value;
-
-        SS1.Value = (((A1.Value && c_SS1_F.Value && i_SS1_vA1.Value) || (S1.Value && c_SS1_F.Value) || (A2.Value && c_SS1_A.Value) || SS1.Value) && A.Value && !c_RF_RM.Value) || BLU.Value;
-
-        RF.Value = (((SS1.Value && c_RF_RM.Value) || RF.Value) && A.Value) || BLU.Value;
-        if (RF.Value && !c_RF_RM.Value && i_RF_A1_o.Value) A1.Value = false;
-
-        // --- Block 606/3 ---
-        F.Value = ((((RF.Value && !c_RF_RM.Value) || F.Value) && A.Value && i_F_FA.Value) || BLU.Value) && c_F;
-        E.Value = ((((F.Value && !i_F_FA.Value) || E.Value) && A.Value && i_E_vF.Value) || BLU.Value) && c_E;
-
-        // --- Schleifen-Ausgabe (Schienen-Elektrik) ---
-        Schleife.Spannung sp = Schleife.Spannung.Aus;
-
-        if (A1.Value && c_S2) sp = Schleife.Spannung.Plus_Niederohmig;
-        
-        if (A2.Value) 
-        {
-            if (RF.Value && c_S1) {
-                if ((SS1.Value || A2.Value) && !SS2.Value) sp = Schleife.Spannung.Minus_Niederohmig;
-                else sp = Schleife.Spannung.Minus_Hochohmig;
-            }
-            if (V.Value && c_SP) {
-                if (A.Value && c_SP_L) sp = Schleife.Spannung.Minus_Niederohmig;
-                else sp = Schleife.Spannung.Minus_Hochohmig;
-            }
-        }
-
-        m_schleife.SetSpannung(sp);
-
-        Schleife.Leitwert lwm = Schleife.Leitwert.Unterbruch;
-        Schleife.Leitwert lwp = Schleife.Leitwert.Unterbruch;
-
-        if (SS1.Value && c_S2) // S2
-            lwm = Schleife.Leitwert.Niederohmig;
-        else if (F.Value && !A.Value && !SS1.Value && c_SV) // SV
-            lwm = E.Value ? Schleife.Leitwert.Hochohmig : Schleife.Leitwert.Niederohmig;
-
-        if (!E.Value && !A1.Value && !A2.Value && c_S1) // S1
-            lwp = (SS1.Value && !SS2.Value) ? Schleife.Leitwert.Niederohmig : Schleife.Leitwert.Hochohmig;
-
-        m_schleife.SetLeitwert(lwm, lwp);
+        UpdateBedienrelais();
+        UpdateFahrtrichtung();
+        UpdateSperrsatz();
+        UpdateBlockrelais();
+        UpdateSchleife();
+        UpdateSperrschleife();
     }
 
     public override void Output()
     {
-        // Output und Melde-Lampen
-        l_w_ab.Value = (sl_ML && !F.Value && !SS2.Value && (!A.Value || V.Value)) || (sl_ML_BLI && (A.Value && !V.Value && !SS2.Value));
-        l_S2.Value = sl_ML && ((SS1.Value && !A1.Value) || (!SS1.Value && S2.Value));
-        l_S1.Value = sl_ML && ((A1.Value && !SS2.Value) || (SS1.Value && !SS2.Value) || (!A1.Value && !SS1.Value && S1.Value));
-        l_A.Value = sl_ML && A.Value && !V.Value;
-        l_SP.Value = sl_ML && SP.Value;
-        l_E_F.Value = sl_ML && (E.Value || F.Value);
-        l_RF_A1.Value = sl_ML && (RF.Value || A1.Value);
+        l_F.Value = F.Value;
+        l_VB.Value = VB.Value;
+        l_B.Value = B.Value;
+        l_RB.Value = RB.Value;
+        l_FBH.Value = FBH.Value;
+        l_AF.Value = AF.Value;
+        l_EF.Value = EF.Value;
+        l_SP.Value = SP.Value;
+    }
+
+    private void UpdateBedienrelais()
+    {
+        // Fahrtrichtungs- und Rueckblockauftraege bleiben gespeichert, bis sie ausgefuehrt sind.
+        B_FA.Value = (B_FA.Value || (t_BT.Value && t_FA.Value))
+                     && !F.Value
+                     && !SP.Value
+                     && !SPE.Value;
+        B_VB.Value = t_BT.Value && t_VB.Value;
+        B_RB.Value = (B_RB.Value || (t_BT.Value && t_RB.Value && EF.Value && BE.Value))
+                     && EF.Value;
+        B_BL.Value = t_BT.Value && t_BL.Value;
+        B_FBH.Value = t_BT.Value && t_FBH.Value;
+        B_FBF.Value = t_BT.Value && t_FBF.Value;
+        B_SE.Value = t_BT.Value && t_SE.Value && F.Value;
+        // Die Seite mit Fahrtrichtung initiiert die Aufhebung.
+        // Die Gegenstation darf erst bestaetigen, nachdem sie diese Anforderung empfangen hat.
+        B_SA.Value = t_BT.Value && t_SA.Value && SP.Value && (F.Value || SAE.Value);
+    }
+
+    private void UpdateFahrtrichtung()
+    {
+        // FBH ist ein lokales, selbsthaltendes Relais und wird nicht ueber die Schleife uebertragen.
+        FBH.Value = (FBH.Value || B_FBH.Value) && !B_FBF.Value;
+
+        var directionAccepted = B_FA.Value
+                                && m_other != null
+                                && !m_other.FBH.Value
+                                && !m_other.B_FA.Value
+                                && GF.Value
+                                && !VB.Value
+                                && !B.Value
+                                && !AF.Value
+                                && !EF.Value
+                                && !VE.Value
+                                && !BE.Value
+                                && !SP.Value
+                                && !SPE.Value;
+
+        var directionRelease = m_other?.B_FA.Value == true
+                               && !FBH.Value
+                               && !VB.Value
+                               && !B.Value
+                               && !AF.Value
+                               && !EF.Value
+                               && !SP.Value
+                               && !SPE.Value;
+
+        F.Value = (F.Value || directionAccepted) && !directionRelease;
+    }
+
+    private void UpdateBlockrelais()
+    {
+        var remoteVoltage = m_schleife.GetSpannung();
+
+        VE.Value = remoteVoltage == Schleife.Spannung.Plus_Niederohmig;
+        BE.Value = remoteVoltage == Schleife.Spannung.Minus_Niederohmig;
+        RB.Value = remoteVoltage == Schleife.Spannung.Plus_Hochohmig;
+        GF.Value = remoteVoltage == Schleife.Spannung.Aus
+                   && m_schleife.GetLeitwertMinus() == Schleife.Leitwert.Unterbruch
+                   && m_schleife.GetLeitwertPlus() == Schleife.Leitwert.Unterbruch;
+
+        VB.Value = (VB.Value || (B_VB.Value && F.Value && GF.Value && !SP.Value))
+                   && !RB.Value;
+
+        B.Value = (B.Value || (B_BL.Value && F.Value && VB.Value && AF.Value && GF.Value && !SP.Value))
+                  && !RB.Value;
+
+        AF.Value = (AF.Value || (VB.Value && F.Value)) && !RB.Value;
+        RBS.Value = (RBS.Value || B_RB.Value) && BE.Value;
+        EF.Value = (EF.Value || VE.Value || BE.Value) && !RBS.Value;
+
+        c_FFZ.Value = B.Value;
+    }
+
+    private void UpdateSperrsatz()
+    {
+        var remoteVoltage = m_sperrschleife.GetSpannung();
+        SPE.Value = remoteVoltage != Schleife.Spannung.Aus;
+        SAE.Value = (SAE.Value || remoteVoltage == Schleife.Spannung.Minus_Niederohmig) && !SPA.Value;
+
+        SAK.Value = (SAK.Value || B_SA.Value) && !SPA.Value;
+        SPA.Value = (SPA.Value || (SAK.Value && SAE.Value)) && (SP.Value || SPE.Value);
+        SP.Value = (SP.Value || B_SE.Value || SPE.Value) && !SPA.Value;
+
+        if (!SP.Value && !SPE.Value)
+        {
+            SAK.Value = false;
+            SAE.Value = false;
+        }
+    }
+
+    private void UpdateSchleife()
+    {
+        var voltage = Schleife.Spannung.Aus;
+        if (B_RB.Value && BE.Value)
+            voltage = Schleife.Spannung.Plus_Hochohmig;
+        else if (B.Value)
+            voltage = Schleife.Spannung.Minus_Niederohmig;
+        else if (VB.Value)
+            voltage = Schleife.Spannung.Plus_Niederohmig;
+
+        m_schleife.SetSpannung(voltage);
+        m_schleife.SetLeitwert(
+            F.Value || VB.Value || B.Value || AF.Value
+                ? Schleife.Leitwert.Niederohmig
+                : Schleife.Leitwert.Unterbruch,
+            Schleife.Leitwert.Unterbruch);
+    }
+
+    private void UpdateSperrschleife()
+    {
+        var voltage = Schleife.Spannung.Aus;
+        if (SP.Value && !SPA.Value)
+            voltage = SAK.Value
+                ? Schleife.Spannung.Minus_Niederohmig
+                : Schleife.Spannung.Plus_Niederohmig;
+
+        m_sperrschleife.SetSpannung(voltage);
+        m_sperrschleife.SetLeitwert(
+            SP.Value && !SPA.Value ? Schleife.Leitwert.Niederohmig : Schleife.Leitwert.Unterbruch,
+            SAK.Value ? Schleife.Leitwert.Niederohmig : Schleife.Leitwert.Unterbruch);
     }
 }

@@ -70,6 +70,8 @@
             <MenuItem Header="_Extras">
                 <MenuItem Header="_WSR-Test..."
                           Click="OpenWsrTest" />
+                <MenuItem Header="_Block-/Sperren-Test..."
+                          Click="OpenBlockTest" />
                 <Separator />
                 <MenuItem Header="_Automatikbetrieb..." />
                 <MenuItem Header="_Fahrplan..." />
