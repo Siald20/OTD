@@ -19,7 +19,7 @@
 // // Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
 // // Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
 
-namespace OTD.HardwareControl.Train;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Defines operating mode of the train.
@@ -79,7 +79,7 @@ public enum VehicleOrientation
     Reverse
 }
 
-public enum DecoderProtocol
+public enum LocoDecoderProtocol
 {
     /// <summary>
     /// DCC protocol with 14 speed steps.

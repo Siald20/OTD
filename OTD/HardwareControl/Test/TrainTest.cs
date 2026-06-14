@@ -23,22 +23,24 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using OTD.HardwareControl.Accessory;
-using OTD.HardwareControl.CommandStation;
-using OTD.HardwareControl.CommandStation.LoDi;
-using OTD.HardwareControl.CommandStation.Mock;
-using OTD.HardwareControl.Train;
-using TrainFunctionState = OTD.HardwareControl.Train.FunctionState;
+using OTD.HardwareControl.Drivers;
 
-namespace OTD.HardwareControl.Examples;
+namespace OTD.HardwareControl;
 
-public static class TrainTest
+internal static class TrainTest
 {
     /// <summary>
-    ///     Einstiegspunkt für die Konsolenanwendung zu Testzwecken.
+    ///     Entry point for the hardware control console test harness.
     /// </summary>
     public static async Task Main(string[] args)
     {
+        var selectedTest = Environment.GetEnvironmentVariable("OTD_TRAIN_TEST");
+        if (string.Equals(selectedTest?.Trim(), "FEEDBACK_MOCK_KEYBOARD", StringComparison.OrdinalIgnoreCase))
+        {
+            await MockKeyboardFeedback.RunAsync();
+            return;
+        }
+
         if (Array.Exists(args, a => string.Equals(a, "--test-ensure-operational", StringComparison.OrdinalIgnoreCase)))
         {
             var ipAddress = GetArgValue(args, "--ip") ?? "192.168.1.50";
@@ -62,47 +64,37 @@ public static class TrainTest
             return;
         }
 
-        // Zentrale erstellen – Treiber via OTD_DRIVER wählbar (LODI | MOCK, Standard: LODI)
-        var driverName = (Environment.GetEnvironmentVariable("OTD_DRIVER") ?? "LODI")
-            .Trim().ToUpperInvariant();
+        // ── Paarweise Auswahl: Zentrale + zugehöriger Rückmelder ──────────────
+        var stationUid        = Guid.Parse("eea1ea06-5c31-428f-8992-1c1d160f1131"); // LoDi Rektor
+        var feedbackModuleUid = Guid.Parse("eea1ea06-5c31-428f-8992-1c1d160f1130"); // LoDi S88 Commander
+        // var stationUid        = Guid.Parse("00000000-0000-0000-0000-00000000c001"); // MockCommandStation
+        // var feedbackModuleUid = Guid.Parse("00000000-0000-0000-0000-00000000f040"); // MockKeyboardFeedback
+        // ─────────────────────────────────────────────────────────────────────
 
-        ICommandStation driver = driverName switch
-        {
-            "MOCK" => new MockCommandStation(),
-            "LODI" => new LoDiRektor { DiagnosticLogging = true },
-            _ => throw new InvalidOperationException($"Unbekannter OTD_DRIVER-Wert: '{driverName}'. Gültige Werte: LODI, MOCK")
-        };
-
-        var commandStation = new CommandStation.CommandStation(driver);
+        using var commandStation = new CommandStation(stationUid);
 
         // Verbindung nur aufbauen, wenn noch nicht verbunden
         if (!commandStation.IsConnected)
         {
-            await commandStation.ConnectAsync("192.168.1.50", 11092);
+            await commandStation.ConnectAsync();
         }
 
         await commandStation.SetPowerAsync(true);
         await Task.Delay(TimeSpan.FromSeconds(3));
 
-        var selectedTest = Environment.GetEnvironmentVariable("OTD_TRAIN_TEST");
         if (!string.IsNullOrWhiteSpace(selectedTest))
         {
-            await RunSelectedTrainTestAsync(selectedTest, commandStation);
+            await RunSelectedTrainTestAsync(selectedTest, commandStation, feedbackModuleUid);
             return;
         }
 
-        
-        // var runAccessoryExamplesOnly = Environment.GetEnvironmentVariable("OTD_RUN_ACCESSORY_EXAMPLES_ONLY") != "0";
-        // if (runAccessoryExamplesOnly)
-        // {
-        //     await AccessoryDecoderIntegrationExample.RunAllExamplesAsync(commandStation);
-        //     return;
-        // }
+        // Kein automatischer Default-Test: ohne OTD_TRAIN_TEST endet Main nach Basis-Setup.
     }
 
     private static async Task RunSelectedTrainTestAsync(
         string selectedTest,
-        CommandStation.CommandStation commandStation)
+        CommandStation commandStation,
+        Guid feedbackModuleUid)
     {
         switch (selectedTest.Trim().ToUpperInvariant())
         {
@@ -135,12 +127,20 @@ public static class TrainTest
                 await ReadBackTest_Loco(commandStation);
                 return;
 
+            case "FEEDBACK":
+                await FeedbackTest.RunSingleModuleAsync(feedbackModuleUid);
+                return;
+
+            case "FEEDBACK_MOCK_KEYBOARD":
+                await MockKeyboardFeedback.RunAsync();
+                return;
+
             default:
                 throw new InvalidOperationException($"Unknown OTD_TRAIN_TEST: {selectedTest}");
         }
     }
 
-    public static async Task ReadBackTest_Accessory(CommandStation.CommandStation commandStation)
+    public static async Task ReadBackTest_Accessory(CommandStation commandStation)
     {
         // var w1Uid  = Guid.Parse("3f8a1b2c-4d5e-4f7a-8b9c-0d1e2f3a4b5c");
         // var turnout = new Accessory.Accessory(w1Uid);
@@ -156,12 +156,12 @@ public static class TrainTest
         await Task.Delay(TimeSpan.FromSeconds(30));
     }
     
-    public static async Task VT612_Test(CommandStation.CommandStation commandStation)
+    public static async Task VT612_Test(CommandStation commandStation)
     {
         var trainId = Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6c");
-        var train = new Train.Train(trainId, commandStation);
+        var train = new Train(trainId, commandStation);
         Console.WriteLine("1---------");
-        await train.SetFunctionStateAsync(0, TrainFunctionState.On, [train.TrainComposition[0].VehicleId]);
+        await train.SetFunctionStateAsync(0, LocoDecoderFunctionState.On, [train.TrainComposition[0].VehicleId]);
         train.OperatingMode = TrainOperatingMode.Parking;
         //train.HeadlightMode = HeadlightMode.Auto;
         Console.WriteLine("2---------");
@@ -193,10 +193,10 @@ public static class TrainTest
         Console.WriteLine("9---------");
     }
 
-    public static async Task VT612_Uncoupling(CommandStation.CommandStation commandStation)
+    public static async Task VT612_Uncoupling(CommandStation commandStation)
     {
         var trainId = Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6c");
-        var train = new Train.Train(trainId, commandStation);
+        var train = new Train(trainId, commandStation);
 
         // Komposition fuer Konfigurationsoperationen aus aktiver Train-Instanz loesen.
         var builder = await train.DetachCompositionAsync();
@@ -215,24 +215,24 @@ public static class TrainTest
 
     }
 
-    public static async Task Decoder_Test(CommandStation.CommandStation commandStation)
+    public static async Task Decoder_Test(CommandStation commandStation)
     {
         var trainId = Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6e");
-        var train = new Train.Train(trainId, commandStation);
+        var train = new Train(trainId, commandStation);
 
         await Task.Delay(TimeSpan.FromSeconds(7));
-        await train.SetFunctionStateAsync(27, TrainFunctionState.On, [train.TrainComposition[0].VehicleId]);
-        await train.SetFunctionStateAsync(0, TrainFunctionState.On, [train.TrainComposition[0].VehicleId]);
+        await train.SetFunctionStateAsync(27, LocoDecoderFunctionState.On, [train.TrainComposition[0].VehicleId]);
+        await train.SetFunctionStateAsync(0, LocoDecoderFunctionState.On, [train.TrainComposition[0].VehicleId]);
         await Task.Delay(TimeSpan.FromSeconds(7));
-        await train.SetFunctionStateAsync(0, TrainFunctionState.Off, [train.TrainComposition[0].VehicleId]);
-        await train.SetFunctionStateAsync(27, TrainFunctionState.Off, [train.TrainComposition[0].VehicleId]);
+        await train.SetFunctionStateAsync(0, LocoDecoderFunctionState.Off, [train.TrainComposition[0].VehicleId]);
+        await train.SetFunctionStateAsync(27, LocoDecoderFunctionState.Off, [train.TrainComposition[0].VehicleId]);
         await Task.Delay(TimeSpan.FromSeconds(7));
     }
 
-    public static async Task BR193_Test(CommandStation.CommandStation commandStation)
+    public static async Task BR193_Test(CommandStation commandStation)
     {
         var trainId = Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6e");
-        var train = new Train.Train(trainId, commandStation);
+        var train = new Train(trainId, commandStation);
 
         Console.WriteLine("---------");
         CheckFunctionStates(train);
@@ -265,15 +265,15 @@ public static class TrainTest
     }
 
     /// <summary>
-    ///     Testet den AccessoryDecoder-ReadBack mit echter LoDi-Verbindung.
-    ///     Abonniert StateChanged-Events auf allen Fahrzeugdecodern und gibt
-    ///     alle eingehenden Zustandsänderungen von der Zentrale auf der Konsole aus.
-    ///     Läuft solange, bis eine Taste gedrückt wird.
+    ///     Tests accessory decoder readback with a real LoDi connection.
+    ///     Subscribes to StateChanged events on all vehicle decoders and prints
+    ///     all incoming state changes from the command station to the console.
+    ///     Runs until a key is pressed.
     /// </summary>
-    public static async Task ReadBackTest_Loco(CommandStation.CommandStation commandStation)
+    public static async Task ReadBackTest_Loco(CommandStation commandStation)
     {
         var trainId = Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6e");
-        var train = new Train.Train(trainId, commandStation);
+        var train = new Train(trainId, commandStation);
 
         Console.WriteLine("=== Einlesen Zentrale ===");
         await Task.Delay(TimeSpan.FromSeconds(4));        
@@ -317,7 +317,7 @@ public static class TrainTest
         Console.WriteLine("=== ReadBack Live-Test beendet ===");
     }
 
-    public static void ShowLocoStateChangedResultsContinuously(Train.Train train)
+    public static void ShowLocoStateChangedResultsContinuously(Train train)
     {
         foreach (var entry in train.TrainComposition)
         {
@@ -367,7 +367,7 @@ public static class TrainTest
         };
     }
 
-    public static void CheckFunctionStates(Train.Train train)
+    public static void CheckFunctionStates(Train train)
     {
         // Ausgabe der aktuellen Funktions-Zustände und Geschwindigkeit aller Fahrzeuge
         Console.WriteLine("=== Aktuelle Zustände der Fahrzeuge ===");
@@ -454,18 +454,13 @@ public static class TrainTest
         TimeSpan observeWindow,
         int pulseAddress,
         byte pulseValue,
-        Func<CommandStation.CommandStation, CancellationToken, Task> trigger)
+        Func<CommandStation, CancellationToken, Task> trigger)
     {
         using var scenarioCts = new CancellationTokenSource();
 
-        var loDiDriver = new LoDiRektor
-        {
-            DiagnosticLogging = true,
-            EnableConnectWarmup = true,
-            LogConnectWarmup = true
-        };
-
-        using var commandStation = new CommandStation.CommandStation(loDiDriver);
+        var stationUid = Guid.Parse("eea1ea06-5c31-428f-8992-1c1d160f1131"); // LoDi Rektor
+        // var stationUid = Guid.Parse("00000000-0000-0000-0000-00000000c001"); // MockCommandStation
+        using var commandStation = new CommandStation(stationUid);
 
         var locoEvents = 0;
         var accessoryEvents = 0;
@@ -499,7 +494,7 @@ public static class TrainTest
 
         try
         {
-            await commandStation.ConnectAsync(ipAddress, port, scenarioCts.Token).ConfigureAwait(false);
+            await commandStation.ConnectAsync(scenarioCts.Token).ConfigureAwait(false);
             await trigger(commandStation, scenarioCts.Token).ConfigureAwait(false);
 
             Console.WriteLine(
@@ -532,7 +527,7 @@ public static class TrainTest
     }
 
     private static async Task SendAccessoryPulseAsync(
-        CommandStation.CommandStation commandStation,
+        CommandStation commandStation,
         int address,
         byte value,
         CancellationToken cancellationToken)
@@ -540,8 +535,8 @@ public static class TrainTest
         await commandStation.SetAccessoryValueAsync(
                 address,
                 value,
-                Accessory.DecoderProtocol.Dcc,
-                Accessory.FunctionState.On,
+                AccessoryDecoderProtocol.Dcc,
+                AccessoryFunctionState.On,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
@@ -550,8 +545,8 @@ public static class TrainTest
         await commandStation.SetAccessoryValueAsync(
                 address,
                 value,
-                OTD.HardwareControl.Accessory.DecoderProtocol.Dcc,
-                OTD.HardwareControl.Accessory.FunctionState.Off,
+                AccessoryDecoderProtocol.Dcc,
+                AccessoryFunctionState.Off,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
     }

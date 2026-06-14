@@ -19,7 +19,7 @@
 // // Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
 // // Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
 
-namespace OTD.HardwareControl.Accessory;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Defines operating mode of the train.
