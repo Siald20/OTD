@@ -5,37 +5,48 @@
 //
 // Authors:
 // - Hansueli Alder <info@batec.net>
-
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using OTD.HardwareControl.CommandStation.LoDi;
-using OTD.HardwareControl.Train;
-using AccessoryDecoder = OTD.HardwareControl.Accessory.AccessoryDecoder;
-using AccessoryDecoderProtocol = OTD.HardwareControl.Accessory.DecoderProtocol;
-using AccessoryFunctionState = OTD.HardwareControl.Accessory.FunctionState;
-using AccessoryStateChangedEventArgs = OTD.HardwareControl.Accessory.AccessoryStateChangedEventArgs;
+using OTD.HardwareControl.Drivers;
 
-namespace OTD.HardwareControl.CommandStation;
+namespace OTD.HardwareControl;
 
 /// <summary>
-///     Orchestriert die Ansteuerung einer Kommandozentrale.
-///     Diese Klasse kapselt Verbindungsaufbau, Gleisspannungspruefung
-///     und delegiert Befehle an den konkreten Treiber (z.B. LoDiRektor).
+///     Orchestrates control of a command station.
+///     This class encapsulates connection handling, track power validation,
+///     and delegates commands to the concrete driver (for example LoDiRektor).
 /// </summary>
 public sealed class CommandStation : ICommandStation
 {
+    private const string DriverLoDiRector = "lodi-rector";
+    private const string DriverMockCommandStation = "mock-commandstation";
+
     private readonly ICommandStation _driver;
+    private readonly Guid _stationUid;
     private readonly TimeSpan _powerStabilizationDelay = TimeSpan.FromSeconds(1);
     private readonly Dictionary<int, LocoDecoder> _registeredDecoders = new();
     private readonly Dictionary<int, List<AccessoryDecoder>> _registeredAccessoryDecoders = new();
 
-    public CommandStation(ICommandStation driver)
+    public CommandStation(Guid stationUid)
     {
-        ArgumentNullException.ThrowIfNull(driver);
-        _driver = driver;
+        _stationUid = stationUid;
+        _driver = CreateDriver(stationUid);
 
         // Zustands-Readbacks der Zentrale in registrierte Decoderinstanzen durchreichen.
         _driver.LocoStateChanged += (_, args) => OnDecoderStateChanged(args);
@@ -43,6 +54,11 @@ public sealed class CommandStation : ICommandStation
     }
 
     public bool IsConnected => _driver.IsConnected;
+
+    /// <summary>
+    /// Unique ID of the command station from deviceconfig.xml.
+    /// </summary>
+    public Guid UniqueId => _stationUid;
 
     /// <summary>
     /// Name des verwendeten Treibers (z.B. "LoDiRektor" oder "MockCommandStation").
@@ -53,8 +69,8 @@ public sealed class CommandStation : ICommandStation
 
     public event EventHandler<AccessoryStateChangedEventArgs>? AccessoryStateChanged;
 
-    public Task ConnectAsync(string address, int port, CancellationToken cancellationToken = default)
-        => _driver.ConnectAsync(address, port, cancellationToken);
+    public Task ConnectAsync(CancellationToken cancellationToken = default)
+        => _driver.ConnectAsync(cancellationToken);
 
     public Task DisconnectAsync() => _driver.DisconnectAsync();
 
@@ -66,6 +82,9 @@ public sealed class CommandStation : ICommandStation
 
     public void Dispose() => _driver.Dispose();
 
+    /// <summary>
+    /// Ensures the command station is connected and track power is active.
+    /// </summary>
     public async Task<bool> EnsureOperationalAsync(CancellationToken cancellationToken = default)
     {
         if (!_driver.IsConnected)
@@ -91,7 +110,7 @@ public sealed class CommandStation : ICommandStation
         Console.WriteLine("Gleisspannung ist ausgeschaltet. Aktiviere Booster...");
         try
         {
-            await _driver.SetPowerAsync(true, cancellationToken).ConfigureAwait(false);
+            await _driver.SetPowerAsync(isOn: true, cancellationToken).ConfigureAwait(false);
             Console.WriteLine("Gleisspannung eingeschaltet. Warte 1 s auf Stabilisierung...");
             await Task.Delay(_powerStabilizationDelay, cancellationToken).ConfigureAwait(false);
             return true;
@@ -103,7 +122,7 @@ public sealed class CommandStation : ICommandStation
         }
     }
 
-    public void InitializeDecoder(int address, OTD.HardwareControl.Train.DecoderProtocol protocol, int effectiveSpeedSteps)
+    public void InitializeDecoder(int address, LocoDecoderProtocol protocol, int effectiveSpeedSteps)
         => _driver.InitializeDecoder(address, protocol, effectiveSpeedSteps);
 
     public async Task SetLocoSpeedAsync(int address, int speedStep, VehicleDirection direction,
@@ -191,6 +210,23 @@ public sealed class CommandStation : ICommandStation
         AccessoryFunctionState state, int activationTimeMs = 0,
         CancellationToken cancellationToken = default)
         => _driver.SetAccessoryValueAsync(address, value, protocol, state, activationTimeMs, cancellationToken);
+
+    private static ICommandStation CreateDriver(Guid stationUid)
+    {
+        var commandStationElement = CommandStationUtils.LoadCommandStationElement(stationUid);
+        var driverName = CommandStationUtils
+            .RequireAttribute(commandStationElement, "driver", $"commandstation '{stationUid}'")
+            .Trim()
+            .ToLowerInvariant();
+
+        return driverName switch
+        {
+            DriverLoDiRector => new LoDiRektor(commandStationElement),
+            DriverMockCommandStation => new MockCommandStation(),
+            _ => throw new InvalidOperationException(
+                $"Command station '{stationUid}' has unsupported driver '{driverName}'.")
+        };
+    }
 
 
     private void OnDecoderStateChanged(LocoStateChangedEventArgs args)

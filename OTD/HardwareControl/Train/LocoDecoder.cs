@@ -1,32 +1,30 @@
-// // SPDX-License-Identifier: GPL-3.0-or-later
-// //
-// // OpenTrainDrive - DecoderControl
-// // Copyright (C) 2026
-// //
-// // Authors:
-// // - Hansueli Alder <info@batec.net>
-// //
-// // Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// // der GNU General Public License, wie von der Free Software Foundation,
-// // entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// // veröffentlichten Version, weiterverbreiten und/oder modifizieren.
-// //
-// // Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// // jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// // MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// // Siehe die GNU General Public License für weitere Details.
-// //
-// // Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// // Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// OpenTrainDrive - DecoderControl
+// Copyright (C) 2026
+//
+// Authors:
+// - Hansueli Alder <info@batec.net>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using OTD.HardwareControl.CommandStation;
 
-namespace OTD.HardwareControl.Train;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Provides low-level locomotive decoder control.
@@ -35,13 +33,13 @@ public class LocoDecoder : ILocoDecoder
 {
     private readonly List<ICommandStation> _subscribedCommandStations = [];
     private readonly SemaphoreSlim _commandLock = new(1, 1);
-    private readonly Dictionary<int, FunctionState> _functionStates = [];
+    private readonly Dictionary<int, LocoDecoderFunctionState> _functionStates = [];
 
     /// <inheritdoc/>
     public int Address { get; }
 
     /// <inheritdoc/>
-    public DecoderProtocol Protocol { get; }
+    public LocoDecoderProtocol Protocol { get; }
 
     /// <inheritdoc/>
     public VehicleDirection Direction { get; private set; } = VehicleDirection.Undefined;
@@ -104,7 +102,7 @@ public class LocoDecoder : ILocoDecoder
             // LocoDecoder initialisieren (Adresse, Protokoll, Anzahl Fahrstufen)
             commandStation.InitializeDecoder(Address, Protocol, TotalSpeedSteps);
             // Callback für Statusmeldungen (Fahrbefehle und Funktionen) von der Zentrale registrieren
-            if (commandStation is CommandStation.CommandStation concreteStation)
+            if (commandStation is CommandStation concreteStation)
                 concreteStation.RegisterDecoder(Address, this);
             Console.WriteLine($"Zentrale '{commandStation.GetType().Name}' abonniert. Insgesamt {_subscribedCommandStations.Count} abonniert.");
 
@@ -140,7 +138,7 @@ public class LocoDecoder : ILocoDecoder
         if (_subscribedCommandStations.Remove(commandStation))
         {
             // Registrierung der Status-Callbacks beenden
-            if (commandStation is CommandStation.CommandStation concreteStation)
+            if (commandStation is CommandStation concreteStation)
                 concreteStation.UnregisterDecoder(Address);
             Console.WriteLine($"Zentrale '{commandStation.GetType().Name}' abgemeldet. Noch {_subscribedCommandStations.Count} abonniert.");
         }
@@ -211,10 +209,10 @@ public class LocoDecoder : ILocoDecoder
     /// <inheritdoc/>
     public async Task SetFunctionStateAsync(
         int function,
-        FunctionState state,
+        LocoDecoderFunctionState state,
         CancellationToken cancellationToken = default)
     {
-        if (state is FunctionState.Undefined)
+        if (state is LocoDecoderFunctionState.Undefined)
             throw new ArgumentOutOfRangeException(nameof(state), state,
                 "FunctionState.Undefined: kein gültiger Wert zum Schalten.");
 
@@ -224,12 +222,12 @@ public class LocoDecoder : ILocoDecoder
             // Send function command to all subscribed command stations
             foreach (var station in _subscribedCommandStations)
             {
-                await station.SetLocoFunctionAsync(Address, function, state == FunctionState.On,
+                await station.SetLocoFunctionAsync(Address, function, state == LocoDecoderFunctionState.On,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
             _functionStates[function] = state;
-            Console.WriteLine($"Funktion {function} {(state == FunctionState.On ? "AN" : "AUS")} an Adresse {Address} gesendet.");
+            Console.WriteLine($"Funktion {function} {(state == LocoDecoderFunctionState.On ? "AN" : "AUS")} an Adresse {Address} gesendet.");
         }
         finally
         {
@@ -238,8 +236,8 @@ public class LocoDecoder : ILocoDecoder
     }
 
     /// <inheritdoc/>
-    public FunctionState GetFunctionState(int functionNumber)
-        => _functionStates.GetValueOrDefault(functionNumber, FunctionState.Undefined);
+    public LocoDecoderFunctionState GetFunctionState(int functionNumber)
+        => _functionStates.GetValueOrDefault(functionNumber, LocoDecoderFunctionState.Undefined);
 
     /// <inheritdoc/>
     public async Task ActivateFunctionAsync(
@@ -247,9 +245,9 @@ public class LocoDecoder : ILocoDecoder
         int timeout,
         CancellationToken cancellationToken = default)
     {
-        await SetFunctionStateAsync(function, FunctionState.On, cancellationToken).ConfigureAwait(false);
+        await SetFunctionStateAsync(function, LocoDecoderFunctionState.On, cancellationToken).ConfigureAwait(false);
         await Task.Delay(TimeSpan.FromMilliseconds(timeout), cancellationToken).ConfigureAwait(false);
-        await SetFunctionStateAsync(function, FunctionState.Off, cancellationToken).ConfigureAwait(false);
+        await SetFunctionStateAsync(function, LocoDecoderFunctionState.Off, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

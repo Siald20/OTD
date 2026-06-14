@@ -6,38 +6,33 @@
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
-using OTD.HardwareControl;
-using OTD.HardwareControl.Train;
-// Note: LocoStateChangedEventArgs has been moved to OTD.HardwareControl.Train for protocol abstraction.
-using LocoStateChangedEventArgs = OTD.HardwareControl.Train.LocoStateChangedEventArgs;
 
-namespace OTD.HardwareControl.CommandStation.LoDi;
+namespace OTD.HardwareControl.Drivers;
 
 // -------------------------------------------------------------------------
 // Allgemeine Verbindungs-Events
 // -------------------------------------------------------------------------
 
-/// <summary>Argumente für Verbindungsänderungs-Events</summary>
-public sealed class LoDiConnectionChangedEventArgs : EventArgs
+/// <summary>Arguments for connection state change events.</summary>
+internal sealed class LoDiConnectionChangedEventArgs : EventArgs
 {
-    /// <summary>Gibt an, ob das Gerät verbunden ist.</summary>
+    /// <summary>Indicates whether a connection to the Commander exists.</summary>
     public bool IsConnected { get; }
 
-    /// <summary>Optionale Fehlermeldung (nur bei Verbindungsverlust)</summary>
+    /// <summary>Optional error message (only set on connection loss).</summary>
     public string? ErrorMessage { get; }
 
     public LoDiConnectionChangedEventArgs(bool isConnected, string? errorMessage = null)
@@ -47,11 +42,10 @@ public sealed class LoDiConnectionChangedEventArgs : EventArgs
     }
 }
 
-
-/// <summary>Argumente für den Empfang eines Rohdaten-Pakets</summary>
+/// <summary>Arguments for receiving a raw LoDi packet.</summary>
 internal sealed class LoDiPacketReceivedEventArgs : EventArgs
 {
-    /// <summary>Das empfangene, geparste Paket</summary>
+    /// <summary>The received and parsed packet.</summary>
     public LoDiPacket Packet { get; }
 
     public LoDiPacketReceivedEventArgs(LoDiPacket packet) => Packet = packet;
@@ -62,18 +56,18 @@ internal sealed class LoDiPacketReceivedEventArgs : EventArgs
 // -------------------------------------------------------------------------
 
 /// <summary>
-///     Argumente für S88-Zustandsänderungs-Events.
-///     Wird ausgelöst, wenn sich der Zustand eines S88-Kontakts ändert.
+/// Arguments for S88 state change events.
+/// Raised when a single contact on an S88 module changes state.
 /// </summary>
-public sealed class S88StateChangedEventArgs : EventArgs
+internal sealed class S88StateChangedEventArgs : EventArgs
 {
-    /// <summary>Adresse des S88-Moduls (1-basiert)</summary>
+    /// <summary>Address of the S88 module (1-based).</summary>
     public int ModuleAddress { get; }
 
-    /// <summary>Kontaktnummer innerhalb des Moduls (1-basiert)</summary>
+    /// <summary>Contact number within the module (1-based, 1-16).</summary>
     public int ContactNumber { get; }
 
-    /// <summary>Neuer Zustand des Kontakts (<c>true</c> = belegt, <c>false</c> = frei)</summary>
+    /// <summary>New contact state (<c>true</c> = occupied, <c>false</c> = free).</summary>
     public bool IsOccupied { get; }
 
     public S88StateChangedEventArgs(int moduleAddress, int contactNumber, bool isOccupied)
@@ -85,32 +79,46 @@ public sealed class S88StateChangedEventArgs : EventArgs
 }
 
 /// <summary>
-///     Argumente für einen vollständigen S88-Modulstatus.
-///     Enthält den Zustand aller Kontakte eines S88-Moduls.
+/// Arguments for a full S88 module state snapshot.
+/// Contains the state of all 16 contacts of one S88 module.
 /// </summary>
-public sealed class S88ModuleStateEventArgs : EventArgs
+internal sealed class S88ModuleStateEventArgs : EventArgs
 {
-    /// <summary>Adresse des S88-Moduls (1-basiert)</summary>
+    /// <summary>Address of the S88 module (1-based).</summary>
     public int ModuleAddress { get; }
 
     /// <summary>
-    ///     Zustandsbitmask des Moduls.
-    ///     Bit 0 = Kontakt 1, Bit 1 = Kontakt 2, ... Bit 15 = Kontakt 16.
-    ///     Ein gesetztes Bit bedeutet: Abschnitt belegt.
+    /// State bitmask of the module.
+    /// Bit 0 = contact 1, Bit 1 = contact 2, ... Bit 15 = contact 16.
+    /// A set bit means: section occupied.
     /// </summary>
     public ushort StateBitmask { get; }
 
-    public S88ModuleStateEventArgs(int moduleAddress, ushort stateBitmask)
+    /// <summary>
+    /// Position of this module within the current S88MelderGet response (1-based).
+    /// 0 means unknown / not part of a 0x30 snapshot.
+    /// </summary>
+    public int SnapshotIndex { get; }
+
+    /// <summary>
+    /// Total module count in the current S88MelderGet response (first payload byte).
+    /// 0 means unknown / not part of a 0x30 snapshot.
+    /// </summary>
+    public int SnapshotCount { get; }
+
+    public S88ModuleStateEventArgs(int moduleAddress, ushort stateBitmask, int snapshotIndex = 0, int snapshotCount = 0)
     {
         ModuleAddress = moduleAddress;
         StateBitmask = stateBitmask;
+        SnapshotIndex = snapshotIndex;
+        SnapshotCount = snapshotCount;
     }
 
-    /// <summary>Gibt den Zustand eines einzelnen Kontakts zurück (1-basiert).</summary>
+    /// <summary>Returns the state of a single contact (1-based, 1-16).</summary>
     public bool GetContactState(int contactNumber)
     {
         if (contactNumber < 1 || contactNumber > 16)
-            throw new ArgumentOutOfRangeException(nameof(contactNumber), "Kontaktnummer muss zwischen 1 und 16 liegen.");
+            throw new ArgumentOutOfRangeException(nameof(contactNumber), "Contact number must be between 1 and 16.");
 
         return (StateBitmask & (1 << (contactNumber - 1))) != 0;
     }
@@ -120,25 +128,25 @@ public sealed class S88ModuleStateEventArgs : EventArgs
 // Geräte-Discovery
 // -------------------------------------------------------------------------
 
-/// <summary>Repräsentiert ein via UDP-Discovery gefundenes LoDi-Gerät.</summary>
-public sealed class LoDiDeviceInfo
+/// <summary>Represents a LoDi device found via UDP discovery.</summary>
+internal sealed class LoDiDeviceInfo
 {
-    /// <summary>IP-Adresse des gefundenen Geräts</summary>
+    /// <summary>IP address of the discovered device.</summary>
     public string IpAddress { get; }
 
-    /// <summary>TCP-Port des gefundenen Geräts</summary>
+    /// <summary>TCP port of the discovered device.</summary>
     public int TcpPort { get; }
 
-    /// <summary>Gerätetyp (z.B. "LoDi-Rektor", "LoDi-S88-Commander")</summary>
+    /// <summary>Device type (e.g. "LoDi-Rektor", "LoDi-S88-Commander").</summary>
     public string DeviceType { get; }
 
-    /// <summary>Gerätename / Bezeichnung</summary>
+    /// <summary>Device name / label.</summary>
     public string DeviceName { get; }
 
-    /// <summary>Seriennummer des Geräts</summary>
+    /// <summary>Serial number of the device.</summary>
     public string SerialNumber { get; }
 
-    /// <summary>Firmware-Version des Geräts</summary>
+    /// <summary>Firmware version of the device.</summary>
     public string FirmwareVersion { get; }
 
     public LoDiDeviceInfo(string ipAddress, int tcpPort, string deviceType,
@@ -155,4 +163,3 @@ public sealed class LoDiDeviceInfo
     public override string ToString() =>
         $"{DeviceType} '{DeviceName}' (S/N: {SerialNumber}, FW: {FirmwareVersion}) @ {IpAddress}:{TcpPort}";
 }
-

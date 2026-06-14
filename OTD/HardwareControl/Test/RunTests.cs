@@ -2,17 +2,38 @@
 //
 // OpenTrainDrive - DecoderControl
 // Copyright (C) 2026
-
+//
+// Authors:
+// - Hansueli Alder <info@batec.net>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Xml.Linq;
+using OTD.HardwareControl.Drivers;
+using OTD.HardwareControl.Test;
 
 namespace OTD.HardwareControl;
 
 internal static class RunTests
 {
     public static void Run()
+        => RunAsync().GetAwaiter().GetResult();
+
+    private static async Task RunAsync()
     {
         var configPath = CommandStationUtils.GetDefaultConfigFilePath();
         var document = CommandStationUtils.LoadXDocument(configPath);
@@ -47,30 +68,157 @@ internal static class RunTests
         using var commandStation = new CommandStation(commandStationUid);
         using var feedbackModule = new Feedback(feedbackUid);
 
-        Console.WriteLine("Instanzen erstellt:");
-        Console.WriteLine($"  CommandStation.UniqueId:   {commandStation.UniqueId}");
-        Console.WriteLine($"  CommandStation.DriverName: {commandStation.DriverName}");
-        Console.WriteLine($"  Feedback.UniqueId:         {feedbackModule.UniqueId}");
-        Console.WriteLine($"  Feedback.DriverName:       {feedbackModule.DriverName}");
-        Console.WriteLine();
+        var testEntries = BuildTestEntries(commandStationUid, feedbackUid);
 
-        Console.WriteLine("Initialisiere CommandStation...");
-        commandStation.ConnectAsync().GetAwaiter().GetResult();
-        Console.WriteLine($"  Verbunden: {commandStation.IsConnected}");
+        while (true)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Waehle Test (Esc zum Beenden):");
 
-        Console.WriteLine("Initialisiere Feedback...");
-        feedbackModule.ConnectAsync().GetAwaiter().GetResult();
-        var feedbackReady = feedbackModule.EnsureOperationalAsync().GetAwaiter().GetResult();
-        Console.WriteLine($"  Verbunden: {feedbackModule.IsConnected}");
-        Console.WriteLine($"  Operational: {feedbackReady}");
+            SelectableEntry selectedTest;
+            try
+            {
+                selectedTest = SelectOption("Verfuegbare Tests", testEntries.Select(entry => entry.MenuEntry).ToList());
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Testauswahl beendet.");
+                return;
+            }
 
-        Console.WriteLine("Schalte Gleisspannung ein...");
-        commandStation.SetPowerAsync(true).GetAwaiter().GetResult();
-        var powerState = commandStation.GetPowerStateAsync().GetAwaiter().GetResult();
-        Console.WriteLine($"  Gleisspannung: {(powerState ? "EIN" : "AUS")}");
+            var test = testEntries.First(entry => entry.MenuEntry.Id == selectedTest.Id);
 
-        Console.WriteLine();
-        TestOperationFlowBi.Run(commandStation, feedbackModule);
+            try
+            {
+                if (test.RequiresCommandStation)
+                    await EnsureCommandStationReadyAsync(commandStation).ConfigureAwait(false);
+
+                if (test.RequiresFeedback)
+                    await EnsureFeedbackReadyAsync(feedbackModule).ConfigureAwait(false);
+
+                Console.WriteLine();
+                Console.WriteLine($"Starte Test: {test.MenuEntry.Display}");
+                await test.ExecuteAsync(commandStation, feedbackModule).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Testfehler: {ex.Message}");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Test beendet. Taste druecken fuer Rueckkehr zum Menue...");
+            Console.ReadKey(intercept: true);
+        }
+    }
+
+    private static List<TestEntry> BuildTestEntries(Guid selectedStationUid, Guid selectedFeedbackUid)
+    {
+        return
+        [
+            new TestEntry(
+                new SelectableEntry("OPERATION_FLOW_BI", "test", "OperationFlowBi (Ablauf mit Sensorlogik)", null, 0),
+                (cs, fb) =>
+                {
+                    TestOperationFlowBi.Run(cs, fb);
+                    return Task.CompletedTask;
+                },
+                RequiresCommandStation: true,
+                RequiresFeedback: true),
+
+            new TestEntry(
+                new SelectableEntry("FEEDBACK_SINGLE", "test", "Feedback Einzelmodul", null, 0),
+                (_, _) => FeedbackTests.RunSingleModuleAsync(selectedFeedbackUid),
+                RequiresCommandStation: false,
+                RequiresFeedback: false),
+
+            new TestEntry(
+                new SelectableEntry("READBACK_LOCO", "test", "Readback Lokdecoder", null, 0),
+                (cs, _) => ReadbackTests.ReadBackTestLocoAsync(cs),
+                RequiresCommandStation: true,
+                RequiresFeedback: false),
+
+            new TestEntry(
+                new SelectableEntry("READBACK_ACCESSORY", "test", "Readback Zubehoerdecoder", null, 0),
+                (cs, _) => ReadbackTests.ReadBackTestAccessoryAsync(cs),
+                RequiresCommandStation: true,
+                RequiresFeedback: false),
+
+            new TestEntry(
+                new SelectableEntry("FEEDBACK_TRIGGER_DIAG", "test", "Feedback Trigger Diagnose", null, 0),
+                (_, _) =>
+                {
+                    var observeSeconds = PromptInt("Beobachtungsfenster in Sekunden", 30, 5, 600);
+                    var pulseAddress = PromptInt("Pulse-Adresse", 4, 1, 2048);
+                    var pulseValue = PromptByte("Pulse-Wert", 1);
+                    return FeedbackTests.RunEnsureOperationalTriggerTestAsync(
+                        selectedStationUid,
+                        TimeSpan.FromSeconds(observeSeconds),
+                        pulseAddress,
+                        pulseValue);
+                },
+                RequiresCommandStation: false,
+                RequiresFeedback: false),
+
+            new TestEntry(
+                new SelectableEntry("FEEDBACK_MOCK_KEYBOARD", "test", "Mock Keyboard Feedback", null, 0),
+                (_, _) => MockKeyboardFeedback.RunAsync(),
+                RequiresCommandStation: false,
+                RequiresFeedback: false)
+        ];
+    }
+
+    private static async Task EnsureCommandStationReadyAsync(CommandStation commandStation)
+    {
+        if (!commandStation.IsConnected)
+            await commandStation.ConnectAsync().ConfigureAwait(false);
+
+        await commandStation.SetPowerAsync(true).ConfigureAwait(false);
+        var powerState = await commandStation.GetPowerStateAsync().ConfigureAwait(false);
+        Console.WriteLine($"  CommandStation bereit, Gleisspannung: {(powerState ? "EIN" : "AUS")}");
+    }
+
+    private static async Task EnsureFeedbackReadyAsync(Feedback feedbackModule)
+    {
+        if (!feedbackModule.IsConnected)
+            await feedbackModule.ConnectAsync().ConfigureAwait(false);
+
+        var ready = await feedbackModule.EnsureOperationalAsync().ConfigureAwait(false);
+        if (!ready)
+            throw new InvalidOperationException("Feedback konnte nicht in einen betriebsbereiten Zustand gebracht werden.");
+
+        Console.WriteLine($"  Feedback bereit, Sensoren: {feedbackModule.SensorCount}");
+    }
+
+    private static int PromptInt(string label, int defaultValue, int min, int max)
+    {
+        while (true)
+        {
+            Console.Write($"{label} [{defaultValue}]: ");
+            var raw = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(raw))
+                return defaultValue;
+
+            if (int.TryParse(raw, out var parsed) && parsed >= min && parsed <= max)
+                return parsed;
+
+            Console.WriteLine($"Ungueltige Eingabe. Erlaubt: {min}..{max}");
+        }
+    }
+
+    private static byte PromptByte(string label, byte defaultValue)
+    {
+        while (true)
+        {
+            Console.Write($"{label} [{defaultValue}]: ");
+            var raw = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(raw))
+                return defaultValue;
+
+            if (byte.TryParse(raw, out var parsed))
+                return parsed;
+
+            Console.WriteLine("Ungueltige Eingabe. Erlaubt: 0..255");
+        }
     }
 
     private static List<SelectableEntry> LoadCommandStations(XDocument document)
@@ -165,6 +313,12 @@ internal static class RunTests
 
         throw new InvalidOperationException($"Invalid {context}: '{raw}'");
     }
+
+    private sealed record TestEntry(
+        SelectableEntry MenuEntry,
+        Func<CommandStation, Feedback, Task> ExecuteAsync,
+        bool RequiresCommandStation,
+        bool RequiresFeedback);
 
     private sealed record SelectableEntry(string Id, string Driver, string Display, string? IpAddress, int Port);
 }

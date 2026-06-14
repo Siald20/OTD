@@ -6,35 +6,35 @@
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace OTD.HardwareControl.CommandStation.LoDi;
+namespace OTD.HardwareControl.Drivers;
 
 /// <summary>
-///     Schnittstelle für den LoDi-S88-Commander Rückmeldeempfänger.
-///     Liest den Zustand von S88-Rückmeldeabschnitten über eine Ethernet-Verbindung
-///     und meldet Zustandsänderungen asynchron per Event.
+///     Interface for the LoDi-S88-Commander feedback receiver.
+///     Reads the status of S88 feedback sections via an Ethernet connection
+///     and reports status changes asynchronously via events.
 /// </summary>
 /// <remarks>
-///     Basiert auf der LoDi Geräte-API Dokumentation:
+///     Based on the LoDi device API documentation:
 ///     https://lokstoredigital.jimdoweb.com/service/geräte-api/lodi-s88-commander/
 /// </remarks>
-public sealed class LoDiS88Commander : IDisposable
+internal sealed class LoDiS88Commander : IDisposable
 {
     // -------------------------------------------------------------------------
     // Felder
@@ -42,23 +42,27 @@ public sealed class LoDiS88Commander : IDisposable
 
     private readonly LoDiConnection _connection;
     private bool _disposed;
+    private bool _diagnosticLogging;
+    private bool _suppressHeartbeatDiagnostics;
+    private TaskCompletionSource<S88DeviceInfo>? _pendingDeviceInfoRequest;
+    private readonly SemaphoreSlim _deviceInfoRequestLock = new(1, 1);
 
     // -------------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------------
 
-    /// <summary>Wird ausgelöst, wenn sich der Verbindungszustand ändert.</summary>
+    /// <summary>Triggered when the connection state changes.</summary>
     public event EventHandler<LoDiConnectionChangedEventArgs>? ConnectionChanged;
 
     /// <summary>
-    ///     Wird ausgelöst, wenn sich der Zustand eines einzelnen S88-Kontakts ändert
-    ///     (asynchrone Push-Meldung vom Gerät).
+    ///     Triggered when the state of an individual sensor on an S88 module changes
+    ///     (asynchronous push notification from the commander).
     /// </summary>
     public event EventHandler<S88StateChangedEventArgs>? ContactStateChanged;
 
     /// <summary>
-    ///     Wird ausgelöst, wenn der vollständige Zustand eines S88-Moduls
-    ///     als Antwort auf eine Abfrage oder als Push-Meldung empfangen wird.
+    ///     Triggered when the complete state of an S88 module
+    ///     is received in response to a query or as a push notification from the commander.
     /// </summary>
     public event EventHandler<S88ModuleStateEventArgs>? ModuleStateReceived;
 
@@ -66,8 +70,25 @@ public sealed class LoDiS88Commander : IDisposable
     // Eigenschaften
     // -------------------------------------------------------------------------
 
-    /// <summary>Gibt an, ob eine aktive Verbindung zum S88-Commander besteht.</summary>
+    /// <summary>Indicates whether an active connection to the S88 commander exists.</summary>
     public bool IsConnected => _connection.IsConnected;
+
+    /// <summary>Enables diagnostic logging for packet events and S88 commands.</summary>
+    public bool DiagnosticLogging
+    {
+        get => _diagnosticLogging;
+        set => _diagnosticLogging = value;
+    }
+
+    /// <summary>
+    ///     Suppresses diagnostic log entries for S88 heartbeat packets
+    ///     (EVT, Cmd 0x31, Payload [0x00]).
+    /// </summary>
+    public bool SuppressHeartbeatDiagnostics
+    {
+        get => _suppressHeartbeatDiagnostics;
+        set => _suppressHeartbeatDiagnostics = value;
+    }
 
     // -------------------------------------------------------------------------
     // Konstruktor
@@ -87,57 +108,149 @@ public sealed class LoDiS88Commander : IDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Stellt eine Verbindung zum LoDi-S88-Commander her.
+    ///     Establishes a connection to the LoDi S88 commander.
     /// </summary>
-    /// <param name="ipAddress">IP-Adresse des S88-Commanders</param>
-    /// <param name="port">TCP-Port (Standard: <see cref="LoDiProtocol.DefaultTcpPort"/>)</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
-    public async Task ConnectAsync(string ipAddress, int port = LoDiProtocol.DefaultTcpPort,
+    /// <param name="ipAddress">IP address of the commander</param>
+    /// <param name="port">TCP port (default: <see cref="LoDiProtocol.DefaultTcpPort"/>)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public Task ConnectAsync(string ipAddress, int port = LoDiProtocol.DefaultTcpPort,
+        CancellationToken cancellationToken = default)
+        => ConnectAsync(ipAddress, port, enableFeedbackUpdatesOnConnect: true, cancellationToken);
+
+    /// <summary>
+    ///     Establishes a connection to the LoDi S88 commander and optionally activates global S88 updates immediately.
+    /// </summary>
+    /// <param name="ipAddress">IP address of the commander</param>
+    /// <param name="port">TCP port (default: <see cref="LoDiProtocol.DefaultTcpPort"/>)</param>
+    /// <param name="enableFeedbackUpdatesOnConnect">
+    ///     <c>true</c> activates global S88 updates immediately after connect, <c>false</c> leaves the status unchanged.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public async Task ConnectAsync(string ipAddress, int port, bool enableFeedbackUpdatesOnConnect,
         CancellationToken cancellationToken = default)
     {
+        LogDiagnostic($"Connecting to {ipAddress}:{port}");
+
         await _connection.ConnectAsync(ipAddress, port, cancellationToken);
+
+        if (enableFeedbackUpdatesOnConnect)
+            await SetFeedbackUpdatesActiveAsync(true, cancellationToken);
+
+        LogDiagnostic($"Connection established: {IsConnected}");
     }
 
     /// <summary>
-    ///     Trennt die Verbindung zum LoDi-S88-Commander.
+    ///     Disconnects from the LoDi S88 commander.
     /// </summary>
     public async Task DisconnectAsync() => await _connection.DisconnectAsync();
+
+    /// <summary>
+    ///     Activates or deactivates global S88 feedback updates on the commander.
+    ///     Sends a REQ packet with Cmd 0x01 and Payload 0x01/0x00.
+    /// </summary>
+    /// <param name="isActive"><c>true</c> activates feedback updates, <c>false</c> deactivates them.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public async Task SetFeedbackUpdatesActiveAsync(bool isActive, CancellationToken cancellationToken = default)
+    {
+        var payload = isActive ? (byte)0x01 : (byte)0x00;
+        LogDiagnostic(
+            $"Sending activation packet: Type=0x{LoDiProtocol.PacketTypeRequest:X2} (REQ) " +
+            $"Cmd=0x{LoDiProtocol.Commands.S88.SetFeedbackUpdatesActive:X2} " +
+            $"Payload=[0x{payload:X2}] (Active={(isActive ? 1 : 0)})");
+
+        await _connection.SendAsync(LoDiProtocol.Commands.S88.SetFeedbackUpdatesActive, [payload], cancellationToken);
+    }
+
+    /// <summary>
+    ///     Activates global S88 event feedback for the current connection to the commander.
+    /// </summary>
+    public Task SubscribeEventsAsync(CancellationToken cancellationToken = default)
+        => SetFeedbackUpdatesActiveAsync(true, cancellationToken);
+
+    /// <summary>
+    ///     Deactivates global S88 event feedback for the current connection to the commander.
+    /// </summary>
+    public Task UnsubscribeEventsAsync(CancellationToken cancellationToken = default)
+        => SetFeedbackUpdatesActiveAsync(false, cancellationToken);
 
     // -------------------------------------------------------------------------
     // S88-Abfragen
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Fragt den aktuellen Zustand eines einzelnen S88-Moduls ab.
-    ///     Das Ergebnis wird asynchron über das <see cref="ModuleStateReceived"/>-Event gemeldet.
+    ///     Queries the device information of the LoDi S88 commander (module configuration per bus, firmware version, etc.).
+    ///     Sends command 0x35 and waits for the response.
     /// </summary>
-    /// <param name="moduleAddress">Adresse des S88-Moduls (1-basiert)</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
-    public async Task QueryModuleAsync(int moduleAddress, CancellationToken cancellationToken = default)
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Device info with module and sensor count for Bus 1 and Bus 2.</returns>
+    public async Task<S88DeviceInfo> QueryDeviceInfoAsync(CancellationToken cancellationToken = default)
     {
-        await _connection.SendAsync(LoDiProtocol.Commands.S88Query, [(byte)moduleAddress], cancellationToken);
+        LogDiagnostic($"Sending device info query (Cmd 0x{LoDiProtocol.Commands.S88.DeviceConfigGet:X2})");
+
+        await _deviceInfoRequestLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _pendingDeviceInfoRequest =
+                new TaskCompletionSource<S88DeviceInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            try
+            {
+                await _connection.SendAsync(LoDiProtocol.Commands.S88.DeviceConfigGet, [], cancellationToken);
+
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(2));
+
+                return await _pendingDeviceInfoRequest.Task.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+            }
+            finally
+            {
+                _pendingDeviceInfoRequest = null;
+            }
+        }
+        finally
+        {
+            _deviceInfoRequestLock.Release();
+        }
     }
 
     /// <summary>
-    ///     Abonniert Push-Meldungen für Zustandsänderungen eines S88-Moduls.
-    ///     Nach dem Abonnieren meldet das Gerät Änderungen automatisch über den
-    ///     <see cref="ContactStateChanged"/>-Event.
+    ///     Queries the current status of all S88 modules (global query over both buses).
+    ///     Sends S88MelderGet (0x30) without payload.
+    ///     The commander responds with packet type 0x21 (ACK), command 0x30.
     /// </summary>
-    /// <param name="moduleAddress">Adresse des S88-Moduls (1-basiert)</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public async Task QueryModulesAsync(CancellationToken cancellationToken = default)
+    {
+        LogDiagnostic($"Sending S88MelderGet query (Cmd 0x{LoDiProtocol.Commands.S88.QueryModules:X2}): all modules");
+        await _connection.SendAsync(LoDiProtocol.Commands.S88.QueryModules, [], cancellationToken);
+    }
+
+    /// <summary>
+    ///     Subscribes to push notifications for state changes of an S88 module.
+    ///     After subscribing, the device automatically reports changes via the
+    ///     <see cref="ContactStateChanged"/> event.
+    /// </summary>
+    /// <param name="moduleAddress">Address of the S88 module (1-based)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    [Obsolete("LoDi does not support module-specific subscription via command. " +
+              "Use SubscribeEventsAsync().", error: false)]
     public async Task SubscribeModuleAsync(int moduleAddress, CancellationToken cancellationToken = default)
     {
-        await _connection.SendAsync(LoDiProtocol.Commands.S88Subscribe, [(byte)moduleAddress], cancellationToken);
+        LogDiagnostic($"SubscribeModuleAsync({moduleAddress:D3}) is obsolete; activating global events.");
+        await SubscribeEventsAsync(cancellationToken);
     }
 
     /// <summary>
-    ///     Beendet das Abonnement für Push-Meldungen eines S88-Moduls.
+    ///     Unsubscribes from push notifications of an S88 module.
     /// </summary>
-    /// <param name="moduleAddress">Adresse des S88-Moduls (1-basiert)</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="moduleAddress">Address of the S88 module (1-based)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    [Obsolete("LoDi does not support module-specific unsubscription via command. " +
+              "Use UnsubscribeEventsAsync().", error: false)]
     public async Task UnsubscribeModuleAsync(int moduleAddress, CancellationToken cancellationToken = default)
     {
-        await _connection.SendAsync(LoDiProtocol.Commands.S88Unsubscribe, [(byte)moduleAddress], cancellationToken);
+        LogDiagnostic($"UnsubscribeModuleAsync({moduleAddress:D3}) is obsolete; deactivating global events.");
+        await UnsubscribeEventsAsync(cancellationToken);
     }
 
     // -------------------------------------------------------------------------
@@ -145,77 +258,227 @@ public sealed class LoDiS88Commander : IDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Verarbeitet empfangene Pakete und löst die entsprechenden S88-Events aus.
+    ///     Processes received packets and triggers the corresponding S88 events.
     /// </summary>
     private void OnPacketReceived(object? sender, LoDiPacketReceivedEventArgs e)
     {
-        var packet = e.Packet;
-
-        if (packet.Command != LoDiProtocol.Responses.S88State)
-            return;
-
-        // ACK auf Abfrage: kompakter Modulstatus
-        if (packet.PacketType == LoDiProtocol.PacketTypeAck)
+        try
         {
-            HandleS88StatePacket(packet);
-            return;
-        }
+            if (_disposed)
+                return;
 
-        // EVT: Liste geänderter Kontakte
-        if (packet.PacketType == LoDiProtocol.PacketTypeEvent)
-            HandleS88StateChangedPacket(packet);
+            var packet = e.Packet;
+
+            if (_suppressHeartbeatDiagnostics && IsHeartbeatPacket(packet))
+                return;
+
+            LogDiagnostic(
+                $"Packet received: Cmd=0x{packet.Command:X2} ({LoDiProtocol.GetCommandName(packet.Command)}) " +
+                $"Type=0x{packet.PacketType:X2} ({LoDiProtocol.GetPacketTypeName(packet.PacketType)}) PayloadLen={packet.Payload.Length}");
+
+            var isS88Command = IsS88Command(packet.Command);
+
+            if (!isS88Command)
+            {
+                LogDiagnostic(
+                    $"  -> Ignored (Cmd 0x{packet.Command:X2} is not S88-relevant), " +
+                    $"Payload=[{ToHex(packet.Payload)}]");
+                return;
+            }
+
+            switch (packet.Command)
+            {
+                case LoDiProtocol.Commands.S88.SetFeedbackUpdatesActive:
+                    LogDiagnostic($"  -> ACK/NACK to S88 activation, Payload=[{ToHex(packet.Payload)}]");
+                    return;
+                case LoDiProtocol.Commands.S88.DeviceConfigGet:
+                    LogDiagnostic($"  -> ACK to device info query, Payload=[{ToHex(packet.Payload)}]");
+                    HandleDeviceInfoPacket(packet);
+                    return;
+                default:
+                    switch (packet.PacketType)
+                    {
+                        case LoDiProtocol.PacketTypeAck or LoDiProtocol.PacketTypeNack:
+                            LogDiagnostic(
+                                $"  -> {LoDiProtocol.GetPacketTypeName(packet.PacketType)}: Module status or subscribe confirmation");
+                            HandleS88StatePacket(packet);
+                            return;
+                        case LoDiProtocol.PacketTypeEvent:
+                            LogDiagnostic("  -> EVT: State changes");
+                            HandleS88StateChangedPacket(packet);
+                            return;
+                        default:
+                            LogDiagnostic(
+                                $"  -> Unexpected S88 packet type {LoDiProtocol.GetPacketTypeName(packet.PacketType)}, " +
+                                $"Payload=[{ToHex(packet.Payload)}]");
+                            break;
+                    }
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogDiagnostic($"ERROR processing packet: {ex.Message}");
+        }
     }
 
     /// <summary>
-    ///     Wertet ein S88-Modulstatus-Paket aus und löst <see cref="ModuleStateReceived"/> aus.
+    ///     Evaluates an S88 module status packet and triggers <see cref="ModuleStateReceived"/> event.
     /// </summary>
     /// <remarks>
-    ///     TODO: Exaktes Datenformat aus LoDi S88-Commander API-Dokumentation implementieren.
-    ///     Angenommenes Format: [ModuleAddress, StateByte_High, StateByte_Low]
+    ///     S88MelderGet response (Cmd 0x30): [Count][ModuleAddress][StatusHigh][StatusLow]...
     /// </remarks>
     private void HandleS88StatePacket(LoDiPacket packet)
     {
-        // TODO: Datenformat verifizieren (Annahme: 3 Datenbytes)
-        if (packet.Payload.Length < 3)
+        if (packet.Command != LoDiProtocol.Commands.S88.QueryModules)
             return;
 
-        var moduleAddress = packet.Payload[0];
-        // Zustandsbitmask: Byte 1 = High-Byte, Byte 2 = Low-Byte (Kontakte 9–16 / 1–8)
-        var stateBitmask = (ushort)((packet.Payload[1] << 8) | packet.Payload[2]);
+        if (packet.Payload.Length < 1)
+        {
+            LogDiagnostic($"    Query response invalid: Payload empty, Raw=[{ToHex(packet.Payload)}]");
+            return;
+        }
 
-        ModuleStateReceived?.Invoke(this, new S88ModuleStateEventArgs(moduleAddress, stateBitmask));
+        var moduleCount = packet.Payload[0];
+        var expectedLength = 1 + (moduleCount * 3);
+        if (packet.Payload.Length < expectedLength)
+        {
+            LogDiagnostic(
+                $"    Query response incomplete: Count={moduleCount}, PayloadLen={packet.Payload.Length}, expected>={expectedLength}, Raw=[{ToHex(packet.Payload)}]");
+            return;
+        }
+
+        LogDiagnostic($"    Query response: Count={moduleCount}");
+
+        var offset = 1;
+        for (var i = 0; i < moduleCount; i++)
+        {
+            var moduleAddress = packet.Payload[offset];
+            var stateBitmask = (ushort)((packet.Payload[offset + 1] << 8) | packet.Payload[offset + 2]);
+            offset += 3;
+
+            var bitmaskBinary = Convert.ToString(stateBitmask, 2).PadLeft(16, '0');
+            LogDiagnostic($"    Module {moduleAddress:D3}: Bitmask=0x{stateBitmask:X4} [{bitmaskBinary}]");
+
+            ModuleStateReceived?.Invoke(this,
+                new S88ModuleStateEventArgs(moduleAddress, stateBitmask, snapshotIndex: i + 1, snapshotCount: moduleCount));
+        }
     }
 
     /// <summary>
-    ///     Wertet ein S88-Zustandsänderungs-Paket aus und löst <see cref="ContactStateChanged"/> aus.
+    ///     Evaluates an S88 state change packet and triggers <see cref="ContactStateChanged"/> event.
     /// </summary>
     /// <remarks>
-    ///     TODO: Exaktes Datenformat aus LoDi S88-Commander API-Dokumentation implementieren.
-    ///     Angenommenes Format: [ModuleAddress, ContactNumber, NewState]
+    ///     Format (according to specification): [Count][ModuleAddress][ContactNumber][State]... repeated
     /// </remarks>
     private void HandleS88StateChangedPacket(LoDiPacket packet)
     {
-        // TODO: Datenformat verifizieren (Annahme: 3 Datenbytes)
-        if (packet.Payload.Length < 1)
-            return;
-
-        // EVT-Beispiel laut Doku: [Anzahl][Adr][Input][State]...
-        var count = packet.Payload[0];
-        var expectedLength = 1 + count * 3;
-        if (packet.Payload.Length < expectedLength)
-            return;
-
-        for (var i = 0; i < count; i++)
+        if (!S88EventPayloadParser.TryParse(packet.Payload, out var parsed, out var error))
         {
-            var idx = 1 + i * 3;
-            var moduleAddress = packet.Payload[idx];
-            var contactNumber = packet.Payload[idx + 1];
-            var isOccupied = packet.Payload[idx + 2] != 0;
+            LogDiagnostic($"    Invalid EVT format: {error} Raw=[{ToHex(packet.Payload)}]");
+            return;
+        }
+
+        if (parsed == null)
+        {
+            LogDiagnostic($"    Invalid EVT format: Parser result missing. Raw=[{ToHex(packet.Payload)}]");
+            return;
+        }
+
+        if (parsed.IsHeartbeat)
+        {
+            LogDiagnostic("    Heartbeat detected: Count=0, no state changes.");
+            return;
+        }
+
+        if (parsed.Format == S88EventPayloadFormat.ModuleOverview)
+        {
+            LogDiagnostic(
+                $"    EVT details (module overview): Count={parsed.Count}, " +
+                $"ModuleAddress1={FormatByte(parsed.ModuleAddress1)}, ModuleType={FormatByte(parsed.ModuleType)}, " +
+                $"ModuleAddress2={FormatByte(parsed.ModuleAddress2)}, ModuleAddress3={FormatByte(parsed.ModuleAddress3)}, " +
+                $"TrailingBytes={parsed.TrailingBytes}");
+            return;
+        }
+
+        var moduleAddresses =
+            string.Join(", ", parsed.ModuleAddresses.Select(moduleAddress => moduleAddress.ToString("D3")));
+        var changeTypeCounts = parsed.Changes
+            .GroupBy(change => change.ChangeType)
+            .Select(group => $"{ToDisplayType(group.Key)}:{group.Count()}")
+            .ToArray();
+        var changeTypeSummary = changeTypeCounts.Length == 0 ? "-" : string.Join(", ", changeTypeCounts);
+
+        LogDiagnostic(
+            $"    EVT details: Count={parsed.Count}, Module=[{moduleAddresses}], Types=[{changeTypeSummary}], " +
+            $"TrailingBytes={parsed.TrailingBytes}");
+
+        for (var i = 0; i < parsed.Changes.Count; i++)
+        {
+            var change = parsed.Changes[i];
+            LogDiagnostic(
+                $"      Change {i + 1:D2}: Module {change.ModuleAddress:D3}, Contact {change.ContactNumber:D2}, " +
+                $"Type={ToDisplayType(change.ChangeType)}, Raw=0x{change.RawState:X2}");
 
             ContactStateChanged?.Invoke(this,
-                new S88StateChangedEventArgs(moduleAddress, contactNumber, isOccupied));
+                new S88StateChangedEventArgs(change.ModuleAddress, change.ContactNumber, change.IsOccupied));
         }
     }
+
+    /// <summary>
+    /// Processes a device info response (Cmd 0x35).
+    /// Format: [Bus1ModuleCount][Bus2ModuleCount][further info...]
+    /// LoDi-specific: each S88 module has exactly 16 sensor inputs per bus.
+    /// </summary>
+    private void HandleDeviceInfoPacket(LoDiPacket packet)
+    {
+        if (packet.Payload.Length < 2)
+        {
+            LogDiagnostic($"    Device info: Payload too short, expected >=2 bytes, received {packet.Payload.Length}");
+            _pendingDeviceInfoRequest?.TrySetException(new InvalidOperationException("Device info payload too short."));
+            return;
+        }
+
+        var bus1ModuleCount = packet.Payload[0]; // Number of S88 modules on Bus 1
+        var bus2ModuleCount = packet.Payload[1]; // Number of S88 modules on Bus 2
+
+        var bus1SensorCount = bus1ModuleCount * 16; // exactly 16 sensor inputs per S88 module
+        var bus2SensorCount = bus2ModuleCount * 16; // exactly 16 sensor inputs per S88 module
+
+        LogDiagnostic(
+            $"    Device info: Bus 1: {bus1ModuleCount} modules ({bus1SensorCount} sensors), " +
+            $"Bus 2: {bus2ModuleCount} modules ({bus2SensorCount} sensors)");
+
+        var deviceInfo = new S88DeviceInfo(bus1SensorCount, bus2SensorCount, packet.Payload.ToArray());
+        _pendingDeviceInfoRequest?.TrySetResult(deviceInfo);
+    }
+
+    private static bool IsS88Command(byte command)
+        => command is LoDiProtocol.Commands.S88.SetFeedbackUpdatesActive or LoDiProtocol.Commands.S88.QueryModules
+            or LoDiProtocol.Commands.S88.GetContactState or LoDiProtocol.Commands.S88.DeviceConfigGet;
+
+    private static string ToDisplayType(S88ChangeType changeType)
+        => changeType == S88ChangeType.Occupied ? "OCCUPIED" : "FREE";
+
+    private static string FormatByte(byte? value)
+        => value.HasValue ? $"{value.Value} (0x{value.Value:X2})" : "-";
+
+    private static bool IsHeartbeatPacket(LoDiPacket packet)
+        => packet is
+        {
+            PacketType: LoDiProtocol.PacketTypeEvent, Command: LoDiProtocol.Commands.S88.GetContactState,
+            Payload: [0x00]
+        };
+
+
+    private void LogDiagnostic(string message)
+    {
+        if (_diagnosticLogging)
+            Console.WriteLine($"[S88 Diag] {DateTimeOffset.Now:HH:mm:ss.fff} {message}");
+    }
+
+    private static string ToHex(byte[] payload)
+        => payload.Length == 0 ? "" : BitConverter.ToString(payload);
 
     // -------------------------------------------------------------------------
     // IDisposable
@@ -225,8 +488,16 @@ public sealed class LoDiS88Commander : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _connection.PacketReceived -= OnPacketReceived;
+
+        _deviceInfoRequestLock.Dispose();
+
+        // WICHTIG: Zuerst die Verbindung zum Commander trennen und den Receive-Loop stoppen,
+        // BEVOR der Event-Handler entfernt wird. Dies verhindert Race Conditions,
+        // bei denen Pakete empfangen werden, nachdem der Handler entfernt wurde.
         _connection.Dispose();
+
+        // Jetzt, da die Receive-Loop garantiert gestoppt ist, können beim Entfernen
+        // des Handlers keine neuen Events mehr auslösen.
+        _connection.PacketReceived -= OnPacketReceived;
     }
 }
-

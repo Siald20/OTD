@@ -1,18 +1,30 @@
-// // SPDX-License-Identifier: GPL-3.0-or-later
-// //
-// // OpenTrainDrive - DecoderControl
-// // Copyright (C) 2026
-// //
-// // Authors:
-// // - Hansueli Alder <inf@batec.net>
-
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// OpenTrainDrive - DecoderControl
+// Copyright (C) 2026
+//
+// Authors:
+// - Hansueli Alder <info@batec.net>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace OTD.HardwareControl.Train.Composition;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Mutable builder that is used to assemble a train composition before it is bound to a train.
@@ -23,7 +35,7 @@ public sealed class TrainCompositionBuilder
     private readonly bool _preserveRuntimeState;
     private readonly Guid? _trainId;
     private readonly Func<TrainVehicle, IVehicle>? _vehicleFactory;
-    private readonly CommandStation.CommandStation? _commandStation;
+    private readonly IReadOnlyList<ICommandStation> _commandStations;
 
     /// <summary>
     /// Creates a new empty builder.
@@ -41,8 +53,17 @@ public sealed class TrainCompositionBuilder
         IEnumerable<TrainVehicle> vehicles,
         bool preserveRuntimeState = false,
         Guid? trainId = null,
-        Func<TrainVehicle, IVehicle>? vehicleFactory = null,
-        CommandStation.CommandStation? commandStation = null)
+        Func<TrainVehicle, IVehicle>? vehicleFactory = null)
+        : this(vehicles, preserveRuntimeState, trainId, vehicleFactory, commandStations: null)
+    {
+    }
+
+    internal TrainCompositionBuilder(
+        IEnumerable<TrainVehicle> vehicles,
+        bool preserveRuntimeState,
+        Guid? trainId,
+        Func<TrainVehicle, IVehicle>? vehicleFactory,
+        IReadOnlyList<ICommandStation>? commandStations)
     {
         if (vehicles is null)
             throw new ArgumentNullException(nameof(vehicles));
@@ -51,7 +72,9 @@ public sealed class TrainCompositionBuilder
         _trainId = trainId;
         _vehicles = vehicles.Select(vehicle => Normalize(vehicle, _preserveRuntimeState)).ToList();
         _vehicleFactory = vehicleFactory;
-        _commandStation = commandStation;
+        _commandStations = commandStations is { Count: > 0 }
+            ? commandStations.ToArray()
+            : Array.Empty<ICommandStation>();
     }
 
     /// <summary>
@@ -449,8 +472,11 @@ public sealed class TrainCompositionBuilder
         var controller = _vehicleFactory(entry)
             ?? throw new InvalidOperationException($"Vehicle factory returned null for UID {entry.VehicleId}.");
 
-        if (_commandStation is not null && controller.HasDecoder)
-            controller.LocoDecoder.SubscribeCommandStationAsync(_commandStation).GetAwaiter().GetResult();
+        if (_commandStations.Count > 0 && controller.HasDecoder)
+        {
+            foreach (var commandStation in _commandStations)
+                controller.LocoDecoder.SubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
+        }
 
         _vehicles[index] = entry with { VehicleInstance = controller };
         return controller;

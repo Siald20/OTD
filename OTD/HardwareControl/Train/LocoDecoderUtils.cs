@@ -1,30 +1,29 @@
-// // SPDX-License-Identifier: GPL-3.0-or-later
-// //
-// // OpenTrainDrive - TrainControl
-// // Copyright (C) 2026
-// //
-// // Authors:
-// // - Hansueli Alder <info@batec.net>
-// //
-// // Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// // der GNU General Public License, wie von der Free Software Foundation,
-// // entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// // veröffentlichten Version, weiterverbreiten und/oder modifizieren.
-// //
-// // Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// // jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// // MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// // Siehe die GNU General Public License für weitere Details.
-// //
-// // Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// // Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// OpenTrainDrive - DecoderControl
+// Copyright (C) 2026
+//
+// Authors:
+// - Hansueli Alder <info@batec.net>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace OTD.HardwareControl.Train;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Provides parsing helpers for decoder configuration values.
@@ -42,23 +41,23 @@ internal static class LocoDecoderUtils
     /// Thrown if the protocol is missing, empty, or not one of the supported values:
     /// dcc14, dcc28, dcc128, motorola, m3, mfx.
     /// </exception>
-    internal static DecoderProtocol GetProtocol(string? protocolElement)
+    internal static LocoDecoderProtocol GetProtocol(string? protocolElement)
     {
         if (!string.IsNullOrWhiteSpace(protocolElement))
             switch (protocolElement.Trim().ToLowerInvariant())
             {
                 case "dcc14":
-                    return DecoderProtocol.Dcc14;
+                    return LocoDecoderProtocol.Dcc14;
                 case "dcc28":
-                    return DecoderProtocol.Dcc28;
+                    return LocoDecoderProtocol.Dcc28;
                 case "dcc128":
-                    return DecoderProtocol.Dcc128;
+                    return LocoDecoderProtocol.Dcc128;
                 case "motorola":
-                    return DecoderProtocol.Motorola;
+                    return LocoDecoderProtocol.Motorola;
                 case "m3":
-                    return DecoderProtocol.M3;
+                    return LocoDecoderProtocol.M3;
                 case "mfx":
-                    return DecoderProtocol.Mfx;
+                    return LocoDecoderProtocol.Mfx;
             }
 
         throw new ArgumentOutOfRangeException(

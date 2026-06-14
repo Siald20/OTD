@@ -6,39 +6,32 @@
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using OTD.HardwareControl.CommandStation.LoDi;
-using OTD.HardwareControl.Train;
-using AccessoryStateChangedEventArgs = OTD.HardwareControl.Accessory.AccessoryStateChangedEventArgs;
-using AccessoryDecoderProtocol = OTD.HardwareControl.Accessory.DecoderProtocol;
-using AccessoryFunctionState = OTD.HardwareControl.Accessory.FunctionState;
-using TrainFunctionState = OTD.HardwareControl.Train.FunctionState;
 
-namespace OTD.HardwareControl.CommandStation.Mock;
+namespace OTD.HardwareControl.Drivers;
 
 /// <summary>
-///     Mock-Implementierung von ICommandStation für Unit-Tests und Entwicklung.
-///     Diese Implementierung simuliert eine echte Kommandozentrale ohne physische Hardware.
+///     Mock implementation of ICommandStation for unit tests and development.
+///     Simulates a real command station without physical hardware.
 /// </summary>
-public sealed class MockCommandStation : ICommandStation
+internal sealed class MockCommandStation : ICommandStation
 {
-    private readonly record struct DecoderConfig(OTD.HardwareControl.Train.DecoderProtocol Protocol, int EffectiveSpeedSteps);
+    private readonly record struct DecoderConfig(LocoDecoderProtocol Protocol, int EffectiveSpeedSteps);
 
     private bool _isConnected;
     private bool _powerEnabled;
@@ -61,6 +54,9 @@ public sealed class MockCommandStation : ICommandStation
     public IReadOnlyDictionary<int, bool> FunctionStates => _functionStates;
     public IReadOnlyDictionary<int, byte> AccessoryValues => _accessoryValues;
     public IReadOnlyDictionary<int, AccessoryFunctionState> AccessoryStates => _accessoryStates;
+
+    public Task ConnectAsync(CancellationToken cancellationToken = default)
+        => ConnectAsync("mock", 1, cancellationToken);
 
     public async Task ConnectAsync(string address, int port, CancellationToken cancellationToken = default)
     {
@@ -107,7 +103,7 @@ public sealed class MockCommandStation : ICommandStation
         return _powerEnabled;
     }
 
-    public void InitializeDecoder(int address, OTD.HardwareControl.Train.DecoderProtocol protocol, int effectiveSpeedSteps)
+    public void InitializeDecoder(int address, LocoDecoderProtocol protocol, int effectiveSpeedSteps)
     {
         if (address < 1 || address > 9999)
             throw new ArgumentException("Lokadresse muss zwischen 1 und 9999 liegen.", nameof(address));
@@ -176,7 +172,7 @@ public sealed class MockCommandStation : ICommandStation
             speedStep: null,
             direction: VehicleDirection.Undefined,
             functionNumber,
-            functionStateValue: isOn ? TrainFunctionState.On : TrainFunctionState.Off,
+            functionStateValue: isOn ? LocoDecoderFunctionState.On : LocoDecoderFunctionState.Off,
             isEventPacket: false));
     }
 
@@ -245,7 +241,7 @@ public sealed class MockCommandStation : ICommandStation
                     speedStep: null,
                     direction: VehicleDirection.Undefined,
                     funcNumber,
-                    functionStateValue: isOn ? TrainFunctionState.On : TrainFunctionState.Off,
+                    functionStateValue: isOn ? LocoDecoderFunctionState.On : LocoDecoderFunctionState.Off,
                     isEventPacket: false));
             }
         }
@@ -335,7 +331,7 @@ public sealed class MockCommandStation : ICommandStation
         LocoStateChanged?.Invoke(this, args);
     }
 
-    public class LocoState
+    internal class LocoState
     {
         public int Address { get; set; }
         public int SpeedStep { get; set; }
@@ -345,7 +341,7 @@ public sealed class MockCommandStation : ICommandStation
     }
 }
 
-public sealed class MockCommandEventArgs : EventArgs
+internal sealed class MockCommandEventArgs : EventArgs
 {
     public MockCommandEventArgs(string commandName, object? parameter)
     {

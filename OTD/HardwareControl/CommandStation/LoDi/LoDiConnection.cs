@@ -6,26 +6,25 @@
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace OTD.HardwareControl.CommandStation.LoDi;
+namespace OTD.HardwareControl.Drivers;
 
 internal enum LoDiTransportMode
 {
@@ -34,8 +33,8 @@ internal enum LoDiTransportMode
 }
 
 /// <summary>
-///     Verwaltet die TCP/UDP-Verbindung zu einem LoDi-Gerät und empfängt
-///     eingehende Pakete asynchron in einem Hintergrund-Thread (API Allgemeines, S. 2-4).
+///     Manages the TCP/UDP connection to a LoDi device and asynchronously receives
+///     incoming packets in a background thread (API General, pp. 2-4).
 /// </summary>
 internal sealed class LoDiConnection : IDisposable
 {
@@ -50,36 +49,30 @@ internal sealed class LoDiConnection : IDisposable
     private CancellationTokenSource? _receiveCts;
     private Task? _receiveTask;
     private bool _disposed;
-    private byte _nextPacketNumber = 0x00;
+    private byte _nextPacketNumber;
 
     // TCP-Fragmentierungspuffer für robuste Paket-Verarbeitung
     private readonly byte[] _tcpBuffer = new byte[4096];
-    private int _tcpBufferIndex = 0;
+    private int _tcpBufferIndex;
 
     // -------------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------------
 
-    /// <summary>Wird ausgelöst, wenn sich der Verbindungszustand ändert.</summary>
+    /// <summary>Triggered when the connection state changes.</summary>
     public event EventHandler<LoDiConnectionChangedEventArgs>? ConnectionChanged;
 
-    /// <summary>Wird ausgelöst, wenn ein vollständiges, gültiges Paket empfangen wurde.</summary>
+    /// <summary>Triggered when a complete, valid packet has been received.</summary>
     public event EventHandler<LoDiPacketReceivedEventArgs>? PacketReceived;
 
     // -------------------------------------------------------------------------
     // Eigenschaften
     // -------------------------------------------------------------------------
 
-    /// <summary>Gibt an, ob eine aktive TCP-Verbindung besteht.</summary>
+    /// <summary>Indicates whether an active TCP connection exists.</summary>
     public bool IsConnected => _transportMode == LoDiTransportMode.Tcp
         ? _tcpClient?.Connected ?? false
         : _udpClient != null;
-
-    /// <summary>IP-Adresse des verbundenen Geräts</summary>
-    public string? RemoteIpAddress { get; private set; }
-
-    /// <summary>TCP-Port des verbundenen Geräts</summary>
-    public int RemotePort { get; private set; }
 
     // -------------------------------------------------------------------------
     // Konstruktor / Verbindungsaufbau
@@ -91,20 +84,18 @@ internal sealed class LoDiConnection : IDisposable
     }
 
     /// <summary>
-    ///     Stellt eine TCP-Verbindung zum angegebenen LoDi-Gerät her und
-    ///     startet den asynchronen Empfangs-Loop (API Allgemeines, S. 4).
+    ///     Establishes a TCP connection to the specified LoDi device and
+    ///     starts the asynchronous reception loop (API General, p. 4).
     /// </summary>
-    /// <param name="ipAddress">IP-Adresse des Geräts</param>
-    /// <param name="port">TCP-Port des Geräts (Standard: 11092)</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="ipAddress">IP address of the device</param>
+    /// <param name="port">TCP port of the device (default: 11092)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     public async Task ConnectAsync(string ipAddress, int port = LoDiProtocol.DefaultTcpPort, 
         CancellationToken cancellationToken = default)
     {
         if (IsConnected)
             await DisconnectAsync();
 
-        RemoteIpAddress = ipAddress;
-        RemotePort = port;
 
         if (_transportMode == LoDiTransportMode.Tcp)
         {
@@ -116,7 +107,7 @@ internal sealed class LoDiConnection : IDisposable
     }
 
     /// <summary>
-    ///     Trennt die TCP-Verbindung und stoppt den Empfangs-Loop.
+    ///     Disconnects the TCP connection and stops the reception loop.
     /// </summary>
     public async Task DisconnectAsync()
     {
@@ -127,7 +118,7 @@ internal sealed class LoDiConnection : IDisposable
             if (_receiveTask != null)
             {
                 try { await _receiveTask; }
-                catch (OperationCanceledException) { /* erwartet */ }
+                catch (OperationCanceledException) { /* expected */ }
             }
         }
 
@@ -147,11 +138,11 @@ internal sealed class LoDiConnection : IDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Sendet ein REQ-Paket an das verbundene Gerät.
+    ///     Sends a REQ packet to the connected device.
     /// </summary>
-    /// <param name="command">Befehlscode (z.B. 0x0F für GetVersion)</param>
-    /// <param name="payload">Optionale Nutzdaten</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="command">Command code (e.g. 0x0F for GetVersion)</param>
+    /// <param name="payload">Optional payload data</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     public async Task SendAsync(byte command, byte[]? payload = null, CancellationToken cancellationToken = default)
     {
         var packet = new LoDiPacket(LoDiProtocol.PacketTypeRequest, command, GetNextPacketNumber(), payload ?? []);
@@ -159,14 +150,14 @@ internal sealed class LoDiConnection : IDisposable
     }
 
     /// <summary>
-    ///     Sendet ein vollständiges LoDi-Paket an das verbundene Gerät (TCP).
+    ///     Sends a complete LoDi packet to the connected device (TCP).
     /// </summary>
     public async Task SendPacketAsync(LoDiPacket packet, CancellationToken cancellationToken = default)
     {
         if (_transportMode == LoDiTransportMode.Tcp)
         {
             if (_stream == null || !IsConnected)
-                throw new InvalidOperationException("Keine aktive TCP-Verbindung zum LoDi-Gerät.");
+                throw new InvalidOperationException("No active TCP connection to the LoDi device.");
 
             var tcpBytes = packet.ToTcpBytes();
             await _stream.WriteAsync(tcpBytes, cancellationToken);
@@ -175,7 +166,7 @@ internal sealed class LoDiConnection : IDisposable
         }
 
         if (_udpClient == null)
-            throw new InvalidOperationException("Keine aktive UDP-Verbindung zum LoDi-Gerät.");
+            throw new InvalidOperationException("No active UDP connection to the LoDi device.");
 
         var udpBytes = packet.ToUdpBytes();
         await _udpClient.SendAsync(udpBytes, cancellationToken);
@@ -186,8 +177,8 @@ internal sealed class LoDiConnection : IDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Liest kontinuierlich eingehende Daten vom TCP-Stream und
-    ///     löst für jedes vollständige Paket das <see cref="PacketReceived"/>-Event aus.
+    ///     Continuously reads incoming data from the TCP stream and
+    ///     triggers the <see cref="PacketReceived"/> event for each complete packet.
     /// </summary>
     private Task RunReceiveLoopAsync(CancellationToken cancellationToken)
         => _transportMode == LoDiTransportMode.Tcp
@@ -206,24 +197,24 @@ internal sealed class LoDiConnection : IDisposable
 
                 if (bytesRead == 0)
                 {
-                    // Verbindung wurde vom Gerät getrennt
+                    // Connection was closed by the device
                     ConnectionChanged?.Invoke(this, new LoDiConnectionChangedEventArgs(false, 
-                        "Verbindung durch Gegenstelle getrennt."));
+                        "Connection closed by the counterpart."));
                     break;
                 }
 
-                // Empfangene Daten in den Fragmentierungspuffer kopieren
+                // Copy received data to the fragmentation buffer
                 ProcessReceivedTcpData(buffer, bytesRead);
             }
         }
         catch (OperationCanceledException)
         {
-            // Normaler Abbruch
+            // Expected cancellation
         }
         catch (Exception ex)
         {
             ConnectionChanged?.Invoke(this, new LoDiConnectionChangedEventArgs(false, 
-                $"Verbindungsfehler: {ex.Message}"));
+                $"Connection error: {ex.Message}"));
         }
     }
 
@@ -235,67 +226,62 @@ internal sealed class LoDiConnection : IDisposable
             {
                 var result = await _udpClient.ReceiveAsync(cancellationToken);
 
-                if (LoDiPacket.TryParseUdp(result.Buffer, out var packet) && packet != null)
-                    PacketReceived?.Invoke(this, new LoDiPacketReceivedEventArgs(packet));
+                ProcessReceivedUdpData(result.Buffer);
             }
         }
         catch (OperationCanceledException)
         {
-            // Normaler Abbruch
+            // Expected cancellation
         }
         catch (Exception ex)
         {
             ConnectionChanged?.Invoke(this, new LoDiConnectionChangedEventArgs(false,
-                $"UDP-Verbindungsfehler: {ex.Message}"));
+                $"UDP connection error: {ex.Message}"));
         }
     }
 
     /// <summary>
-    ///     Verarbeitet empfangene TCP-Daten und extrahiert daraus gültige LoDi-Pakete.
-    ///     Handhabt Fragmentierung, wenn Pakete über mehrere TCP-Segmente verteilt sind.
+    ///     Processes received TCP data and extracts valid LoDi packets from it.
+    ///     Handles fragmentation when packets are spread over multiple TCP segments.
     /// </summary>
     private void ProcessReceivedTcpData(byte[] buffer, int length)
     {
-        // Daten an Fragmentierungspuffer anhängen
+        // Append data to fragmentation buffer
         if (_tcpBufferIndex + length > _tcpBuffer.Length)
         {
-            // Buffer-Overflow: vermutlich Datenmüll, zurücksetzen
+            // Buffer overflow: likely garbage data, reset
             _tcpBufferIndex = 0;
         }
 
         Array.Copy(buffer, 0, _tcpBuffer, _tcpBufferIndex, length);
         _tcpBufferIndex += length;
 
-        // Versuche, Pakete aus dem Puffer zu extrahieren
+        // Try to extract packets from the buffer
         int offset = 0;
         while (offset < _tcpBufferIndex)
         {
-            // Mindestens 2 Bytes für das Längenpräfix nötig
+            // At least 2 bytes needed for the length prefix
             if (_tcpBufferIndex - offset < 2)
                 break;
 
-            // Längenpräfix auslesen (Big-Endian)
+            // Read length prefix (big-endian)
             var packetLength = ((_tcpBuffer[offset] & 0xFF) << 8) | (_tcpBuffer[offset + 1] & 0xFF);
             var totalLength = 2 + packetLength;
 
-            // Prüfen, ob das komplette Paket vorhanden ist
+            // Check if the complete packet is available
             if (_tcpBufferIndex - offset < totalLength)
                 break;
 
-            // Paket-Array extrahieren
+            // Extract packet array
             var packetData = new byte[totalLength];
             Array.Copy(_tcpBuffer, offset, packetData, 0, totalLength);
 
-            // Paket parsen und Event auslösen
-            if (LoDiPacket.TryParseTcp(packetData, out var packet, out _) && packet != null)
-            {
-                PacketReceived?.Invoke(this, new LoDiPacketReceivedEventArgs(packet));
-            }
+            ProcessReceivedTcpPacket(packetData);
 
             offset += totalLength;
         }
 
-        // Verbleibende Daten nach vorne verschieben
+        // Move remaining data to the front
         if (offset > 0)
         {
             if (offset < _tcpBufferIndex)
@@ -304,17 +290,58 @@ internal sealed class LoDiConnection : IDisposable
         }
     }
 
+    private void ProcessReceivedUdpData(byte[] datagram)
+    {
+        try
+        {
+            if (LoDiPacket.TryParseUdp(datagram, out var packet) && packet != null)
+                RaisePacketReceivedSafely(packet, "UDP");
+        }
+        catch (Exception ex)
+        {
+            LogPacketProcessingError("UDP", ex);
+        }
+    }
+
+    private void ProcessReceivedTcpPacket(byte[] packetData)
+    {
+        try
+        {
+            if (LoDiPacket.TryParseTcp(packetData, out var packet, out _) && packet != null)
+                RaisePacketReceivedSafely(packet, "TCP");
+        }
+        catch (Exception ex)
+        {
+            LogPacketProcessingError("TCP", ex);
+        }
+    }
+
+    private void RaisePacketReceivedSafely(LoDiPacket packet, string transportName)
+    {
+        try
+        {
+            PacketReceived?.Invoke(this, new LoDiPacketReceivedEventArgs(packet));
+        }
+        catch (Exception ex)
+        {
+            LogPacketProcessingError(transportName, ex);
+        }
+    }
+
+    private static void LogPacketProcessingError(string transportName, Exception ex)
+        => Console.WriteLine($"[LoDiConnection] Error in {transportName} packet processing: {ex.Message}");
+
     // -------------------------------------------------------------------------
     // UDP-Discovery (statisch)
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Sendet einen UDP-Broadcast zur Erkennung aller LoDi-Geräte im lokalen Netzwerk
-    ///     (API Allgemeines, S. 4: "Zum Scannen nach Geräten genügt es... ein REQ-Paket 
-    ///     mit dem Kommando 0x0F (Abfrage FW-Version) an die Broadcast-Adresse").
+    ///     Sends a UDP broadcast to discover all LoDi devices in the local network
+    ///     (API General, p. 4: "To scan for devices, it is sufficient to send a REQ packet
+    ///     with command 0x0F (query FW version) to the broadcast address").
     /// </summary>
-    /// <param name="cancellationToken">Abbruchtoken</param>
-    /// <returns>Liste aller gefundenen LoDi-Geräte</returns>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of all found LoDi devices</returns>
     public static async Task<System.Collections.Generic.List<LoDiDeviceInfo>> DiscoverDevicesAsync(
         CancellationToken cancellationToken = default)
     {
@@ -323,19 +350,19 @@ internal sealed class LoDiConnection : IDisposable
         using var udpClient = new UdpClient();
         udpClient.EnableBroadcast = true;
 
-        // Discovery-Request: REQ-Paket mit GetVersion (0x0F)
+        // Discovery request: REQ packet with GetVersion (0x0F)
         var discoveryPacket = new LoDiPacket(LoDiProtocol.PacketTypeRequest, 
-            LoDiProtocol.Commands.GetVersion, 0x00);
+            LoDiProtocol.Commands.General.GetVersion, 0x00);
         var requestBytes = discoveryPacket.ToUdpBytes();
 
         var broadcastEndpoint = new IPEndPoint(IPAddress.Broadcast, LoDiProtocol.DiscoveryUdpPort);
 
         try
         {
-            // Broadcast senden
+            // Send broadcast
             await udpClient.SendAsync(requestBytes, broadcastEndpoint, cancellationToken);
 
-            // Auf Antworten warten (bis Timeout)
+            // Wait for responses (until timeout)
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(LoDiProtocol.DiscoveryTimeoutMs);
 
@@ -347,8 +374,8 @@ internal sealed class LoDiConnection : IDisposable
                     
                     if (LoDiPacket.TryParseUdp(result.Buffer, out var packet) && packet != null)
                     {
-                        // Antwort auf GetVersion (Pakettyp ACK=0x21, Kommando 0x0F)
-                        if (packet.Command == LoDiProtocol.Commands.GetVersion && 
+                        // Response to GetVersion (packet type ACK=0x21, command 0x0F)
+                        if (packet.Command == LoDiProtocol.Commands.General.GetVersion && 
                             packet.PacketType == LoDiProtocol.PacketTypeAck &&
                             packet.Payload.Length >= 4)
                         {
@@ -361,19 +388,19 @@ internal sealed class LoDiConnection : IDisposable
             }
             catch (OperationCanceledException)
             {
-                // Timeout abgelaufen – normal
+                // Timeout elapsed – normal
             }
         }
         catch
         {
-            // Discovery-Fehler ignorieren
+            // Ignore discovery errors
         }
 
         return devices;
     }
 
     /// <summary>
-    ///     Wertet eine UDP-Discovery-Antwort aus (Payload: [Gerätetyp, Major, Minor, Patch]).
+    ///     Evaluates a UDP discovery response (payload: [device type, major, minor, patch]).
     /// </summary>
     private static LoDiDeviceInfo? ParseDiscoveryResponse(LoDiPacket packet, string ipAddress)
     {
@@ -414,7 +441,31 @@ internal sealed class LoDiConnection : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+
+        // Signal to stop the receive loop
         _receiveCts?.Cancel();
+
+        // Wait for the receive loop to complete, so no new events are triggered
+        // while resources are being released.
+        // This prevents race conditions.
+        try
+        {
+            if (_receiveTask != null && !_receiveTask.IsCompleted)
+            {
+                // Wait with timeout to avoid hanging
+                _receiveTask.Wait(TimeSpan.FromSeconds(5));
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected – the task was canceled
+        }
+        catch
+        {
+            // Ignore errors while waiting
+        }
+
+        // Now it's safe that no new events are triggered
         _stream?.Dispose();
         _tcpClient?.Dispose();
         _udpClient?.Dispose();
@@ -475,7 +526,7 @@ internal sealed class LoDiConnection : IDisposable
         void Handler(object? _, LoDiPacketReceivedEventArgs e)
         {
             if (e.Packet.PacketType == LoDiProtocol.PacketTypeAck &&
-                e.Packet.Command == LoDiProtocol.Commands.GetVersion)
+                e.Packet.Command == LoDiProtocol.Commands.General.GetVersion)
             {
                 tcs.TrySetResult(true);
             }
@@ -485,7 +536,7 @@ internal sealed class LoDiConnection : IDisposable
 
         try
         {
-            await SendAsync(LoDiProtocol.Commands.GetVersion, cancellationToken: cancellationToken);
+            await SendAsync(LoDiProtocol.Commands.General.GetVersion, cancellationToken: cancellationToken);
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(Math.Max(LoDiProtocol.NetworkTimeoutMs * 3, 600));
@@ -494,7 +545,7 @@ internal sealed class LoDiConnection : IDisposable
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TimeoutException("LoDi-Gerät antwortet nicht auf UDP-Handshake.");
+            throw new TimeoutException("LoDi device did not respond to UDP handshake.");
         }
         finally
         {

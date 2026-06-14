@@ -6,26 +6,25 @@
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
-namespace OTD.HardwareControl.Train;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Controls a locomotive decoder, including driving, function handling,
@@ -216,9 +215,9 @@ public class Loco : IVehicle
 
 
     /// <summary>
-    /// Wird aufgerufen, wenn der Decoder eine Fahrstufen-Änderung von der Zentrale meldet
-    /// (z.B. durch ein externes Steuergerät). Rechnet den SpeedStep kongruent zur
-    /// Floor-Logik in <see cref="SetSpeedVAsync"/> zurück in km/h um.
+    /// Called when the decoder reports a speed-step change from the command station
+    /// (for example from an external controller). Converts the speed step back
+    /// to km/h congruent with the floor mapping logic in <see cref="SetSpeedVAsync"/>.
     /// </summary>
     private void OnDecoderStateChanged(object? sender, LocoStateChangedEventArgs args)
     {
