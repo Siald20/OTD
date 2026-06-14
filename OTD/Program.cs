@@ -1,6 +1,6 @@
 ﻿using Avalonia;
 using System;
-using OTD.HardwareControl.Examples;
+using OTD.HardwareControl;
 
 namespace OTD;
 
@@ -20,14 +20,14 @@ class Program
         switch (normalizedEntryPoint)
         {
             case "TEST_HARDWARECONTROL":
-                TrainTest.Main(args).GetAwaiter().GetResult();
+                RunTests.Run();
                 return;
 
             default:
                 BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
                 break;
         }
-       
+      
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.

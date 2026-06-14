@@ -2,17 +2,17 @@
 <!-- Definition of Switching Devices like Turnouts and Signals -->
 <accessories>
     <!-- Normale Weiche mit einem Antrieb (Basis-Protokoll, Aktivierungszeit 500 ms) -->
-    <accessory uid="3f8a1b2c-4d5e-4f7a-8b9c-0d1e2f3a4b5c" type="turnout" subtype="right" interlocking="Bi" id="W1" >
+    <accessory uid="3f8a1b2c-4d5e-4f7a-8b9c-0d1e2f3a4b5c" type="turnout" subtype="left" interlocking="Bi" id="W1" >
         <decoder>
             <protocol>DCC</protocol>
             <activationtime>500</activationtime>
         </decoder>
         <states>
             <state id="straight" description="gerade">
-                <decoder address="24" outputvalue="0" />
+                <decoder address="11" outputvalue="1" />
             </state>
             <state id="diverging" description="abzweigend">
-                <decoder address="24" outputvalue="1"/>
+                <decoder address="11" outputvalue="0"/>
             </state>
         </states>
     </accessory>
@@ -21,7 +21,6 @@
         <decoder>
             <protocol>DCC</protocol>
             <activationtime>500</activationtime>
-            <delaytime>1000</delaytime>
         </decoder>
         <states>
             <state id="straight" description="gerade über Hauptgleis">
@@ -42,24 +41,53 @@
             </state>
         </states>
     </accessory>
-    <!-- Dreiwegweiche mit zwei Antrieben (Basis-Protokoll, Aktivierungszeit 500 ms, keine Pause zwischen Schaltvorgängen) -->
-    <accessory uid="5b0c3d4e-6f7a-4b8c-9d0e-2f3a4b5c6d7e" type="turnout" subtype="three-way" id="W3" interlocking="Bi">
+    <!-- Normale Weiche mit einem Antrieb (Basis-Protokoll, Aktivierungszeit 500 ms) -->
+    <accessory uid="b2f3eaa9-43f9-414e-997c-92d44406a63b" type="turnout" subtype="left" interlocking="Bi" id="W3" >
         <decoder>
             <protocol>DCC</protocol>
             <activationtime>500</activationtime>
         </decoder>
         <states>
             <state id="straight" description="gerade">
-                <decoder address="13" outputvalue="0"/>
-                <decoder address="14" outputvalue="0"/>
+                <decoder address="8" outputvalue="1" />
+            </state>
+            <state id="diverging" description="abzweigend">
+                <decoder address="8" outputvalue="0"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Normale Weiche mit einem Antrieb (Basis-Protokoll, Aktivierungszeit 500 ms) -->
+    <accessory uid="bbcc3ec1-25ee-44d5-b086-6a13e33c548f" type="turnout" subtype="left" interlocking="Bi" id="W4" >
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state id="straight" description="gerade">
+                <decoder address="6" outputvalue="1" />
+            </state>
+            <state id="diverging" description="abzweigend">
+                <decoder address="6" outputvalue="0"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Dreiwegweiche mit zwei Antrieben (Basis-Protokoll, Aktivierungszeit 500 ms, keine Pause zwischen Schaltvorgängen) -->
+    <accessory uid="5b0c3d4e-6f7a-4b8c-9d0e-2f3a4b5c6d7e" type="turnout" subtype="three-way" id="W5/6" interlocking="Bi">
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state id="straight" description="gerade">
+                <decoder address="4" outputvalue="1"/>
+                <decoder address="5" outputvalue="1"/>
             </state>
             <state id="left" description="abzweigend nach links">
-                <decoder address="13" outputvalue="1"/>
-                <decoder address="14" outputvalue="0"/>
+                <decoder address="4" outputvalue="0"/>
             </state>
             <state id="right" description="abzweigend nach rechts">
-                <decoder address="13" outputvalue="0"/>
-                <decoder address="14" outputvalue="1"/>
+                <decoder address="4" outputvalue="1"/>
+                <decoder address="5" outputvalue="0"/>
             </state>
         </states>
     </accessory>

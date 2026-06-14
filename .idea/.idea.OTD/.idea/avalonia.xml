@@ -18,8 +18,10 @@
         <entry key="OTD/Controlls/InterlockingEnlements/SingalTiles/Styles/SignalTilesStyles.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Controlls/InterlockingEnlements/Styles/SignalTilesStyles.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Controlls/InterlockingEnlements/TrackTiles/TrackTiles.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/HardwareControl/S88DiagnosticsWindow.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/MainWindow.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/RelayPlanWindow.axaml" value="OTD/OTD.csproj" />
+        <entry key="OTD/S88DiagnosticsWindow.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Styles/ModernRailTheme.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/Styles/TrackPlanTheme.axaml" value="OTD/OTD.csproj" />
         <entry key="OTD/UI/Styles/Styles.axaml" value="OTD/OTD.csproj" />

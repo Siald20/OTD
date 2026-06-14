@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <EnableHardwareControlGuard>true</EnableHardwareControlGuard>
   </PropertyGroup>
 
   <ItemGroup>
@@ -56,9 +57,5 @@
 
   <ItemGroup>
     <None Remove="Stations\bahnhof-1\Routes.xml" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="HardwareControl\Feedback\" />
   </ItemGroup>
 </Project>
