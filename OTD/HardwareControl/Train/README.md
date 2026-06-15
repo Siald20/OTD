@@ -140,7 +140,7 @@ Datei: `OTD/HardwareControl/Train/Train.cs`
 ### `LoadComposition()`
 
 - Nur in `TrainOperatingMode.ShutDown` erlaubt
-- Liest `train.xml`, erzeugt Fahrzeuginstanzen
+- Liest `trains.xml`, erzeugt Fahrzeuginstanzen
 - Bindet deren Decoder an die CommandStation
 - Berechnet `Length`, `VMin`, `VMax`, `Weight`
 

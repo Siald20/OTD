@@ -22,35 +22,46 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using OTD.HardwareControl.Drivers;
 
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Orchestrates a single feedback module.
+/// Orchestrates a single feedback device.
 /// This wrapper encapsulates connection setup, initial snapshot loading,
 /// and consistent high-level access to sensor states.
 /// </summary>
 public sealed class Feedback : IFeedback, IDisposable
 {
+    // "Hartes" Treiber-Mapping aus commandstation.xml. ToDo: zukünftig flexibilisieren mittels zentraler Treiber-Liste 
     private const string DriverLoDiS88Commander = "lodi-s88-commander";
     private const string DriverMockKeyboardFeedback = "mock-keyboard-feedback";
 
     private readonly IFeedback _driver;
-    private readonly Dictionary<int, RailSensorState> _sensorStates = [];
+    private readonly int _configuredSensorCount;
+    private SensorInfo[] _sensorInfos = [];
     private readonly Lock _syncRoot = new();
     private EventHandler<SensorStateChangedEventArgs>? _sensorStateChanged;
     private bool _disposed;
     private bool _hasInitialSnapshot;
+    private bool _sensorEventsSubscribed;
 
-    public Feedback(Guid moduleUid)
+    public Feedback(Guid stationUid)
     {
-        _driver = CreateDriver(moduleUid);
-        _driver.SensorStateChanged += OnDriverSensorStateChanged;
+        var commandStationElement = CommandStationUtils.LoadCommandStationElement(stationUid);
+        _configuredSensorCount = CommandStationUtils.ParseIntElement(commandStationElement, "sensorcount", 0, 1);
+        _driver = CreateDriver(commandStationElement, stationUid);
     }
 
+    /// <summary>
+    /// Gets the unique identifier of the feedback device.
+    /// </summary>
     public Guid UniqueId => _driver.UniqueId;
 
+    /// <summary>
+    /// Gets a value indicating whether the feedback device is currently connected.
+    /// </summary>
     public bool IsConnected => _driver.IsConnected;
 
     /// <summary>
@@ -72,8 +83,19 @@ public sealed class Feedback : IFeedback, IDisposable
         }
     }
 
-    public int SensorCount => _driver.SensorCount;
+    /// <summary>
+    /// Total number of sensors supported by the feedback device.
+    /// Provided either by the feedback device or by the configuration in commandstations.xml.
+    /// </summary>
+    /// <summary>
+    /// Gets the total number of sensors supported by the feedback device.
+    /// Provided either by the feedback device or by the configuration in commandstations.xml.
+    /// </summary>
+    public int SensorCount => GetEffectiveSensorCount();
 
+    /// <summary>
+    /// Gets the name of the feedback driver implementation.
+    /// </summary>
     public string DriverName => _driver.GetType().Name;
 
     /// <summary>
@@ -81,12 +103,20 @@ public sealed class Feedback : IFeedback, IDisposable
     /// </summary>
     public DateTimeOffset? LastSnapshotUtc { get; private set; }
 
+    /// <summary>
+    /// Occurs when a sensor state changes.
+    /// </summary>
     public event EventHandler<SensorStateChangedEventArgs>? SensorStateChanged
     {
         add => _sensorStateChanged += value;
         remove => _sensorStateChanged -= value;
     }
 
+    /// <summary>
+    /// Asynchronously connects the feedback device.
+    /// </summary>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         if (IsConnected)
@@ -94,8 +124,24 @@ public sealed class Feedback : IFeedback, IDisposable
 
         ResetCachedState();
         await _driver.ConnectAsync(cancellationToken).ConfigureAwait(false);
+
+        lock (_syncRoot)
+        {
+            if (!TryInitializeSensorCacheLocked(GetEffectiveSensorCount()))
+            {
+                throw new InvalidOperationException(
+                    $"Feedback device '{UniqueId}' has no valid sensor count. Configure <sensorcount> in commandstations.xml or use a driver that reports SensorCount > 0.");
+            }
+
+            SubscribeToDriverEventsLocked();
+        }
     }
 
+    /// <summary>
+    /// Asynchronously disconnects the feedback device.
+    /// </summary>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         if (IsConnected)
@@ -104,6 +150,11 @@ public sealed class Feedback : IFeedback, IDisposable
         ResetCachedState();
     }
 
+    /// <summary>
+    /// Asynchronously ensures the feedback device is connected.
+    /// </summary>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result is true if the device is connected; otherwise, false.</returns>
     public async Task<bool> EnsureConnectedAsync(CancellationToken cancellationToken = default)
     {
         if (IsConnected)
@@ -155,27 +206,40 @@ public sealed class Feedback : IFeedback, IDisposable
         }
     }
 
+    /// <summary>
+    /// Gets the state of the specified sensor from the cached snapshot.
+    /// </summary>
+    /// <param name="sensorNumber">The sensor number (1-based).</param>
+    /// <returns>The current state of the sensor.</returns>
     public RailSensorState GetSensorState(int sensorNumber)
     {
         lock (_syncRoot)
         {
-            if (_sensorStates.TryGetValue(sensorNumber, out var cachedState))
-                return cachedState;
+            if (_hasInitialSnapshot && sensorNumber >= 1 && sensorNumber <= _sensorInfos.Length)
+                return _sensorInfos[sensorNumber - 1].State;
         }
 
         return _driver.GetSensorState(sensorNumber);
     }
 
+    /// <summary>
+    /// Asynchronously refreshes and returns the sensor state snapshot from the feedback device.
+    /// </summary>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result is a read-only dictionary of sensor numbers to their states.</returns>
     public Task<IReadOnlyDictionary<int, RailSensorState>> QueryAllSensorsAsync(
         CancellationToken cancellationToken = default)
         => RefreshSensorSnapshotAsync(cancellationToken);
 
+    /// <summary>
+    /// Releases all resources used by the Feedback instance.
+    /// </summary>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
 
-        _driver.SensorStateChanged -= OnDriverSensorStateChanged;
+        UnsubscribeFromDriverEvents();
 
         if (_driver is IDisposable disposable)
             disposable.Dispose();
@@ -183,6 +247,7 @@ public sealed class Feedback : IFeedback, IDisposable
         ResetCachedState();
     }
 
+    // Liest die aktuellen Sensor-Zustände von der Zentrale ein
     private async Task<IReadOnlyDictionary<int, RailSensorState>> RefreshSensorSnapshotAsync(
         CancellationToken cancellationToken)
     {
@@ -190,17 +255,48 @@ public sealed class Feedback : IFeedback, IDisposable
             throw new InvalidOperationException("Rueckmeldemodul konnte nicht verbunden werden.");
 
         var snapshot = await _driver.QueryAllSensorsAsync(cancellationToken).ConfigureAwait(false);
+
+        lock (_syncRoot)
+        {
+            if (_sensorInfos.Length == 0)
+            {
+                if (!TryInitializeSensorCacheLocked(GetEffectiveSensorCount()))
+                    throw new InvalidOperationException(
+                        $"Feedback device '{UniqueId}' did not provide a valid sensor count and no <sensorcount> was configured in commandstations.xml.");
+            }
+
+            SubscribeToDriverEventsLocked();
+        }
+
         CacheSnapshot(snapshot);
         return snapshot;
     }
 
+    // Übernimmt die aktuellen Sensor-Zustände in den internen Cache. 
     private void CacheSnapshot(IReadOnlyDictionary<int, RailSensorState> snapshot)
     {
         lock (_syncRoot)
         {
-            _sensorStates.Clear();
+            if (_sensorInfos.Length == 0)
+                throw new InvalidOperationException($"Feedback device '{UniqueId}' has no initialized sensor cache.");
+
+            var previousInfos = _sensorInfos;
+
             foreach (var (sensorNumber, state) in snapshot)
-                _sensorStates[sensorNumber] = state;
+            {
+                if (sensorNumber < 1 || sensorNumber > _sensorInfos.Length)
+                {
+                    throw new InvalidOperationException(
+                        $"Rueckmeldemodul '{UniqueId}' lieferte ungueltige Sensor-Nummer {sensorNumber} " +
+                        $"im Snapshot (erwartet: 1..{_sensorInfos.Length}).");
+                }
+
+                var sensorName = previousInfos.Length >= sensorNumber
+                    ? previousInfos[sensorNumber - 1].SensorName
+                    : sensorNumber.ToString();
+
+                _sensorInfos[sensorNumber - 1] = new SensorInfo(sensorNumber, sensorName, state);
+            }
 
             _hasInitialSnapshot = true;
             LastSnapshotUtc = DateTimeOffset.UtcNow;
@@ -209,11 +305,14 @@ public sealed class Feedback : IFeedback, IDisposable
 
     private void ResetCachedState()
     {
+        UnsubscribeFromDriverEvents();
+
         lock (_syncRoot)
         {
-            _sensorStates.Clear();
+            _sensorInfos = [];
             _hasInitialSnapshot = false;
             LastSnapshotUtc = null;
+            _sensorEventsSubscribed = false;
         }
     }
 
@@ -223,24 +322,71 @@ public sealed class Feedback : IFeedback, IDisposable
 
         lock (_syncRoot)
         {
-            if (_sensorStates.TryGetValue(args.SensorNumber, out var currentState) && currentState == args.State)
+            if (_sensorInfos.Length == 0)
+                throw new InvalidOperationException($"Feedback device '{UniqueId}' has no initialized sensor cache for incoming events.");
+
+            if (args.SensorNumber < 1 || args.SensorNumber > _sensorInfos.Length)
+            {
+                throw new InvalidOperationException(
+                    $"Feedback device '{UniqueId}' has an invalid sensor number {args.SensorNumber} " +
+                    $"from event (expected: 1..{_sensorInfos.Length}).");
+            }
+
+            var current = _sensorInfos[args.SensorNumber - 1];
+            if (current.SensorNumber == args.SensorNumber && current.State == args.State)
                 shouldRaise = false;
 
-            _sensorStates[args.SensorNumber] = args.State;
+            var sensorName = string.IsNullOrWhiteSpace(args.SensorName)
+                ? (current.SensorNumber == args.SensorNumber ? current.SensorName : args.SensorNumber.ToString())
+                : args.SensorName;
+
+            _sensorInfos[args.SensorNumber - 1] = new SensorInfo(args.SensorNumber, sensorName, args.State);
         }
 
         if (shouldRaise)
             _sensorStateChanged?.Invoke(this, args);
     }
 
-    private static IFeedback CreateDriver(Guid moduleUid)
+    private bool TryInitializeSensorCacheLocked(int sensorCount)
     {
-        var feedbackModuleElement = CommandStationUtils.LoadFeedbackModuleElement(moduleUid);
+        if (sensorCount < 1)
+            return false;
+
+        _sensorInfos = new SensorInfo[sensorCount];
+        for (var sensorNumber = 1; sensorNumber <= _sensorInfos.Length; sensorNumber++)
+            _sensorInfos[sensorNumber - 1] = new SensorInfo(sensorNumber, sensorNumber.ToString(), RailSensorState.Inactive);
+
+        return true;
+    }
+
+    private void SubscribeToDriverEventsLocked()
+    {
+        if (_sensorEventsSubscribed)
+            return;
+
+        _driver.SensorStateChanged += OnDriverSensorStateChanged;
+        _sensorEventsSubscribed = true;
+    }
+
+    private void UnsubscribeFromDriverEvents()
+    {
+        if (!_sensorEventsSubscribed)
+            return;
+
+        _driver.SensorStateChanged -= OnDriverSensorStateChanged;
+        _sensorEventsSubscribed = false;
+    }
+
+    private int GetEffectiveSensorCount()
+        => _configuredSensorCount > 0 ? _configuredSensorCount : _driver.SensorCount;
+
+    private static IFeedback CreateDriver(XElement commandStationElement, Guid stationUid)
+    {
         var driverName = CommandStationUtils
-            .RequireAttribute(feedbackModuleElement, "driver", $"feedbackmodule '{moduleUid}'")
+            .RequireAttribute(commandStationElement, "driver", $"commandstation '{stationUid}'")
             .Trim()
             .ToLowerInvariant();
-        var diagnosticsElement = feedbackModuleElement.Element("diagnostics");
+        var diagnosticsElement = commandStationElement.Element("diagnostics");
         var diagnosticLogging = CommandStationUtils.ParseBoolAttribute(diagnosticsElement, "enabled", false);
         var suppressHeartbeatDiagnostics = CommandStationUtils.ParseBoolAttribute(
             diagnosticsElement,
@@ -250,12 +396,12 @@ public sealed class Feedback : IFeedback, IDisposable
         return driverName switch
         {
             DriverLoDiS88Commander => new LoDiFeedback(
-                feedbackModuleElement,
+                commandStationElement,
                 diagnosticLogging,
                 suppressHeartbeatDiagnostics),
-            DriverMockKeyboardFeedback => new KeyboardMockFeedback(moduleUid),
+            DriverMockKeyboardFeedback => new KeyboardMockFeedback(stationUid),
             _ => throw new InvalidOperationException(
-                $"Feedback module '{moduleUid}' has unsupported driver '{driverName}'.")
+                $"Command station '{stationUid}' has unsupported feedback driver '{driverName}'.")
         };
     }
 }

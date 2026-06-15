@@ -463,6 +463,7 @@ internal sealed class LoDiS88Commander : IDisposable
     private static string FormatByte(byte? value)
         => value.HasValue ? $"{value.Value} (0x{value.Value:X2})" : "-";
 
+    // ToDo: Heartbeat-Pakete auswerten und Exception generieren, falls nach Timeout keine Pakete mehr ankommen -> Unterbruch Kommunikation
     private static bool IsHeartbeatPacket(LoDiPacket packet)
         => packet is
         {

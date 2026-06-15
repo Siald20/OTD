@@ -39,13 +39,13 @@ internal static class RunTests
         var document = CommandStationUtils.LoadXDocument(configPath);
 
         var commandStations = LoadCommandStations(document);
-        var feedbackModules = LoadFeedbackModules(document);
+        var feedbackStations = LoadFeedbackStations(document);
 
         if (commandStations.Count == 0)
-            throw new InvalidOperationException("No commandstations configured in deviceconfig.xml.");
+            throw new InvalidOperationException("No commandstations configured in commandstations.xml.");
 
-        if (feedbackModules.Count == 0)
-            throw new InvalidOperationException("No feedbackmodules configured in deviceconfig.xml.");
+        if (feedbackStations.Count == 0)
+            throw new InvalidOperationException("No feedback-capable commandstations configured in commandstations.xml.");
 
         Console.Clear();
         Console.WriteLine("=== RunTests ===");
@@ -54,7 +54,7 @@ internal static class RunTests
 
         var selectedCommandStation = SelectOption("Verfuegbare Commandstations", commandStations);
         Console.WriteLine();
-        var selectedFeedback = SelectOption("Verfuegbare Feedbacks", feedbackModules);
+        var selectedFeedback = SelectOption("Verfuegbare Feedback-Commandstations", feedbackStations);
 
         Console.WriteLine();
         Console.WriteLine("Auswahl abgeschlossen:");
@@ -63,7 +63,7 @@ internal static class RunTests
         Console.WriteLine();
 
         var commandStationUid = ParseGuidOrThrow(selectedCommandStation.Id, "commandstation uid");
-        var feedbackUid = ParseGuidOrThrow(selectedFeedback.Id, "feedbackmodule uid");
+        var feedbackUid = ParseGuidOrThrow(selectedFeedback.Id, "feedback commandstation uid");
 
         using var commandStation = new CommandStation(commandStationUid);
         using var feedbackModule = new Feedback(feedbackUid);
@@ -224,8 +224,8 @@ internal static class RunTests
     private static List<SelectableEntry> LoadCommandStations(XDocument document)
     {
         return document.Root?
-            .Element("commandstations")?
             .Elements("commandstation")
+            .Where(element => !IsFeedbackDriver(element.Attribute("driver")?.Value))
             .Select(element =>
             {
                 var uid = element.Attribute("uid")?.Value ?? "<missing-uid>";
@@ -240,11 +240,11 @@ internal static class RunTests
             ?? [];
     }
 
-    private static List<SelectableEntry> LoadFeedbackModules(XDocument document)
+    private static List<SelectableEntry> LoadFeedbackStations(XDocument document)
     {
         return document.Root?
-            .Element("feedbackmodules")?
-            .Elements("feedbackmodule")
+            .Elements("commandstation")
+            .Where(element => IsFeedbackDriver(element.Attribute("driver")?.Value))
             .Select(element =>
             {
                 var uid = element.Attribute("uid")?.Value ?? "<missing-uid>";
@@ -258,6 +258,10 @@ internal static class RunTests
             .ToList()
             ?? [];
     }
+
+    private static bool IsFeedbackDriver(string? driver)
+        => string.Equals(driver, "lodi-s88-commander", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(driver, "mock-keyboard-feedback", StringComparison.OrdinalIgnoreCase);
 
     private static SelectableEntry SelectOption(string title, IReadOnlyList<SelectableEntry> options)
     {

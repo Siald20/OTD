@@ -124,20 +124,16 @@ internal enum S88ChangeType
     Occupied
 }
 
-internal sealed class S88EventPayloadChange
+internal sealed class S88EventPayloadChange(
+    byte moduleAddress,
+    byte contactNumber,
+    byte rawState,
+    S88ChangeType changeType)
 {
-    public byte ModuleAddress { get; }
-    public byte ContactNumber { get; }
-    public byte RawState { get; }
-    public S88ChangeType ChangeType { get; }
-
-    public S88EventPayloadChange(byte moduleAddress, byte contactNumber, byte rawState, S88ChangeType changeType)
-    {
-        ModuleAddress = moduleAddress;
-        ContactNumber = contactNumber;
-        RawState = rawState;
-        ChangeType = changeType;
-    }
+    public byte ModuleAddress { get; } = moduleAddress;
+    public byte ContactNumber { get; } = contactNumber;
+    public byte RawState { get; } = rawState;
+    public S88ChangeType ChangeType { get; } = changeType;
 
     public bool IsOccupied => ChangeType == S88ChangeType.Occupied;
 }

@@ -63,7 +63,7 @@ public class Train
     /// <summary>
     ///     Total train length.
     ///     Primary source is the summed vehicle lengths from the composition.
-    ///     Fallback source is train.xml attribute <c>train/@length</c> when composition length is unknown (0).
+    ///     Fallback source is trains.xml attribute <c>train/@length</c> when composition length is unknown (0).
     /// </summary>
     public int Length { get; private set; }
 
@@ -77,7 +77,7 @@ public class Train
     ///     Maximum speed (VMax) of the train composition, determined by the lowest VMax value
     ///     among all vehicles, either from the VMax configuration attribute or from the maximum
     ///     entry in the speedtable element.
-    ///     If <c>&lt;model&gt;&lt;vmax&gt;</c> in train.xml is set and smaller than the computed
+    ///     If <c>&lt;model&gt;&lt;vmax&gt;</c> in trains.xml is set and smaller than the computed
     ///     composition VMax, it acts as an upper limit for the whole composition.
     /// </summary>
     public int VMax { get; private set; }
@@ -85,13 +85,13 @@ public class Train
     /// <summary>
     ///     Total weight of the train composition in grams.
     ///     Primary source is the summed vehicle weights from the composition.
-    ///     Fallback source is <c>&lt;model&gt;&lt;weight&gt;</c> in train.xml when composition weight is unknown (0).
+    ///     Fallback source is <c>&lt;model&gt;&lt;weight&gt;</c> in trains.xml when composition weight is unknown (0).
     /// </summary>
     public int Weight { get; private set; }
 
     /// <summary>
     ///     Full train composition in train order. Each entry contains the vehicle metadata
-    ///     from train.xml together with the initialized runtime instance in <see cref="TrainVehicle.VehicleInstance" />.
+    ///     from trains.xml together with the initialized runtime instance in <see cref="TrainVehicle.VehicleInstance" />.
     /// </summary>
     public TrainComposition TrainComposition { get; private set; } = TrainComposition.Empty;
 
@@ -186,15 +186,15 @@ public class Train
         UnsubscribeCommandStations(previousComposition, subscribedStationsSnapshot);
         TrainComposition = newComposition;
 
-        // Zug-Länge: Fallback auf konfigurierte Werte aus train.xml, falls nicht für alle Fahrzeuge ein Wert erfasst ist.
+        // Zug-Länge: Fallback auf konfigurierte Werte aus trains.xml, falls nicht für alle Fahrzeuge ein Wert erfasst ist.
         Length = TrainComposition.Length > 0 ? TrainComposition.Length : configuredLength;
         // Zug-Mindestgeschwindigkeit (kleinste Geschwindigkeit aller Fahrzeuge bei Fahrstufe 1)
         VMin = TrainComposition.VMin;
-        // Zug-Höchstgeschwindigkeit: Fallback auf train.xml, falls nicht für alle Fahrzeuge ein Wert erfasst ist oder train.xml einen niedrigeren Wert vorgibt.
+        // Zug-Höchstgeschwindigkeit: Fallback auf trains.xml, falls nicht für alle Fahrzeuge ein Wert erfasst ist oder trains.xml einen niedrigeren Wert vorgibt.
         VMax = configuredVMax > 0 && TrainComposition.VMax > 0 && configuredVMax < TrainComposition.VMax
             ? configuredVMax
             : TrainComposition.VMax;
-        // Zug-Gewicht: Fallback auf train.xml, falls nicht für alle Fahrzeuge ein Wert erfasst ist.
+        // Zug-Gewicht: Fallback auf trains.xml, falls nicht für alle Fahrzeuge ein Wert erfasst ist.
         Weight = TrainComposition.Weight > 0 ? TrainComposition.Weight : configuredWeight;
 
         TrainConfig = trainConfig;

@@ -32,7 +32,7 @@ namespace OTD.HardwareControl;
 /// </summary>
 public interface IFeedback
 {
-    /// <summary>Unique provider id from deviceconfig.xml.</summary>
+    /// <summary>Unique provider id from commandstations.xml.</summary>
     Guid UniqueId { get; }
 
     /// <summary>True when the provider is connected.</summary>
@@ -58,6 +58,7 @@ public interface IFeedback
     /// </summary>
     /// <param name="sensorNumber">1-based sensor number (1 .. <see cref="SensorCount"/>).</param>
     RailSensorState GetSensorState(int sensorNumber);
+
 
     /// <summary>
     /// Queries the device for current sensor states and returns a complete snapshot.

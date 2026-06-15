@@ -56,7 +56,7 @@ public sealed class CommandStation : ICommandStation
     public bool IsConnected => _driver.IsConnected;
 
     /// <summary>
-    /// Unique ID of the command station from deviceconfig.xml.
+    /// Unique ID of the command station from commandstations.xml.
     /// </summary>
     public Guid UniqueId => _stationUid;
 

@@ -105,7 +105,7 @@ internal static class AccessoryStateUtils
     {
         foreach (var stateElement in stateElements)
         {
-            var stateIdAttribute = stateElement.Attribute("id");
+            var stateIdAttribute = stateElement.Attribute("name");
             var stateId = stateIdAttribute is null ? string.Empty : stateIdAttribute.Value.Trim();
 
             if (string.IsNullOrWhiteSpace(stateId))

@@ -31,10 +31,10 @@ namespace OTD.HardwareControl;
 /// </summary>
 internal static class CommandStationUtils
 {
-    private const string ConfigFileName = "deviceconfig.xml";
+    private const string ConfigFileName = "commandstations.xml";
 
     /// <summary>
-    /// Returns the default path to deviceconfig.xml relative to the application base directory.
+    /// Returns the default path to commandstations.xml relative to the application base directory.
     /// </summary>
     internal static string GetDefaultConfigFilePath()
     {
@@ -116,6 +116,32 @@ internal static class CommandStationUtils
     }
 
     /// <summary>
+    /// Parses an optional integer value from a child element.
+    /// Returns <paramref name="defaultValue"/> when the child element is missing.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the value is not a valid integer or out of range.</exception>
+    internal static int ParseIntElement(XElement? parentElement, string childElementName, int defaultValue,
+        int min = int.MinValue, int max = int.MaxValue)
+    {
+        if (parentElement is null)
+            return defaultValue;
+
+        var childElement = parentElement.Element(childElementName);
+        if (childElement is null)
+            return defaultValue;
+
+        var value = childElement.Value;
+        if (string.IsNullOrWhiteSpace(value))
+            return defaultValue;
+
+        if (!int.TryParse(value, out var parsed) || parsed < min || parsed > max)
+            throw new InvalidOperationException(
+                $"Invalid integer value '{value}' in <{childElementName}>. Valid range: {min}..{max}.");
+
+        return parsed;
+    }
+
+    /// <summary>
     /// Parses a required Guid attribute from an XElement.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the attribute is missing or not a valid UUID.</exception>
@@ -129,7 +155,7 @@ internal static class CommandStationUtils
     }
 
     /// <summary>
-    /// Loads a single &lt;commandstation&gt; element by UID from deviceconfig.xml.
+    /// Loads a single &lt;commandstation&gt; element by UID from commandstations.xml.
     /// The returned element is a detached copy and can be passed to driver constructors.
     /// </summary>
     internal static XElement LoadCommandStationElement(Guid stationUid, string? configFilePath = null)
@@ -140,7 +166,6 @@ internal static class CommandStationUtils
 
         var document = LoadXDocument(filePath);
         var stationElement = document.Root?
-            .Element("commandstations")?
             .Elements("commandstation")
             .FirstOrDefault(element =>
             {
@@ -153,33 +178,6 @@ internal static class CommandStationUtils
                 $"Command station with uid '{stationUid}' not found in '{filePath}'.");
 
         return new XElement(stationElement);
-    }
-
-    /// <summary>
-    /// Loads a single &lt;feedbackmodule&gt; element by UID from deviceconfig.xml.
-    /// The returned element is a detached copy and can be passed to driver constructors.
-    /// </summary>
-    internal static XElement LoadFeedbackModuleElement(Guid moduleUid, string? configFilePath = null)
-    {
-        var filePath = string.IsNullOrWhiteSpace(configFilePath)
-            ? GetDefaultConfigFilePath()
-            : configFilePath;
-
-        var document = LoadXDocument(filePath);
-        var moduleElement = document.Root?
-            .Element("feedbackmodules")?
-            .Elements("feedbackmodule")
-            .FirstOrDefault(element =>
-            {
-                var uidRaw = element.Attribute("uid")?.Value;
-                return Guid.TryParse(uidRaw, out var parsedUid) && parsedUid == moduleUid;
-            });
-
-        if (moduleElement is null)
-            throw new InvalidOperationException(
-                $"Feedback module with uid '{moduleUid}' not found in '{filePath}'.");
-
-        return new XElement(moduleElement);
     }
 }
 

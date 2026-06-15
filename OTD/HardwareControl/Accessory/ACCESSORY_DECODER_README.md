@@ -37,7 +37,7 @@ Der Accessory-Decoder ist für **stationäre** Decoder (Weichen, Signale, Entkup
 ### Nutzung
 
 ```csharp
-var accessoryElement = XElement.Load("accessory.xml").Element("decoder")!;
+var accessoryElement = XElement.Load("accessories.xml").Element("decoder")!;
 
 var commandStation = new LoDiRektor();
 await commandStation.ConnectAsync("192.168.1.100", 5550);

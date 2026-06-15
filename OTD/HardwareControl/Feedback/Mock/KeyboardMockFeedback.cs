@@ -134,7 +134,10 @@ internal sealed class KeyboardMockFeedback : IFeedback
             return;
 
         _states[sensorNumber] = newState;
-        SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(UniqueId, sensorNumber, newState));
+        var sensorName = $"1.{sensorNumber}";
+        SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(
+            UniqueId,
+            new SensorInfo(sensorNumber, sensorName, newState)));
     }
 
     private static Dictionary<ConsoleKey, int> BuildKeyMap()

@@ -58,24 +58,24 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
     /// Device info (Bus1/Bus2 lengths) is queried on ConnectAsync.
     /// </summary>
     public LoDiFeedback(
-        XElement feedbackModuleElement,
+        XElement commandStationElement,
         bool diagnosticLogging = false,
         bool suppressHeartbeatDiagnostics = false)
     {
         _diagnosticLogging = diagnosticLogging;
         
-        // Parse module UID
-        _moduleUid = CommandStationUtils.RequireGuidAttribute(feedbackModuleElement, "<feedbackmodule>");
+        // Parse command station UID
+        _moduleUid = CommandStationUtils.RequireGuidAttribute(commandStationElement, "<commandstation>");
         
         // Parse connection element
-        var connectionElement = feedbackModuleElement.Element("connection")
-            ?? throw new InvalidOperationException($"Feedback module '{_moduleUid}' is missing required <connection> element.");
+        var connectionElement = commandStationElement.Element("connection")
+            ?? throw new InvalidOperationException($"Command station '{_moduleUid}' is missing required <connection> element.");
         
-        _ipAddress = CommandStationUtils.RequireAttribute(connectionElement, "ip", $"feedbackmodule '{_moduleUid}' / connection");
+        _ipAddress = CommandStationUtils.RequireAttribute(connectionElement, "ip", $"commandstation '{_moduleUid}' / connection");
         _port = CommandStationUtils.ParseIntAttribute(connectionElement, "port", LoDiProtocol.DefaultTcpPort, 1, 65535);
         
         // Parse startup element
-        var startupElement = feedbackModuleElement.Element("startup");
+        var startupElement = commandStationElement.Element("startup");
         _queryOnStartup = CommandStationUtils.ParseBoolAttribute(startupElement, "queryOnStartup", defaultValue: true);
         _subscribeOnStartup = CommandStationUtils.ParseBoolAttribute(startupElement, "subscribeOnStartup", defaultValue: true);
         
@@ -186,6 +186,17 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
         return sensorNumber <= SensorCount ? sensorNumber : -1;
     }
 
+    private string SensorNumberToSensorName(int sensorNumber)
+    {
+        if (sensorNumber < 1)
+            return "1.1";
+
+        if (sensorNumber <= _bus1SensorCount)
+            return $"1.{sensorNumber}";
+
+        return $"2.{sensorNumber - _bus1SensorCount}";
+    }
+
     // -------------------------------------------------------------------------
     // S88-Event-Handler
     // -------------------------------------------------------------------------
@@ -194,6 +205,7 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
     {
         var sensorNumber = ModuleContactToSensorNumber(e.ModuleAddress, e.ContactNumber);
         if (sensorNumber < 1) return;
+        var sensorName = SensorNumberToSensorName(sensorNumber);
 
         var state = e.IsOccupied ? RailSensorState.Active : RailSensorState.Inactive;
 
@@ -201,14 +213,16 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
             _sensorStates[sensorNumber] = state;
 
         if (_diagnosticLogging)
-            Console.WriteLine($"[LoDiFeedback Diag] Sensor {sensorNumber:D4} (Modul {e.ModuleAddress:D3}, Kontakt {e.ContactNumber:D2}) => {state}");
+            Console.WriteLine($"[LoDiFeedback Diag] Sensor {sensorNumber:D4} ({sensorName}) => {state}");
 
-        SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(UniqueId, sensorNumber, state));
+        SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(
+            UniqueId,
+            new SensorInfo(sensorNumber, sensorName, state)));
     }
 
     private void OnModuleStateReceived(object? sender, S88ModuleStateEventArgs e)
     {
-        var changed = new List<(int SensorNumber, RailSensorState State)>();
+        var changed = new List<(int SensorNumber, string SensorName, RailSensorState State)>();
 
         lock (_syncRoot)
         {
@@ -227,7 +241,7 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
                     continue;
 
                 _sensorStates[sensorNumber] = newState;
-                changed.Add((sensorNumber, newState));
+                changed.Add((sensorNumber, SensorNumberToSensorName(sensorNumber), newState));
             }
 
             if (_pendingModulesQuery is not null)
@@ -238,12 +252,14 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
             }
         }
 
-        foreach (var (sensorNumber, state) in changed)
+        foreach (var (sensorNumber, sensorName, state) in changed)
         {
             if (_diagnosticLogging)
-                Console.WriteLine($"[LoDiFeedback Diag] Sensor {sensorNumber:D4} (Modul {e.ModuleAddress:D3}) => {state}");
+                Console.WriteLine($"[LoDiFeedback Diag] Sensor {sensorNumber:D4} ({sensorName}) => {state}");
 
-            SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(UniqueId, sensorNumber, state));
+            SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(
+                UniqueId,
+                new SensorInfo(sensorNumber, sensorName, state)));
         }
     }
 
@@ -265,7 +281,6 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
             _pendingModulesSeen.Clear();
             _pendingModulesExpectedCount = 0;
         }
-
         try
         {
             await _commander.QueryModulesAsync(cancellationToken).ConfigureAwait(false);
@@ -311,4 +326,3 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
         }
     }
 }
-

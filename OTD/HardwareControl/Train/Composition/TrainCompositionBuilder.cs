@@ -345,7 +345,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Persists the current builder state to the <c>&lt;composition&gt;</c> element in <c>train.xml</c>
+    /// Persists the current builder state to the <c>&lt;composition&gt;</c> element in <c>trains.xml</c>
     /// for the specified train UID.
     /// </summary>
     public void SaveToTrainConfiguration(Guid trainId)

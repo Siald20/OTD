@@ -27,7 +27,7 @@ using System.Xml.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides persistence operations for splitting train compositions in <c>train.xml</c>.
+/// Provides persistence operations for splitting train compositions in <c>trains.xml</c>.
 /// </summary>
 internal static class TrainCompositionUtils
 {
@@ -54,7 +54,7 @@ internal static class TrainCompositionUtils
         if (detachedVehicles.Count == 0)
             throw new InvalidOperationException("Detached composition must not be empty.");
 
-        var trainConfigPath = Path.Combine(GetConfigFilePath(), "train.xml");
+        var trainConfigPath = Path.Combine(GetConfigFilePath(), "trains.xml");
         if (!File.Exists(trainConfigPath))
             throw new InvalidOperationException($"Configuration file not found: {trainConfigPath}");
 
@@ -65,7 +65,7 @@ internal static class TrainCompositionUtils
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"Failed to load train.xml: {ex.Message}", ex);
+            throw new InvalidOperationException($"Failed to load trains.xml: {ex.Message}", ex);
         }
 
         var sourceTrainElement = document.Root?
@@ -73,7 +73,7 @@ internal static class TrainCompositionUtils
             .FirstOrDefault(element => element.Attribute("uid")?.Value == sourceTrainId.ToString());
 
         if (sourceTrainElement is null)
-            throw new InvalidOperationException($"Train {sourceTrainId} could not be found in train.xml.");
+            throw new InvalidOperationException($"Train {sourceTrainId} could not be found in trains.xml.");
 
         var newTrainId = Guid.NewGuid();
         var newTrainElement = new XElement(sourceTrainElement);
@@ -96,7 +96,7 @@ internal static class TrainCompositionUtils
         catch (Exception ex)
         {
             throw new InvalidOperationException(
-                $"Failed to save train.xml (backup: {backupPath}): {ex.Message}", ex);
+                $"Failed to save trains.xml (backup: {backupPath}): {ex.Message}", ex);
         }
 
         return newTrainId;
@@ -112,7 +112,7 @@ internal static class TrainCompositionUtils
         if (train1Id == train2Id)
             throw new ArgumentException("JoinComposition requires two different train IDs.");
 
-        var trainConfigPath = Path.Combine(GetConfigFilePath(), "train.xml");
+        var trainConfigPath = Path.Combine(GetConfigFilePath(), "trains.xml");
         if (!File.Exists(trainConfigPath))
             throw new InvalidOperationException($"Configuration file not found: {trainConfigPath}");
 
@@ -123,7 +123,7 @@ internal static class TrainCompositionUtils
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"Failed to load train.xml: {ex.Message}", ex);
+            throw new InvalidOperationException($"Failed to load trains.xml: {ex.Message}", ex);
         }
 
         var trainElements = document.Root?.Elements("train").ToList() ?? [];
@@ -131,10 +131,10 @@ internal static class TrainCompositionUtils
         var train2Element = trainElements.FirstOrDefault(element => element.Attribute("uid")?.Value == train2Id.ToString());
 
         if (train1Element is null)
-            throw new InvalidOperationException($"Train {train1Id} could not be found in train.xml.");
+            throw new InvalidOperationException($"Train {train1Id} could not be found in trains.xml.");
 
         if (train2Element is null)
-            throw new InvalidOperationException($"Train {train2Id} could not be found in train.xml.");
+            throw new InvalidOperationException($"Train {train2Id} could not be found in trains.xml.");
 
         var train1Composition = TrainUtils.GetComposition(train1Element);
         var train2Composition = TrainUtils.GetComposition(train2Element);
@@ -162,7 +162,7 @@ internal static class TrainCompositionUtils
         catch (Exception ex)
         {
             throw new InvalidOperationException(
-                $"Failed to save train.xml (backup: {backupPath}): {ex.Message}", ex);
+                $"Failed to save trains.xml (backup: {backupPath}): {ex.Message}", ex);
         }
     }
 

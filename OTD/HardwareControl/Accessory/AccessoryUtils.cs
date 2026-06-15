@@ -25,7 +25,7 @@ using System.Xml.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides XML parsing helpers for accessory configuration values from <c>accessory.xml</c>.
+/// Provides XML parsing helpers for accessory configuration values from <c>accessories.xml</c>.
 /// </summary>
 internal static class AccessoryUtils
 {
@@ -41,7 +41,7 @@ internal static class AccessoryUtils
     }
 
     /// <summary>
-    /// Parses the accessory type attribute from <c>accessory.xml</c>.
+    /// Parses the accessory type attribute from <c>accessories.xml</c>.
     /// </summary>
     internal static AccessoryType GetAccessoryType(string? rawType)
     {

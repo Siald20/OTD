@@ -230,7 +230,6 @@ public class AccessoryDecoder : IAccessoryDecoder
         if (functionState is not (AccessoryFunctionState.On or AccessoryFunctionState.Off))
             return;
 
-
         StateChanged?.Invoke(this, new AccessoryStateChangedEventArgs(
             Address, outputValue, functionState));
     }

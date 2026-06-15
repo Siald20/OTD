@@ -80,7 +80,7 @@ internal sealed class LoDiRektor : ICommandStation
 
     /// <summary>
     ///     Immediately after a successful connect, performs a BoosterStatus query to
-    ///     initialize the feedback channel early.
+    ///     initialize the feedback bus early.
     /// </summary>
     public bool EnableConnectWarmup { get; set; } = true;
 
@@ -103,7 +103,7 @@ internal sealed class LoDiRektor : ICommandStation
     }
 
     /// <summary>
-    ///     Initializes the driver with the complete &lt;commandstation&gt; node from deviceconfig.xml.
+    ///     Initializes the driver with the complete &lt;commandstation&gt; node from commandstations.xml.
     /// </summary>
     public LoDiRektor(XElement commandStationElement)
         : this()
@@ -152,15 +152,15 @@ internal sealed class LoDiRektor : ICommandStation
     ///     Establishes a connection to the LoDi rector.
     ///     Primarily used internally; external callers should use <see cref="ConnectAsync(System.Threading.CancellationToken)"/>.
     /// </summary>
-    /// <param name="ipAddress">Optional IP address override; <c>null</c> uses deviceconfig.xml.</param>
-    /// <param name="port">Optional TCP port override; <c>null</c> uses deviceconfig.xml.</param>
+    /// <param name="ipAddress">Optional IP address override; <c>null</c> uses commandstations.xml.</param>
+    /// <param name="port">Optional TCP port override; <c>null</c> uses commandstations.xml.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     public async Task ConnectAsync(string? ipAddress, int? port,
         CancellationToken cancellationToken = default)
     {
         var targetAddress = string.IsNullOrWhiteSpace(ipAddress) ? _configuredIpAddress : ipAddress;
         if (string.IsNullOrWhiteSpace(targetAddress))
-            throw new InvalidOperationException("No IP address configured for LoDiRektor. Set it in deviceconfig.xml.");
+            throw new InvalidOperationException("No IP address configured for LoDiRektor. Set it in commandstations.xml.");
 
         var configuredPort = _configuredPort > 0 ? _configuredPort : LoDiProtocol.DefaultTcpPort;
         var targetPort = port.HasValue && port.Value > 0 ? port.Value : configuredPort;
