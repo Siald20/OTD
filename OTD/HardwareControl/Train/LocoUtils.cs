@@ -1,23 +1,24 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-//
-// OpenTrainDrive - DecoderControl
-// Copyright (C) 2026
-//
-// Authors:
-// - Hansueli Alder <info@batec.net>
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-// See the GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+// // SPDX-License-Identifier: GPL-3.0-or-later
+// //
+// // OpenTrainDrive - DecoderControl
+// // Copyright (C) 2026
+// //
+// // Authors:
+// // - Hansueli Alder <name@example.com>
+// //
+// // Dieses Programm ist freie Software: Sie können es unter den Bedingungen
+// // der GNU General Public License, wie von der Free Software Foundation,
+// // entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
+// // veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// //
+// // Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
+// // jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
+// // MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
+// // Siehe die GNU General Public License für weitere Details.
+// //
+// // Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
+// // Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -166,13 +167,13 @@ public static class LocoUtils
     }
 
     /// <summary>
-    /// Converts a decoder speed step, congruent to the floor-mapping logic in
-    /// <c>SetSpeedVAsync</c>, into a reported speed value (SpeedV, km/h).
-    /// Returns 0 for speed step 0 or an empty table.
+    /// Rechnet einen Decoder-SpeedStep kongruent zur Floor-Mapping-Logik in
+    /// <c>SetSpeedVAsync</c> in eine gemeldete Geschwindigkeit (SpeedV, km/h) zurück.
+    /// Für SpeedStep 0 oder eine leere Tabelle wird 0 zurückgegeben.
     /// </summary>
-    /// <param name="speedTable">Interpolated SpeedV table.</param>
-    /// <param name="speedStep">Speed step reported by the decoder.</param>
-    /// <returns>SpeedV in km/h, congruent with forward mapping.</returns>
+    /// <param name="speedTable">Interpolierte SpeedV-Tabelle.</param>
+    /// <param name="speedStep">Vom Decoder gemeldeter SpeedStep.</param>
+    /// <returns>SpeedV in km/h, kongruent zum Vorwaertsmapping.</returns>
     internal static int ResolveSpeedVForSpeedStep(IReadOnlyList<SpeedEntry> speedTable, int speedStep)
     {
         if (speedStep == 0 || speedTable.Count == 0)
@@ -201,12 +202,12 @@ public static class LocoUtils
     }
 
     /// <summary>
-    /// Resolves the highest speed step for a target speed (SpeedV)
-    /// whose configured SpeedV does not exceed that target speed.
+    /// Ermittelt zu einer Sollgeschwindigkeit (SpeedV) den groessten SpeedStep,
+    /// dessen konfigurierte SpeedV die Sollgeschwindigkeit nicht ueberschreitet.
     /// </summary>
-    /// <param name="speedTable">Interpolated SpeedV table.</param>
-    /// <param name="speed">Target speed in km/h (SpeedV).</param>
-    /// <returns>Matching decoder speed step (floor mapping).</returns>
+    /// <param name="speedTable">Interpolierte SpeedV-Tabelle.</param>
+    /// <param name="speed">Sollgeschwindigkeit in km/h (SpeedV).</param>
+    /// <returns>Passender Decoder-SpeedStep (Floor-Mapping).</returns>
     internal static int ResolveSpeedStepForSpeedV(IReadOnlyList<SpeedEntry> speedTable, int speed)
         => speedTable
             .Where(entry => entry.SpeedV <= speed)

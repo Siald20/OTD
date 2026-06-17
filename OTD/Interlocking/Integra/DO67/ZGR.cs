@@ -1,7 +1,8 @@
 using System;
 
 /// <summary>
-/// TMN502_ZGR: Vollständige 1:1 Übersetzung des Zwergsignal-Gruppenrelais-Satzes.
+/// Modellbahnfreundlicher Zwergsignal-Gruppenrelais-Satz mit festem 24-Spur-Vertrag.
+/// Die Speicher-Spuren 1/2 werden bei umgekehrter Einbaurichtung logisch getauscht.
 /// </summary>
 public class TMN502_ZGR : RelaisSatz
 {
@@ -25,6 +26,8 @@ public class TMN502_ZGR : RelaisSatz
     public Relais A = new Relais();      public Relais AH = new Relais();
     public Relais VFU = new Relais();    public Relais BAD = new Relais();
     public Relais BAH = new Relais();    public Relais NA = new Relais();
+    public Relais BL = new Relais();     public Relais TR = new Relais();
+    public Relais VM = new Relais();     // Fahrt mit Vorsicht, schraeger Fahrbegriff
 
     // --- Lampen ---
     public Lampe l_RM = new Lampe();
@@ -62,7 +65,7 @@ public class TMN502_ZGR : RelaisSatz
     public Verbindung v_15_SIU = new Verbindung(); // Angenommen aus Spur 15 Logik
 
     private Do67 m_zv;
-    private Zwergsignal m_zsig;
+    private Zwergsignal? m_zsig;
 
     public TMN502_ZGR(Do67 z, bool nach_links)
     {
@@ -93,257 +96,213 @@ public class TMN502_ZGR : RelaisSatz
 
     public void SetZS(Zwergsignal zs) { m_zsig = zs; }
     
-    public Zwergsignal GetZwerg() { return m_zsig; }
+    public Zwergsignal? GetZwerg() { return m_zsig; }
 
     public bool Zv_zsr() { return (!RM1.Value && !RM2.Value) || VP.Value; }
 
     public override void Update()
     {
-        bool t;
+        UpdateVereinfacht();
+    }
 
+    private void UpdateVereinfacht()
+    {
         sk_A.Reset();
         sk_E.Reset();
         sk_AH.Reset();
         sk_EH.Reset();
 
-        // --- Seite 1 ---
-        if (m_zsig != null) 
-        {
-            m_zsig.L1 = !SF.Value;
-            m_zsig.L2 = SF.Value || !FU.Value;
-            m_zsig.L3 = FU.Value && (MR.Value || MZ.Value);
+        var st = (m_zv.sl_TR_ZS.Value && (t_ST.Value || t_SZT.Value))
+                 || (m_zv.sl_TRFU_ZS.Value && (tfu_ST.Value || tfu_SZT.Value));
+        var zt = (m_zv.sl_TR_ZS.Value && (t_ZT.Value || t_SZT.Value))
+                 || (m_zv.sl_TRFU_ZS.Value && (tfu_ZT.Value || tfu_SZT.Value));
 
-            RM1.Value = !(VP.Value && !MZ.Value && !MR.Value) && ((!SF.Value && m_zsig.L1) || (SF.Value && m_zsig.L2));
-            RM2.Value = !(VP.Value && !MZ.Value && !MR.Value) && ((!FU.Value && m_zsig.L2) || (FU.Value && (MR.Value || MZ.Value) && m_zsig.L3));
-        }
-        else 
+        UpdateSignalRueckmeldung();
+        UpdateSpeicher(st, zt);
+        UpdateVerschlussUndFlankenschutz();
+        UpdateFahrwegUndFahrbegriff(st);
+        UpdateAufloesung(zt);
+        UpdateFestlegung();
+        UpdateFreieSpuren();
+    }
+
+    private void UpdateSignalRueckmeldung()
+    {
+        if (m_zsig == null)
         {
             RM1.Value = false;
             RM2.Value = false;
+            return;
         }
 
-        bool IS = i_IS.Value;
+        m_zsig.L1 = !SF.Value;
+        m_zsig.L2 = SF.Value || !FU.Value;
+        m_zsig.L3 = FU.Value && (MR.Value || MZ.Value);
+        RM1.Value = m_zsig.L1 || m_zsig.L2;
+        RM2.Value = m_zsig.L2 || m_zsig.L3;
+    }
 
-        bool ST = (m_zv.sl_TR_ZS.Value && (t_ST.Value || t_SZT.Value)) || (m_zv.sl_TRFU_ZS.Value && (tfu_ST.Value || tfu_SZT.Value));
-        bool ZT = (m_zv.sl_TR_ZS.Value && (t_ZT.Value || t_SZT.Value)) || (m_zv.sl_TRFU_ZS.Value && (tfu_ZT.Value || tfu_SZT.Value));
+    private void UpdateSpeicher(bool st, bool zt)
+    {
+        var pin1 = Do67Spurplan.SpeicherPin(Do67Spurplan.Speicher1, p_Links.Value);
+        var pin2 = Do67Spurplan.SpeicherPin(Do67Spurplan.Speicher2, p_Links.Value);
 
-        // --- Seite 2: Spur 1/2 ---
+        var startImpuls = st;
+        var zielImpuls = zt;
+        var anfang1 = sk_A.IsP(pin1) || sk_AH.IsP(pin1) || startImpuls;
+        var ende1 = sk_E.IsP(pin1) || sk_EH.IsP(pin1) || zielImpuls;
+        var anfang2 = sk_A.IsP(pin2) || sk_AH.IsP(pin2) || startImpuls;
+        var ende2 = sk_E.IsP(pin2) || sk_EH.IsP(pin2) || zielImpuls;
+
+        A1Input = anfang1;
+        E1Input = ende1;
+        A2Input = anfang2;
+        E2Input = ende2;
+
+        TS.Value = (TS.Value || anfang1 || sk_AH.IsP(pin1)) && !TZ.Value && !Z.Value;
+        TZ.Value = (TZ.Value || ende1 || sk_EH.IsP(pin1)) && !TS.Value && !S.Value;
+        S.Value = (S.Value || (st && (TS.Value || anfang1 || anfang2))) && !Z.Value;
+        Z.Value = (Z.Value || (zt && (TZ.Value || ende1 || ende2))) && !S.Value;
+        BL.Value = (anfang1 || ende1) && (anfang2 || ende2);
+        TR.Value = BL.Value && !S.Value && !Z.Value;
+
+        if (m_zv.sl_SPL.Value && zt)
+            Z.Value = false;
+
+        sk_A.SetP(pin1, S.Value || TS.Value || ende1);
+        sk_E.SetP(pin1, Z.Value || TZ.Value || anfang1);
+        sk_A.SetP(pin2, S.Value || ende2);
+        sk_E.SetP(pin2, Z.Value || anfang2);
+        sk_AH.SetP(pin1, TS.Value);
+        sk_EH.SetP(pin1, TZ.Value);
+        sk_AH.SetP(pin2, S.Value);
+        sk_EH.SetP(pin2, Z.Value);
+    }
+
+    private void UpdateVerschlussUndFlankenschutz()
+    {
+        var angefordert = S.Value || Z.Value || TS.Value || TZ.Value || TR.Value;
+        var flankenkonflikt = Do67Spurplan.HatKonflikt(sk_AH, sk_EH);
+        var verschlussFreigabe = sk_AH.IsP(Do67Spurplan.Verschluss)
+                                 || sk_EH.IsP(Do67Spurplan.Verschluss)
+                                 || m_zv.sl_VP.Value;
+
+        SV.Value = flankenkonflikt;
+        VP.Value = angefordert && verschlussFreigabe && !SV.Value;
+        ZV1.Value = VP.Value;
+        ZV2.Value = VP.Value;
+        DV.Value = angefordert && !VP.Value;
+        DSA_ZR.Value = SV.Value;
+
+        sk_A.SetP(Do67Spurplan.Verschluss, VP.Value);
+        sk_E.SetP(Do67Spurplan.Verschluss, VP.Value);
+        sk_AH.SetP(Do67Spurplan.Verschluss, VP.Value);
+        sk_EH.SetP(Do67Spurplan.Verschluss, VP.Value);
+
+        for (var spur = Do67Spurplan.FlankenschutzVon; spur <= Do67Spurplan.FlankenschutzBis; spur++)
         {
-            bool a1i, e1i, a2i, e2i;
-            bool a1o = false, e1o = false, a2o = false, e2o = false;
-
-            if (!p_Links.Value)
-            {
-                a1i = sk_A.IsP(1); e1i = sk_E.IsP(1);
-                a2i = sk_A.IsP(2); e2i = sk_E.IsP(2);
-            }
-            else
-            {
-                a1i = sk_A.IsP(2); e1i = sk_E.IsP(2);
-                a2i = sk_A.IsP(1); e2i = sk_E.IsP(1);
-            }
-
-            A1Input = a1i;
-            E1Input = e1i;
-            A2Input = a2i;
-            E2Input = e2i;
-
-            D.Value = (e2i && !TZ.Value && !Z.Value && !TS.Value && !S.Value && (!ZT || D.Value)) || (a2i && D.Value);
-            S.Value = (( !D.Value && !TS.Value) && ST && !VP.Value && ((!MR.Value && !FU.Value) || ((MR.Value || MZ.Value) && FU.Value))) ||
-                      ((sk_AH.IsP(2) || a2i) && S.Value && (!FU.Value || !VP.Value));
-            TS.Value = ((a1i && !D.Value) || (sk_AH.IsP(1) && TS.Value)) &&
-                       !S.Value && (TS.Value || !ST);
-            TZ.Value = (sk_EH.IsP(1) && !D.Value && !Z.Value && (TZ.Value || p_Transit.Value)) ||
-                       (TZ.Value && !D.Value && e1i);
-            Z.Value = (Z.Value || ZT) && (( !TZ.Value && !D.Value) || (Z.Value && ((!TZ.Value && ZT && (!RM1.Value && !RM2.Value) && m_zv.sl_SP.Value) || (e1i && !D.Value))));
-            
-            if (ZT && Z.Value && m_zv.sl_SPL.Value) Z.Value = false;
-
-            a1o = (e1i && D.Value) || (!D.Value && !TS.Value && S.Value) || (sk_AH.IsP(1) && TS.Value && !D.Value);
-            e1o = (sk_EH.IsP(1) && !D.Value && !Z.Value && TZ.Value) || ((m_zv.sl_SP.Value && (!RM1.Value || !RM2.Value) && ZT && !TZ.Value) && !D.Value) || (a1i && D.Value) || (e2i && Z.Value && !D.Value);
-            a2o = sk_AH.IsP(2) || (e2i && !TZ.Value && !Z.Value && !TS.Value && !S.Value && D.Value) || (S.Value && (!FU.Value || !VP.Value || (RM1.Value && RM2.Value)) && ST);
-            e2o = (TZ.Value && sk_EH.IsP(2)) || (!TZ.Value && ((!Z.Value && !TS.Value && !S.Value && D.Value && a2i) || (Z.Value && !D.Value && e1i)));
-
-            sk_AH.SetP(1, a1i && !D.Value && TS.Value);
-            sk_AH.SetP(2, a2i);
-            sk_AH.SetP(4, ((a1i && !D.Value && TS.Value) || sk_AH.IsP(1)) && (ZV1.Value || IS));
-            sk_EH.SetP(1, !Z.Value && !D.Value && TZ.Value && e1i); 
-            sk_EH.SetP(2, TZ.Value && e2i);
-
-            if (!p_Links.Value) {
-                sk_A.SetP(1, a1o); sk_A.SetP(2, a2o);
-                sk_E.SetP(1, e1o); sk_E.SetP(2, e2o);
-            } else {
-                sk_A.SetP(1, a2o); sk_A.SetP(2, a1o);
-                sk_E.SetP(1, e2o); sk_E.SetP(2, e1o);
-            }
+            sk_A.SetIf(spur, sk_EH.Get(spur), angefordert);
+            sk_E.SetIf(spur, sk_AH.Get(spur), angefordert);
+            sk_AH.SetIf(spur, sk_E.Get(spur), angefordert);
+            sk_EH.SetIf(spur, sk_A.Get(spur), angefordert);
         }
+    }
 
-        // --- Seite 3: Spur 3 ---
-        t = sk_E.IsP(3) && !ZV1.Value && !VFU.Value && !NA.Value && !SV.Value && D.Value;
-        if (t && !BAD.Value) DV.Value = true;
-        bool s2_AS = t && !BAD.Value && !A.Value && AS.Value;
+    private void UpdateFahrwegUndFahrbegriff(bool st)
+    {
+        var ueberwachung = sk_AH.Get(Do67Spurplan.Fahrwegueberwachung);
+        if (ueberwachung == 0)
+            ueberwachung = sk_EH.Get(Do67Spurplan.Fahrwegueberwachung);
+        if (ueberwachung == 0 && VP.Value && !i_IS.Value)
+            ueberwachung = -1;
 
-        sk_A.SetP(3, t);
+        var istZiel = Z.Value && !TR.Value;
+        var vorsichtVonA = sk_A.IsP(Do67Spurplan.SenkrechterFahrbegriff);
+        var vorsichtVonE = sk_E.IsP(Do67Spurplan.SenkrechterFahrbegriff);
+        var vorsichtAuftrag = p_Links.Value ? vorsichtVonA : vorsichtVonE;
 
-        t = (FU.Value && TS.Value) || (TZ.Value && !TS.Value) || ZV1.Value;
-        if (((((sk_EH.IsP(3) && TZ.Value) && t) || sk_AH.IsP(7) || (m_zv.sl_VP.Value && (p_ZV_bei_SV.Value || !SV.Value) && !FV.Value && !ZT && Z.Value)) && !DV.Value && !DFU.Value && !AS.Value)) {
-            ZV1.Value = true;
-            ZV2.Value = true;
-        }
-
-        sk_E.SetP(3, (sk_EH.IsP(3) && TZ.Value && !DV.Value) || (sk_AH.IsP(7) && t && !DV.Value) || (m_zv.sl_VP.Value && !FV.Value && !ZT && Z.Value && t && !DV.Value));
-
-        DSA_ZR.Value = sk_A.IsP(7);
-
-        VP.Value = sk_A.IsP(3) && !DV.Value && !DSA_ZR.Value && (TS.Value || S.Value);
-        sk_AH.SetP(3, TS.Value && VP.Value && (!ZV1.Value || FU.Value));
-
-        // --- Spur 4-7 ---
-        sk_E.SetM(4, true);
-        sk_A.SetIf(4, sk_E.Get(5), !IS || v_4_IS.Value);
-
-        SV.Value = sk_A.IsP(5) && (SV.Value || !RM1.Value || !RM2.Value) && (p_ZV_bei_SV.Value || !ZV1.Value);
-
-        sk_A.SetP(6, SV.Value); 
-        sk_E.SetP(6, sk_A.IsP(7) && DSA_ZR.Value);
-
-        // --- Seite 4: Spur 8 ---
-        if (sk_EH.IsP(8) && TZ.Value && ZV1.Value && !FV.Value)
-            FV.Value = true;
-
-        t = (!AS.Value || (A.Value && (!AH.Value || (!p_Frueh_Halt.Value && IS))));
-        bool t2 = t && ZV1.Value && ZV2.Value;
-
-        sk_E.SetMP(8, t2 && !FV.Value, sk_EH.IsP(8) && t2 && FV.va());
-
-        t2 = t && !ZV1.Value && !ZV2.Value;
-        DFU.Value = sk_E.IsAny(8) && t2;
-        sk_A.SetIf(8, sk_E.Get(8), t2 && DFU.Value && DV.Value);
-
-        t = !DV.Value && FU.Value && !BAH.Value;
-        MR.Value = t && sk_A.IsM(8);
-        MZ.Value = t && sk_A.IsP(8);
-        FU_ZR.Value = sk_A.IsAny(8) && !DV.Value && (FU.Value || (RM1.Value && RM2.Value && !SF.Value && VP.Value && !MZ.Value));
-        
-        if (m_zv.sl_NH.Value && FU.Value && ST && MR.Value) FU_ZR.Value = false;
-        sk_AH.SetP(8, MZ.Value);
-
-        FU.Value = FU_ZR.Value && VFU.Value;
+        FU.Value = VP.Value && ueberwachung != 0 && !SV.Value && !istZiel;
+        MR.Value = FU.Value && ueberwachung < 0;
+        MZ.Value = FU.Value && ueberwachung > 0;
         MRZ_ZR.Value = MR.Value || MZ.Value;
+        VFU.Value = FU.Value;
+        DFU.Value = !FU.Value && (S.Value || Z.Value);
+        FV.Value = VP.Value && !FU.Value;
 
-        // --- Spur 9 ---
-        sk_A.SetP(9, sk_E.IsP(9) && DV.Value);
-        sk_E.SetP(9, sk_EH.IsP(9));
-        SF.Value = sk_A.IsP(9) && FU.Value;
-        sk_AH.SetP(9, FU.Value); 
+        VM.Value = FU.Value && vorsichtAuftrag;
+        SF.Value = FU.Value && !VM.Value;
+        if (m_zv.sl_NH.Value && st)
+            SF.Value = false;
 
-        // --- Seite 5: Spur 10 ---
-        t = m_zv.sl_AAUF.Value && (ZV1.Value || FV.Value || DV.Value);
-        AS.Value = ((t && (IS || !A.Value || AH.Value) && (AS.Value || (!AH.Value && A.Value))) || (p_Rueckaufloesung.Value && sk_E.IsP(4) && !FV.Value)) && !s2_AS;
-        if (sk_E.IsP(3) && !ZV1.Value && !VFU.Value && !NA.Value && !SV.Value && D.Value && !A.Value && AS.Value) AS.Value = false;
-        sk_E.SetP(5, p_Rueckaufloesung.Value && AS.Value && !A.Value && S.Value);
-        t = t && DV.Value && AS.Value;
-        A.Value = ((t || sk_E.IsP(10)) && ZV1.Value) || (sk_A.IsP(10) && DV.Value); 
-        sk_E.SetP(10, t);
+        sk_A.Set(Do67Spurplan.Fahrwegueberwachung, ueberwachung);
+        sk_E.Set(Do67Spurplan.Fahrwegueberwachung, ueberwachung);
+        sk_AH.Set(Do67Spurplan.Fahrwegueberwachung, ueberwachung);
+        sk_EH.Set(Do67Spurplan.Fahrwegueberwachung, ueberwachung);
+        // Das Ziel sendet den Vorsichtauftrag nur an den unmittelbar davorliegenden ZGR.
+        sk_A.SetP(Do67Spurplan.SenkrechterFahrbegriff, istZiel && !p_Links.Value);
+        sk_E.SetP(Do67Spurplan.SenkrechterFahrbegriff, istZiel && p_Links.Value);
+        sk_AH.SetP(Do67Spurplan.SenkrechterFahrbegriff, SF.Value);
+        sk_EH.SetP(Do67Spurplan.SenkrechterFahrbegriff, SF.Value);
+    }
 
-        sk_A.SetP(10, sk_AH.IsP(10) || (m_zv.sl_AAUF.Value && FU.Value && !MZ.Value)); 
-        sk_EH.SetP(10, m_zv.sl_AAUF.Value && FU.Value && (!FV.Value || AS.Value));
+    private void UpdateAufloesung(bool zt)
+    {
+        var aufloesen = m_zv.sl_AAUF.Value
+                        || sk_AH.IsP(Do67Spurplan.Aufloesung1)
+                        || sk_EH.IsP(Do67Spurplan.Aufloesung1)
+                        || sk_AH.IsP(Do67Spurplan.Aufloesung2)
+                        || sk_EH.IsP(Do67Spurplan.Aufloesung2)
+                        || sk_AH.IsP(Do67Spurplan.Betriebsaufloesung)
+                        || sk_EH.IsP(Do67Spurplan.Betriebsaufloesung)
+                        || m_zv.sl_BA.Value;
 
-        // --- Spur 11 ---
-        sk_E.SetP(11, AS.Value && ZV1.Value);
-        sk_A.SetP(11, AS.Value && DV.Value);
-        sk_EH.SetP(11, !FV.Value); 
+        AS.Value = aufloesen;
+        A.Value = aufloesen && VP.Value;
+        AH.Value = aufloesen && !FU.Value;
 
-        if (((AS.Value && DV.Value) || sk_A.IsP(11)) && VFU.Value) VFU.Value = false;
-        if (FU_ZR.Value) VFU.Value = true; 
+        sk_A.SetP(Do67Spurplan.Aufloesung1, aufloesen);
+        sk_E.SetP(Do67Spurplan.Aufloesung1, aufloesen);
+        sk_A.SetP(Do67Spurplan.Aufloesung2, aufloesen);
+        sk_E.SetP(Do67Spurplan.Aufloesung2, aufloesen);
 
-        AH.Value = (sk_E.IsP(11) && DV.Value) || (sk_A.IsP(11) && FU.Value && AS.Value);
+        if (!aufloesen)
+            return;
 
-        if (AS.Value && !A.Value) {
-            ZV1.Value = false; ZV2.Value = false;
-        }
-        if (AS.Value && !A.Value && AH.Value) DV.Value = false;
-        if (!ZV1.Value && FV.Value) FV.Value = false;
+        S.Value = false;
+        Z.Value = false;
+        TS.Value = false;
+        TZ.Value = false;
+        VP.Value = false;
+        ZV1.Value = false;
+        ZV2.Value = false;
+        DV.Value = false;
+        FV.Value = false;
+        FU.Value = false;
+        SF.Value = false;
+    }
 
-        // --- Spur 12 ---
-        t = (m_zv.sl_BA.Value && ZT && !FV.Value) || NA.Value; 
-        if (t) {
-            ZV1.Value = false; ZV2.Value = false;
-        }
+    private void UpdateFestlegung()
+    {
+        var festgelegt = VP.Value && FU.Value && !SV.Value && (!i_IS.Value || v_15_SIU.Value) && v_15_GS.Value;
+        if (!festgelegt)
+            return;
 
-        t = t && !BAD.Value && !DV.Value;
-        sk_E.SetP(12, t && !ZV1.Value);
+        var vonA = sk_A.IsAny(Do67Spurplan.FestlegungZugfahrstrasse) || sk_AH.IsAny(Do67Spurplan.FestlegungZugfahrstrasse);
+        var vonE = sk_E.IsAny(Do67Spurplan.FestlegungZugfahrstrasse) || sk_EH.IsAny(Do67Spurplan.FestlegungZugfahrstrasse);
+        sk_A.SetP(Do67Spurplan.FestlegungZugfahrstrasse, vonE);
+        sk_AH.SetP(Do67Spurplan.FestlegungZugfahrstrasse, vonE);
+        sk_E.SetP(Do67Spurplan.FestlegungZugfahrstrasse, vonA);
+        sk_EH.SetP(Do67Spurplan.FestlegungZugfahrstrasse, vonA);
+    }
 
-        t = sk_E.IsP(12) && !VFU.Value && !ZT && !NA.Value;
-        if (t) DV.Value = false;
-        BAD.Value = t;
-        t = t && BAD.Value;
-        sk_A.SetP(12, t);
-
-        BAH.Value = t || sk_A.IsP(12);
-        if ((t || sk_A.IsP(12)) && VFU.Value && BAH.Value)
-            VFU.Value = false;
-
-        // --- Seite 6: Spur 14 ---
-        sk_AH.SetIf(14, sk_A.Get(14), TS.Value);
-        sk_E.SetIf(14, sk_EH.Get(14), TZ.Value);
-        sk_A.SetIf(14, sk_E.Get(14), D.Value);
-
-        // --- Spur 15 ---
-        sk_A.Set0(15); sk_AH.Set0(15);
-        sk_E.Set0(15); sk_EH.Set0(15);
-
-        if ((!RM1.Value || !RM2.Value) && MR.Value)
-            SpurStecker.Conn(sk_A, sk_AH, 15);
-
-        t = !FV.Value && !NA.Value && (!IS || v_15_SIU.Value) && v_15_GS.Value;
-
-        if (t)
+    private void UpdateFreieSpuren()
+    {
+        int[] belegt =
         {
-            if (DFU.Value) SpurStecker.Conn(sk_E, sk_A, 15);
-            else SpurStecker.Conn(sk_E, sk_EH, 15);
-        }
-
-        // --- Spur 16 - 20 ---
-        if (!DV.Value) {
-            sk_AH.Set(16, sk_A.Get(16));
-            sk_AH.Set(17, sk_A.Get(17));
-            sk_AH.SetP(18, sk_A.IsP(18));
-            sk_AH.SetP(19, sk_A.IsP(19)); 
-            sk_AH.SetP(20, sk_A.IsP(20));
-        }
-
-        if (FV.Value) {
-            sk_E.Set(16, sk_EH.Get(16));
-            sk_E.Set(17, sk_EH.Get(17));
-        }
-
-        if (ZV2.Value) {
-            sk_E.SetP(18, sk_EH.IsP(18));
-            sk_E.SetP(19, sk_EH.IsP(19)); 
-            sk_E.SetP(20, sk_EH.IsP(20));
-        }
-
-        if (DFU.Value) {
-            sk_A.Set(16, sk_E.Get(16));
-            sk_A.Set(17, sk_E.Get(17));
-            sk_A.SetP(18, sk_E.IsP(18));
-            sk_A.SetP(19, sk_E.IsP(19)); 
-            sk_A.SetP(20, sk_E.IsP(20));
-        }
-
-        // --- Spur 21 ---
-        sk_A.SetP(21, sk_E.IsP(21) && BAD.Value);
-        sk_E.SetP(21, sk_EH.IsP(21) && (FV.Value || !ZV1.Value) && NA.Value);
-        sk_AH.SetP(21, sk_A.IsP(21) && !BAD.Value);
-        NA.Value = sk_EH.IsP(21) && (FV.Value || !ZV1.Value);
-
-        // --- Spur 23 ---
-        bool o_23_E = sk_EH.IsP(23) || sk_E.IsP(23); // Falls du diese exportieren musst
-        bool o_23_A = sk_A.IsP(23) || sk_AH.IsP(23);
-        SpurStecker.Conn(sk_A, sk_AH, 23);
-        SpurStecker.Conn(sk_E, sk_EH, 23);
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15
+        };
+        Do67Spurplan.Durchschalten(sk_A, sk_E, belegt);
+        Do67Spurplan.Durchschalten(sk_AH, sk_EH, belegt);
     }
 
     public override void Output()
@@ -354,9 +313,9 @@ public class TMN502_ZGR : RelaisSatz
         l_ws.Value = m_zv.sl_ML.Value && (DV.Value || ZV1.Value) && !i_IS.Value;
         l_rt.Value = m_zv.sl_ML.Value && i_IS.Value;
         l_ni.Value = m_zv.sl_ML.Value && (DV.Value || ZV1.Value);
-        l_ST.Value = m_zv.sl_BLI.Value && S.Value;
-        l_ZT.Value = m_zv.sl_BLI.Value && Z.Value;
-        l_SZT.Value = m_zv.sl_BLI.Value && (S.Value || Z.Value);
+        l_ST.Value = m_zv.sl_BLI.Value && (S.Value || (BL.Value && Global.g_Blinker));
+        l_ZT.Value = m_zv.sl_BLI.Value && (Z.Value || (BL.Value && Global.g_Blinker));
+        l_SZT.Value = m_zv.sl_BLI.Value && (S.Value || Z.Value || (BL.Value && Global.g_Blinker));
     }
 
     public override bool UpdateWire()
