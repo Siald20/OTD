@@ -1,31 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// OpenTrainDrive - AccessoryControl
+// OpenTrainDrive - DecoderControl
 // Copyright (C) 2026
 //
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using OTD.HardwareControl.CommandStation;
 
-namespace OTD.HardwareControl.Accessory;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Low-level control for one accessory decoder address (turnouts, signals, etc.).
@@ -42,7 +40,7 @@ public class AccessoryDecoder : IAccessoryDecoder
     public int Address { get; }
 
     /// <inheritdoc/>
-    public DecoderProtocol Protocol { get; }
+    public AccessoryDecoderProtocol Protocol { get; }
 
     /// <inheritdoc/>
     public ICommandStation? SubscribedCommandStation { get; private set; }
@@ -93,7 +91,7 @@ public class AccessoryDecoder : IAccessoryDecoder
         }
 
         SubscribedCommandStation = commandStation;
-        if (commandStation is CommandStation.CommandStation concreteStation)
+        if (commandStation is CommandStation concreteStation)
             concreteStation.RegisterAccessoryDecoder(Address, this);
 
         Console.WriteLine(
@@ -110,7 +108,7 @@ public class AccessoryDecoder : IAccessoryDecoder
 
         if (ReferenceEquals(SubscribedCommandStation, commandStation))
         {
-            if (commandStation is CommandStation.CommandStation concreteStation)
+            if (commandStation is CommandStation concreteStation)
                 concreteStation.UnregisterAccessoryDecoder(Address, this);
 
             SubscribedCommandStation = null;
@@ -122,9 +120,9 @@ public class AccessoryDecoder : IAccessoryDecoder
     }
 
     /// <inheritdoc/>
-    public async Task SetFunctionAsync(int outputValue, FunctionState functionState, CancellationToken cancellationToken = default)
+    public async Task SetFunctionAsync(int outputValue, AccessoryFunctionState functionState, CancellationToken cancellationToken = default)
     {
-        if (Protocol == DecoderProtocol.Dcc)
+        if (Protocol == AccessoryDecoderProtocol.Dcc)
         {
             if (outputValue is not (0 or 1))
                 throw new ArgumentOutOfRangeException(nameof(outputValue), outputValue,
@@ -134,7 +132,7 @@ public class AccessoryDecoder : IAccessoryDecoder
         if (outputValue is < 0 or > 255)
             throw new ArgumentOutOfRangeException(nameof(outputValue), outputValue, "Accessory output value must be in range 0..255.");
 
-        if (functionState is not (FunctionState.On or FunctionState.Off))
+        if (functionState is not (AccessoryFunctionState.On or AccessoryFunctionState.Off))
             throw new ArgumentOutOfRangeException(nameof(functionState), functionState, "Accessory state must be On or Off.");
 
         if (SubscribedCommandStation is null)
@@ -171,7 +169,7 @@ public class AccessoryDecoder : IAccessoryDecoder
         if (timeout <= 0)
             throw new ArgumentOutOfRangeException(nameof(timeout), timeout, "Activation timeout must be greater than 0 ms.");
 
-        if (Protocol == DecoderProtocol.DccExtended)
+        if (Protocol == AccessoryDecoderProtocol.DccExtended)
         {
             // Zeitgesteuerte Aktivierung für erweiterte Zubehördecoder gemäss RCN-213 (2.2): Bit 7 repräsentiert
             // den anzusteuernden Ausgang (0/1), Bits 0-6 die Aktivierungszeit in 100ms-Schritten.
@@ -195,7 +193,7 @@ public class AccessoryDecoder : IAccessoryDecoder
                         Address,
                         (byte)outputValue,
                         Protocol,
-                        FunctionState.On,
+                        AccessoryFunctionState.On,
                         activationTimeMs: timeout,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -213,9 +211,9 @@ public class AccessoryDecoder : IAccessoryDecoder
         
         // Zeitgesteuerte Aktivierung für einfache Zubehördecoder gemäss RCN-213 (2.1): Der gewählte Ausgang (0/1)
         // wird softwaregesteuert mit separatem Bit aktiviert und nach dem Timeout deaktiviert.
-        await SetFunctionAsync(outputValue, FunctionState.On, cancellationToken).ConfigureAwait(false);
+        await SetFunctionAsync(outputValue, AccessoryFunctionState.On, cancellationToken).ConfigureAwait(false);
         await Task.Delay(TimeSpan.FromMilliseconds(timeout), cancellationToken).ConfigureAwait(false);
-        await SetFunctionAsync(outputValue, FunctionState.Off, cancellationToken).ConfigureAwait(false);
+        await SetFunctionAsync(outputValue, AccessoryFunctionState.Off, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -224,14 +222,13 @@ public class AccessoryDecoder : IAccessoryDecoder
     /// <summary>
     /// Called by command stations to push state updates into this decoder instance.
     /// </summary>
-    internal void RaiseStateChanged(int outputValue, FunctionState functionState)
+    internal void RaiseStateChanged(int outputValue, AccessoryFunctionState functionState)
     {
         if (outputValue is < 0 or > 255)
             return;
 
-        if (functionState is not (FunctionState.On or FunctionState.Off))
+        if (functionState is not (AccessoryFunctionState.On or AccessoryFunctionState.Off))
             return;
-
 
         StateChanged?.Invoke(this, new AccessoryStateChangedEventArgs(
             Address, outputValue, functionState));

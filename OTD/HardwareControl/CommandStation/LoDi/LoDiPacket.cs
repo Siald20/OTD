@@ -6,77 +6,76 @@
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 
-namespace OTD.HardwareControl.CommandStation.LoDi;
+namespace OTD.HardwareControl.Drivers;
 
 /// <summary>
-///     Repräsentiert ein LoDi-Protokollpaket (Sende- und Empfangsrichtung).
+///     Represents a LoDi protocol packet (send and receive direction).
 /// </summary>
 /// <remarks>
-///     Paketformat (API Allgemeines, S. 2-3):
+///     Packet format (API General, pp. 2-3):
 ///     
-///     UDP:  [Pakettyp][Kommando][Paketnummer][Payload...]
-///     TCP:  [Länge High][Länge Low][Pakettyp][Kommando][Paketnummer][Payload...]
+///     UDP:  [PacketType][Command][PacketNumber][Payload...]
+///     TCP:  [Length High][Length Low][PacketType][Command][PacketNumber][Payload...]
 ///     
-///     - Pakettyp: 0x20=REQ, 0x21=ACK, 0x22=EVT, 0x23=BUSY, 0x3F=NACK
-///     - Kommando: Befehlscode (z.B. 0x0F für GetVersion)
-///     - Paketnummer: Wird im Antwort-Paket gespiegelt (0x00..0xFF)
-///     - Payload: Optional, längespezifisch
-///     - Länge (nur TCP): Bytes von Pakettyp bis zum letzten Payload-Byte
+///     - PacketType: 0x20=REQ, 0x21=ACK, 0x22=EVT, 0x23=BUSY, 0x3F=NACK
+///     - Command: Command code (e.g. 0x0F for GetVersion)
+///     - PacketNumber: Reflected in the response packet (0x00..0xFF)
+///     - Payload: Optional, length-specific
+///     - Length (only TCP): Bytes from PacketType to the last Payload byte
 ///     
-///     Es gibt keine XOR-Checksumme – Fehlerschutz erfolgt durch TCP/UDP-Protokoll.
+///     There is no XOR checksum - error protection is provided by the TCP/UDP protocol.
 /// </remarks>
 internal sealed class LoDiPacket
 {
-    /// <summary>Pakettyp (0x20=REQ, 0x21=ACK, 0x22=EVT, 0x23=BUSY, 0x3F=NACK)</summary>
+    /// <summary>Packet type (0x20=REQ, 0x21=ACK, 0x22=EVT, 0x23=BUSY, 0x3F=NACK)</summary>
     public byte PacketType { get; }
 
-    /// <summary>Befehlscode</summary>
+    /// <summary>Command code</summary>
     public byte Command { get; }
 
-    /// <summary>Paketnummer (wird in Antworten gespiegelt)</summary>
+    /// <summary>Packet number (reflected in responses)</summary>
     public byte PacketNumber { get; }
 
-    /// <summary>Nutzdaten des Pakets</summary>
+    /// <summary>Payload of the packet</summary>
     public byte[] Payload { get; }
 
     // -------------------------------------------------------------------------
-    // Konstruktion
+    // Construction
     // -------------------------------------------------------------------------
 
-    /// <summary>Erstellt ein neues Paket mit allen Komponenten.</summary>
+    /// <summary>Creates a new packet with all components.</summary>
     public LoDiPacket(byte packetType, byte command, byte packetNumber, byte[] payload)
     {
         PacketType = packetType;
         Command = command;
         PacketNumber = packetNumber;
-        Payload = payload ?? Array.Empty<byte>();
+        Payload = payload;
     }
 
-    /// <summary>Erstellt ein neues Paket ohne Payload.</summary>
+    /// <summary>Creates a new packet without payload.</summary>
     public LoDiPacket(byte packetType, byte command, byte packetNumber) 
         : this(packetType, command, packetNumber, Array.Empty<byte>()) { }
 
     // -------------------------------------------------------------------------
-    // Serialisierung (Paket → Byte-Array zum Senden)
+    // Serialization (Packet → Byte Array for Sending)
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Serialisiert das Paket in ein UDP-Byte-Array (ohne Längenpräfix).
+    ///     Serializes the packet into a UDP byte array (without length prefix).
     /// </summary>
     public byte[] ToUdpBytes()
     {
@@ -90,18 +89,18 @@ internal sealed class LoDiPacket
     }
 
     /// <summary>
-    ///     Serialisiert das Paket in ein TCP-Byte-Array (mit 2-Byte Längenpräfix).
+    ///     Serializes the packet into a TCP byte array (with 2-byte length prefix).
     /// </summary>
     public byte[] ToTcpBytes()
     {
-        var dataLength = 3 + Payload.Length; // Pakettyp + Kommando + Paketnummer + Payload
+        var dataLength = 3 + Payload.Length; // PacketType + Command + PacketNumber + Payload
         var packet = new byte[2 + dataLength];
 
-        // Längenpräfix (Big-Endian): Länge der Daten ab Pakettyp
+        // Length prefix (Big-Endian): Length of data from PacketType
         packet[0] = (byte)((dataLength >> 8) & 0xFF);
         packet[1] = (byte)(dataLength & 0xFF);
 
-        // Daten
+        // Data
         packet[2] = PacketType;
         packet[3] = Command;
         packet[4] = PacketNumber;
@@ -112,17 +111,17 @@ internal sealed class LoDiPacket
     }
 
     // -------------------------------------------------------------------------
-    // Deserialisierung (Byte-Array → Paket beim Empfangen)
+    // Deserialization (Byte Array → Packet on Reception)
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Versucht, aus einem UDP-Byte-Array ein Paket zu erzeugen.
+    ///     Tries to create a packet from a UDP byte array.
     /// </summary>
     public static bool TryParseUdp(byte[] raw, out LoDiPacket? packet)
     {
         packet = null;
 
-        if (raw == null || raw.Length < LoDiProtocol.MinUdpPacketLength)
+        if (raw.Length < LoDiProtocol.MinUdpPacketLength)
             return false;
 
         var packetType = raw[0];
@@ -138,22 +137,26 @@ internal sealed class LoDiPacket
     }
 
     /// <summary>
-    ///     Versucht, aus einem TCP-Byte-Array ein Paket zu erzeugen.
-    ///     Berücksichtigt das 2-Byte Längenpräfix.
+    ///     Tries to create a packet from a TCP byte array.
+    ///     Considers the 2-byte length prefix.
     /// </summary>
     public static bool TryParseTcp(byte[] raw, out LoDiPacket? packet, out int totalLength)
     {
         packet = null;
         totalLength = 0;
 
-        if (raw == null || raw.Length < LoDiProtocol.MinTcpPacketLength)
+        if (raw.Length < LoDiProtocol.MinTcpPacketLength)
             return false;
 
-        // Längenpräfix auslesen (Big-Endian)
+        // Read length prefix (Big-Endian)
         var length = ((raw[0] & 0xFF) << 8) | (raw[1] & 0xFF);
-        totalLength = 2 + length; // 2 Längenbytes + Daten
+        totalLength = 2 + length; // 2 length bytes + data
 
-        // Prüfen, ob genug Daten vorhanden
+        // At least PacketType + Command + PacketNumber must be included.
+        if (length < LoDiProtocol.MinUdpPacketLength)
+            return false;
+
+        // Check if enough data is available
         if (raw.Length < totalLength)
             return false;
 
@@ -161,7 +164,7 @@ internal sealed class LoDiPacket
         var command = raw[3];
         var packetNumber = raw[4];
 
-        var payloadLength = length - 3; // Länge minus Pakettyp, Kommando, Paketnummer
+        var payloadLength = length - 3; // Length minus PacketType, Command, PacketNumber
         var payload = new byte[payloadLength];
         if (payloadLength > 0)
             Array.Copy(raw, 5, payload, 0, payloadLength);
@@ -171,7 +174,7 @@ internal sealed class LoDiPacket
     }
 
     // -------------------------------------------------------------------------
-    // Hilfsmethoden
+    // Helper Methods
     // -------------------------------------------------------------------------
 
     public override string ToString() =>
@@ -179,4 +182,3 @@ internal sealed class LoDiPacket
         $"Cmd={LoDiProtocol.GetCommandName(Command)} (0x{Command:X2}), " +
         $"Nr=0x{PacketNumber:X2}, Payload={Payload.Length} bytes]";
 }
-

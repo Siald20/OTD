@@ -6,35 +6,31 @@
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using AccessoryStateChangedEventArgs = OTD.HardwareControl.Accessory.AccessoryStateChangedEventArgs;
-using OTD.HardwareControl.CommandStation.LoDi;
-using OTD.HardwareControl.Train;
 
-namespace OTD.HardwareControl.CommandStation;
+namespace OTD.HardwareControl;
 
 /// <summary>
-///     Abstrahierte Schnittstelle einer DCC-Kommandozentrale.
-///     Ermöglicht die Ansteuerung von Lokomotiven, Funktionen und Gleisspannungsversorgung
-///     unabhängig vom Hersteller der Kommandozentrale.
+///     Abstract interface of a DCC command station.
+///     Enables locomotive control, function switching, and track power handling
+///     independent of the command station manufacturer.
 /// </summary>
 /// <remarks>
-///     Implementierungen können LoDi-Rektor, Märklin Central, Roco z21, etc. sein.
+///     Implementations can target LoDi Rektor, Maerklin Central, Roco z21, etc.
 /// </remarks>
 public interface ICommandStation : IDisposable
 {
@@ -43,19 +39,19 @@ public interface ICommandStation : IDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Gibt an, ob eine aktive Verbindung zur Kommandozentrale besteht.
+    ///     Indicates whether an active connection to the command station exists.
     /// </summary>
     bool IsConnected { get; }
 
     /// <summary>
-    ///     Wird ausgelöst, wenn die Zentrale ein Lokzustands-Update liefert
-    ///     (z.B. Fahrstufe/Fahrtrichtung oder Funktionszustand).
+    ///     Raised when the command station reports a locomotive state update
+    ///     (for example speed step/direction or function state).
     /// </summary>
     event EventHandler<LocoStateChangedEventArgs>? LocoStateChanged;
 
     /// <summary>
-    ///     Wird ausgelöst, wenn die Zentrale ein Zubehörzustands-Update liefert
-    ///     (Decoderadresse + value + Schaltzustand).
+    ///     Raised when the command station reports an accessory state update
+    ///     (decoder address + value + switching state).
     /// </summary>
     event EventHandler<AccessoryStateChangedEventArgs>? AccessoryStateChanged;
 
@@ -64,15 +60,13 @@ public interface ICommandStation : IDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Stellt eine Verbindung zur Kommandozentrale her.
+    ///     Opens a connection to the command station.
     /// </summary>
-    /// <param name="address">IP-Adresse oder Hostname der Zentrale</param>
-    /// <param name="port">Port der Zentrale (Standard hängt von Implementierung ab)</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
-    Task ConnectAsync(string address, int port, CancellationToken cancellationToken = default);
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ConnectAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Trennt die Verbindung zur Kommandozentrale.
+    ///     Closes the connection to the command station.
     /// </summary>
     Task DisconnectAsync();
 
@@ -81,16 +75,16 @@ public interface ICommandStation : IDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Schaltet die Gleisversorgung (Fahrstrom) ein oder aus.
+    ///     Switches track power on or off.
     /// </summary>
-    /// <param name="isOn"><c>true</c> = Fahrstrom ein; <c>false</c> = Fahrstrom aus</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="isOn"><c>true</c> = track power on; <c>false</c> = track power off.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task SetPowerAsync(bool isOn, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Fragt den aktuellen Gleisspannungszustand ab.
+    ///     Queries the current track power state.
     /// </summary>
-    /// <returns><c>true</c> wenn Fahrstrom eingeschaltet ist, <c>false</c> sonst</returns>
+    /// <returns><c>true</c> if track power is on; otherwise <c>false</c>.</returns>
     Task<bool> GetPowerStateAsync(CancellationToken cancellationToken = default);
 
     // -------------------------------------------------------------------------
@@ -98,68 +92,68 @@ public interface ICommandStation : IDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Registriert AccessoryDecoder-Parameter, die fuer die gesamte Lebensdauer der Instanz unveraendert bleiben.
+    ///     Registers decoder parameters that remain constant for the lifetime of the instance.
     /// </summary>
-    /// <param name="address">DCC-Adresse der Lokomotive (1–9999)</param>
-    /// <param name="protocol">AccessoryDecoder-Protokoll (z.B. DCC14, DCC28, DCC128, Motorola, M3, mfx)</param>
-    /// <param name="effectiveSpeedSteps">Effektiv nutzbare Fahrstufen des Decoders (z.B. 126 bei DCC128).</param>
-    void InitializeDecoder(int address, OTD.HardwareControl.Train.DecoderProtocol protocol, int effectiveSpeedSteps);
+    /// <param name="address">DCC locomotive address (1-9999).</param>
+    /// <param name="protocol">Decoder protocol (for example DCC14, DCC28, DCC128, Motorola, M3, mfx).</param>
+    /// <param name="effectiveSpeedSteps">Effectively usable speed steps of the decoder (for example 126 for DCC128).</param>
+    void InitializeDecoder(int address, LocoDecoderProtocol protocol, int effectiveSpeedSteps);
 
     /// <summary>
-    ///     Setzt Geschwindigkeit und Fahrtrichtung einer Lokomotive.
+    ///     Sets speed and direction of a locomotive.
     /// </summary>
-    /// <param name="address">DCC-Adresse der Lokomotive (1–9999)</param>
+    /// <param name="address">DCC locomotive address (1-9999).</param>
     /// <param name="speedStep">
-    ///     Fahrstufe (0 = Halt, je nach Protokoll 1–14, 1–28 oder 1–126).
-    ///     Wert 0 bewirkt einen regulären Halt (kein Nothalt).
+    ///     Speed step (0 = stop, depending on protocol 1-14, 1-28 or 1-126).
+    ///     A value of 0 performs a regular stop (not an emergency stop).
     /// </param>
-    /// <param name="direction">Fahrtrichtung</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="direction">Travel direction.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task SetLocoSpeedAsync(int address, int speedStep, VehicleDirection direction,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Schaltet eine Lokomotivfunktion ein oder aus.
+    ///     Switches a locomotive function on or off.
     /// </summary>
-    /// <param name="address">DCC-Adresse der Lokomotive (1–9999)</param>
-    /// <param name="functionNumber">Funktionsnummer (0 = F0/Licht, 1–28 = F1–F28)</param>
-    /// <param name="isOn"><c>true</c> = Funktion ein; <c>false</c> = Funktion aus</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="address">DCC locomotive address (1-9999).</param>
+    /// <param name="functionNumber">Function number (0 = F0/light, 1-28 = F1-F28).</param>
+    /// <param name="isOn"><c>true</c> = function on; <c>false</c> = function off.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task SetLocoFunctionAsync(int address, int functionNumber, bool isOn,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Führt einen Nothalt für eine bestimmte Lokomotive aus.
+    ///     Performs an emergency stop for a specific locomotive.
     /// </summary>
-    /// <param name="address">DCC-Adresse der Lokomotive (1–9999)</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="address">DCC locomotive address (1-9999).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task EmergencyStopAsync(int address, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Führt einen Nothalt für alle Lokomotiven gleichzeitig aus.
+    ///     Performs an emergency stop for all locomotives at once.
     /// </summary>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task EmergencyStopAllAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Fragt die aktuellen Zustände (Geschwindigkeit und Funktionen) eines Decoders von der Zentrale ab
-    ///     und triggert LocoStateChanged-Events für jeden abgerufenen Zustand.
-    ///     Dies ist nützlich zur Initialisierung eines Decoders mit den realen Zuständen der Zentrale.
+    ///     Queries current decoder states (speed and functions) from the command station
+    ///     and raises LocoStateChanged events for each retrieved state.
+    ///     This is useful to initialize a decoder with the real station state.
     /// </summary>
-    /// <param name="address">DCC-Adresse der Lokomotive (1–9999)</param>
-    /// <param name="functionList">Liste der Funktionsnummern, deren Zustand abgefragt werden soll.
-    ///     Wenn leer, werden keine Funktionen abgefragt.</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="address">DCC locomotive address (1-9999).</param>
+    /// <param name="functionList">List of function numbers to query.
+    ///     If empty, no functions are queried.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task QueryLocoFunctionsStateAsync(int address, System.Collections.Generic.IReadOnlyList<int> functionList,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Fragt die aktuelle Geschwindigkeit (Fahrstufe) und Fahrtrichtung einer Lokomotive von der Zentrale ab
-    ///     und triggert ein LocoStateChanged-Event mit den abgerufenen Werten.
-    ///     Dies ist nützlich zur Initialisierung eines Decoders mit dem realen Zustand der Zentrale.
+    ///     Queries current speed step and direction of a locomotive from the command station
+    ///     and raises a LocoStateChanged event with the retrieved values.
+    ///     This is useful to initialize a decoder with the real station state.
     /// </summary>
-    /// <param name="address">DCC-Adresse der Lokomotive (1–9999)</param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="address">DCC locomotive address (1-9999).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task QueryLocoSpeedDirectionAsync(int address, CancellationToken cancellationToken = default);
 
     // -------------------------------------------------------------------------
@@ -167,21 +161,20 @@ public interface ICommandStation : IDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Sendet den protokollspezifischen Datenwert an einen Zubehördecoder.
+    ///     Sends the protocol-specific data value to an accessory decoder.
     /// </summary>
-    /// <param name="address">DCC-Adresse des Zubehördecoders (1–2048)</param>
-    /// <param name="value">Protokollspezifischer Datenwert (z.B. bei DCC basic: Ausgangsauswahl 0/1)</param>
-    /// <param name="protocol">DCC-Protokoll des Zubehördecoders (Standard oder Extended)</param>
-    /// <param name="state">Schaltzustand (aktiv/inaktiv)</param>
+    /// <param name="address">DCC address of the accessory decoder (1-2048).</param>
+    /// <param name="value">Protocol-specific data value (for example for DCC basic: output select 0/1).</param>
+    /// <param name="protocol">Decoder protocol of the accessory decoder (standard or extended).</param>
+    /// <param name="state">Switch state (active/inactive).</param>
     /// <param name="activationTimeMs">
-    ///     Optionaler Zeitwert aus &lt;activationtime&gt; in ms.
-    ///     0 bedeutet: keine zeitgesteuerte Aktivierung.
+    ///     Optional duration from &lt;activationtime&gt; in milliseconds.
+    ///     0 means no timed activation.
     /// </param>
-    /// <param name="cancellationToken">Abbruchtoken</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task SetAccessoryValueAsync(int address, byte value,
-        OTD.HardwareControl.Accessory.DecoderProtocol protocol,
-        OTD.HardwareControl.Accessory.FunctionState state,
+        AccessoryDecoderProtocol protocol,
+        AccessoryFunctionState state,
         int activationTimeMs = 0,
         CancellationToken cancellationToken = default);
 }
-

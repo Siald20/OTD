@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Definition of Switching Devices like Turnouts and Signals -->
+<accessories>
+    <!-- Normale Weiche mit einem Antrieb (Basis-Protokoll, Aktivierungszeit 500 ms) -->
+    <accessory uid="3f8a1b2c-4d5e-4f7a-8b9c-0d1e2f3a4b5c" type="turnout" subtype="left" interlocking="Bi" name="W1" >
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state name="straight" description="gerade">
+                <decoder address="11" outputvalue="1" />
+            </state>
+            <state name="diverging" description="abzweigend">
+                <decoder address="11" outputvalue="0"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Doppelkreuzungsweiche mit zwei Antrieben (Basis-Protokoll, Aktivierungszeit 500 ms, Pause zwischen Schaltvorgängen 1000 ms) -->
+    <accessory uid="4a9b2c3d-5e6f-4a7b-9c0d-1e2f3a4b5c6d" type="turnout" subtype="double-slip" interlocking="Bi" name="W2" >
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state name="straight" description="gerade über Hauptgleis">
+                <decoder address="9" outputvalue="1"/>
+                <decoder address="10" outputvalue="1"/>
+            </state>
+            <state name="straight-crossing" description="abzweigend vom Hauptgleis auf überkreuzendes Gleis">
+                <decoder address="9" outputvalue="1"/>
+                <decoder address="10" outputvalue="0"/>
+            </state>
+            <state name="crossing" description="gerade über überkreuzendes Gleis">
+                <decoder address="9" outputvalue="0"/>
+                <decoder address="10" outputvalue="0"/>
+            </state>
+            <state name="crossing-straight" description="abzweigend vom überkreuzendem Gleis auf Hauptgleis">
+                <decoder address="9" outputvalue="0"/>
+                <decoder address="10" outputvalue="1"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Normale Weiche mit einem Antrieb (Basis-Protokoll, Aktivierungszeit 500 ms) -->
+    <accessory uid="b2f3eaa9-43f9-414e-997c-92d44406a63b" type="turnout" subtype="left" interlocking="Bi" name="W3" >
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state name="straight" description="gerade">
+                <decoder address="8" outputvalue="1" />
+            </state>
+            <state name="diverging" description="abzweigend">
+                <decoder address="8" outputvalue="0"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Normale Weiche mit einem Antrieb (Basis-Protokoll, Aktivierungszeit 500 ms) -->
+    <accessory uid="bbcc3ec1-25ee-44d5-b086-6a13e33c548f" type="turnout" subtype="left" interlocking="Bi" name="W4" >
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state name="straight" description="gerade">
+                <decoder address="6" outputvalue="1" />
+            </state>
+            <state name="diverging" description="abzweigend">
+                <decoder address="6" outputvalue="0"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Dreiwegweiche mit zwei Antrieben (Basis-Protokoll, Aktivierungszeit 500 ms, keine Pause zwischen Schaltvorgängen) -->
+    <accessory uid="5b0c3d4e-6f7a-4b8c-9d0e-2f3a4b5c6d7e" type="turnout" subtype="three-way" name="W5/6" interlocking="Bi">
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state name="straight" description="gerade">
+                <decoder address="4" outputvalue="1"/>
+                <decoder address="5" outputvalue="1"/>
+            </state>
+            <state name="left" description="abzweigend nach links">
+                <decoder address="4" outputvalue="0"/>
+            </state>
+            <state name="right" description="abzweigend nach rechts">
+                <decoder address="4" outputvalue="1"/>
+                <decoder address="5" outputvalue="0"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Signal Typ SBB-L (Basis-Protokoll, Aktivierungszeit 500 ms, keine Pause zwischen Schaltvorgängen) -->
+    <!-- Die Idee wäre, die beiden Ausgänge bei Adresse 203 alternativ für Hilfssignal/Besetzte Einfahrt zu nutzen
+     mit der aktuell programmierten "Flip-Flop" Funktion bei Dauerschaltung lassn sich jedoch nicht beide ausschalten.
+     Das muss noch gefixt werden (und auch am Decoder getestet werden, ob überhaupt so möglich) -->
+    <accessory uid="b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e" type="signal" subtype="SBB-L" name="S1" interlocking="Bi" >
+        <model>
+            <signalsystem>SBB-L</signalsystem>
+            <notes>Hauptsignal SBB Typ L</notes>
+        </model>
+        <decoder>
+            <protocol>DCC</protocol>
+        </decoder>
+        <states>
+            <state name="Halt" description="Halt">
+                <decoder address="200" outputvalue="0"/>
+                <decoder address="201" outputvalue="0"/>
+                <decoder address="202" outputvalue="0"/>
+            </state>
+            <state name="Im1" description="Freie Fahrt">
+                <decoder address="200" outputvalue="1"/>
+                <decoder address="201" outputvalue="0"/>
+                <decoder address="202" outputvalue="0"/>
+            </state>
+            <state name="Im2" description="Fahrbegriff 2 (40 km/h)">
+                <decoder address="200" outputvalue="1"/>
+                <decoder address="201" outputvalue="1"/>
+                <decoder address="202" outputvalue="0"/>
+            </state>
+            <state name="Im3" description="Fahrbegriff 3 (60 km/h)">
+                <decoder address="200" outputvalue="1"/>
+                <decoder address="201" outputvalue="0"/>
+                <decoder address="202" outputvalue="1"/>
+            </state>
+            <state name="HS" description="Hilfssignal">
+                <decoder address="203" outputvalue="1"/>
+            </state>
+            <state name="BS" description="besetzte Einfahrt">
+                <decoder address="203" outputvalue="1"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Signal Typ SBB-N (Extended-Protokoll) --> 
+    <accessory uid="a7b8c9d0-e1f2-4a3b-5c6d-7e8f9a0b1c2d" type="signal" subtype="SBB-N" name="S11" interlocking="Bi">
+        <decoder>
+            <protocol>DCC</protocol>
+        </decoder>
+        <states>
+            <state name="Halt" description="Halt (rot)">
+                <decoder address="300" outputvalue="0"/>
+            </state>
+            <state name="Freie Fahrt" description="freie Fahrt (grün)">
+                <decoder address="300" outputvalue="1"/>
+            </state>
+            <state name="Ausf60" description="Ausführung 60 km/h (grün mit Anzeige 6)">
+                <decoder address="300" outputvalue="2"/>
+            </state>
+            <state name="Warnung" description="Warnung (orange)">
+                <decoder address="300" outputvalue="3"/>
+            </state>
+            <state name="Vorwarnung" description="Vorwarnung (orange mit Anzeige V)">
+                <decoder address="300" outputvalue="4"/>
+            </state>
+            <state name="Ank60" description="Ankündigung 60 km/h (orange mit Anzeige 6)">
+                <decoder address="300" outputvalue="6"/>
+            </state>
+            <state name="Hilfssignal" description="Hilfssignal (rot blinkend)">
+                <decoder address="300" outputvalue="7"/>
+            </state>
+        </states>
+    </accessory>
+</accessories>

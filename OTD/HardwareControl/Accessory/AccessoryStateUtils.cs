@@ -1,22 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// OpenTrainDrive - AccessoryControl
+// OpenTrainDrive - DecoderControl
 // Copyright (C) 2026
 //
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie koennen es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder spaeteren
-// veroeffentlichten Version, weiterverbreiten und/oder modifizieren.
-
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace OTD.HardwareControl.Accessory;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Provides helpers for parsing accessory state definitions.
@@ -92,13 +99,13 @@ internal static class AccessoryStateUtils
         string subtype,
         string id,
         string interlocking,
-        DecoderProtocol protocol,
+        AccessoryDecoderProtocol protocol,
         IList<AccessoryStateDefinition> states,
         IDictionary<string, AccessoryStateDefinition> statesById)
     {
         foreach (var stateElement in stateElements)
         {
-            var stateIdAttribute = stateElement.Attribute("id");
+            var stateIdAttribute = stateElement.Attribute("name");
             var stateId = stateIdAttribute is null ? string.Empty : stateIdAttribute.Value.Trim();
 
             if (string.IsNullOrWhiteSpace(stateId))
@@ -119,7 +126,7 @@ internal static class AccessoryStateUtils
                     throw new InvalidOperationException(
                         $"Accessory '{accessoryId}' contains invalid outputvalue '{outputValue}' in state '{stateId}'. Valid range is 0..255.");
 
-                if (protocol == DecoderProtocol.Dcc && outputValue is not (0 or 1))
+                if (protocol == AccessoryDecoderProtocol.Dcc && outputValue is not (0 or 1))
                     throw new InvalidOperationException(
                         $"Accessory '{accessoryId}' uses DCC basic protocol and requires outputvalue 0 or 1 in state '{stateId}' (address {address}).");
 

@@ -6,26 +6,25 @@
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
-namespace OTD.HardwareControl.Train;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Controls a locomotive decoder, including driving, function handling,
@@ -110,7 +109,7 @@ public class Loco : IVehicle
             }
 
             _locoDecoder = new LocoDecoder(decoderConfig);
-            _speedTable = LocoDecoderUtils.CreateSpeedStepsTable(
+            _speedTable = LocoUtils.CreateSpeedStepsTable(
                 decoderConfig.Element("speedtable"),
                 _locoDecoder.TotalSpeedSteps, out var vMinFromSpeedTable, out var vMaxFromSpeedTable);
             VMin = vMinFromSpeedTable;
@@ -118,6 +117,9 @@ public class Loco : IVehicle
             VMax = TrainUtils.GetVehicleVMax(modelElement, vMaxFromSpeedTable); // Fallback auf vMax aus speedtable
             Weight = TrainUtils.GetVehicleWeight(modelElement);
             Length = TrainUtils.GetVehicleLength(VehicleConfig.Attribute("length")?.Value);
+
+            // Externe Fahrstufen-Updates (z.B. von einem anderen Steuergerät) in km/h rückrechnen.
+            _locoDecoder.StateChanged += OnDecoderStateChanged;
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
         {
@@ -187,17 +189,21 @@ public class Loco : IVehicle
             throw new InvalidOperationException(
                 "SetSpeedVAsync requires a non-empty speed table. Configure <speedtable> before driving by velocity.");
 
-        if (speed < 0 || (_speedTable.Count > 0 && speed > _speedTable.Count))
+        if (speed < 0)
         {
             Console.WriteLine($"Fehler: Ungültige Geschwindigkeit {speed} für Decoderadresse {_locoDecoder.Address}.");
             return;
         }
 
-        var speedStep = speed == 0 ? 0 : _speedTable[speed - 1].SpeedStep;
+        var speedStep = 0;
+
+        if (speed > 0)
+            speedStep = LocoUtils.ResolveSpeedStepForSpeedV(_speedTable, speed);
 
         await _locoDecoder.SetSpeedStepAsync(_locoDecoder.Direction, speedStep, forceSend, cancellationToken)
             .ConfigureAwait(false);
 
+        Console.WriteLine($"Fahrbefehl: {speed} km/h (SpeedStep {speedStep}), Richtung {_locoDecoder.Direction} (Lokadresse {_locoDecoder.Address}).");
         Speed = speed;
     }
 
@@ -206,4 +212,20 @@ public class Loco : IVehicle
     /// </summary>
     protected internal Task EmergencyStopAsync(CancellationToken cancellationToken = default)
         => _locoDecoder.EmergencyStopAsync(cancellationToken);
+
+
+    /// <summary>
+    /// Called when the decoder reports a speed-step change from the command station
+    /// (for example from an external controller). Converts the speed step back
+    /// to km/h congruent with the floor mapping logic in <see cref="SetSpeedVAsync"/>.
+    /// </summary>
+    private void OnDecoderStateChanged(object? sender, LocoStateChangedEventArgs args)
+    {
+        // ToDo: Event-Kaskate endet momentan hier, Folgeevents auf Ebene Train müssen noch definiert werden.
+        if (!args.HasSpeedUpdate)
+            return;
+
+        Speed = LocoUtils.ResolveSpeedVForSpeedStep(_speedTable, args.SpeedStep!.Value);
+        Console.WriteLine($"Decoder-Update: Gemeldete Geschwindigkeit {Speed} km/h (SpeedStep {args.SpeedStep}), Richtung {_locoDecoder.Direction} (Lokadresse {_locoDecoder.Address}).");
+    }
 }

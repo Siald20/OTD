@@ -1,103 +1,57 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// OpenTrainDrive - AccessoryControl
+// OpenTrainDrive - DecoderControl
 // Copyright (C) 2026
 //
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using OTD.HardwareControl.CommandStation;
+using Avalonia.Controls.Converters;
 
-namespace OTD.HardwareControl.Accessory;
-
+namespace OTD.HardwareControl;
 
 /// <summary>
-/// Represents one logical accessory item from <c>accessory.xml</c>.
+/// Represents an accessory item (turnout, signal etc.) from <c>accessories.xml</c>.
 ///
-/// The accessory itself owns the parsed configuration and coordinates one or more
-/// physical decoder instances that are required to realize the configured states.
+/// An accessory item contains all possible function states (turnout and signal positions).
+/// Each function state defines how the involved decoders should be driven.
 /// </summary>
-public class Accessory
+public class Accessory : IDisposable
 {
-    private const int DeferredReadBackEvaluationDelayPerAddressMs = 1000;
+    private const int DeferredReadBackEvaluationDelayPerAddressMs = 1000; // ToDo: Konfigurierbar machen?
     private readonly List<IAccessoryDecoder> _decoders = [];
     private readonly List<AccessoryStateDefinition> _states = [];
     private readonly Dictionary<string, AccessoryStateDefinition> _statesById = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<int, int> _lastReadBackValuesByAddress = new();
     private readonly Lock _readBackSync = new();
     private int _readBackEvaluationGeneration;
-
-    /// <summary>
-    /// Creates an accessory instance from <c>accessory.xml</c>.
-    /// Use <see cref="SubscribeCommandStationAsync"/> to connect a command station.
-    /// </summary>
-    /// <param name="accessoryId">UID of the accessory item to load.</param>
-    public Accessory(Guid accessoryId)
-    {
-        AccessoryId = accessoryId;
-
-        try
-        {
-            AccessoryConfig = AccessoryUtils.GetAccessoryConfiguration(accessoryId);
-
-            var typeAttribute = AccessoryConfig.Attribute("type")
-                ?? throw new InvalidOperationException($"Missing required attribute 'type' in accessory '{accessoryId}'.");
-            var subtypeAttribute = AccessoryConfig.Attribute("subtype")
-                ?? throw new InvalidOperationException($"Missing required attribute 'subtype' in accessory '{accessoryId}'.");
-            var idAttribute = AccessoryConfig.Attribute("id")
-                ?? throw new InvalidOperationException($"Missing required attribute 'id' in accessory '{accessoryId}'.");
-            var interlockingAttribute = AccessoryConfig.Attribute("interlocking");
-            var decoderProtocolElement = AccessoryConfig.Element("decoder")?.Element("protocol");
-
-            Type = AccessoryUtils.GetAccessoryType(typeAttribute.Value);
-            Subtype = subtypeAttribute.Value.Trim();
-            Id = idAttribute.Value.Trim();
-            Interlocking = interlockingAttribute is null ? string.Empty : interlockingAttribute.Value.Trim();
-            Protocol = AccessoryUtils.GetDecoderProtocol(decoderProtocolElement?.Value);
-
-            ActivationTime = AccessoryUtils.GetActivationTime(AccessoryConfig);
-            DelayTime = AccessoryUtils.GetDelayTime(AccessoryConfig);
-
-            var stateElements = AccessoryUtils.GetStateElements(AccessoryConfig, accessoryId);
-
-            AccessoryStateUtils.ParseAccessoryStates(stateElements, accessoryId, Type, Subtype, Id, Interlocking, Protocol, _states, _statesById);
-            InitializeDecoders();
-
-            CurrentState = null;
-        }
-        catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
-        {
-            Console.WriteLine($"Fehler beim Laden der Zubehör-Konfiguration '{accessoryId}': {ex.Message}");
-            throw new InvalidOperationException($"Accessory configuration could not be loaded for '{accessoryId}'.", ex);
-        }
-    }
-
+    
     /// <summary>
     /// Unique identifier of this accessory.
     /// </summary>
     public Guid AccessoryId { get; }
 
+    // ToDo: Property muss vermutlich nicht exponiert werden -> in Klassen-Variable umwandeln.
     /// <summary>
-    /// Raw XML configuration element loaded from <c>accessory.xml</c>.
+    /// Raw XML configuration element loaded from <c>accessories.xml</c>.
     /// </summary>
     public XElement? AccessoryConfig { get; }
 
@@ -112,22 +66,22 @@ public class Accessory
     public string Subtype { get; }
 
     /// <summary>
-    /// Accessory identifier from attribute <c>id</c>.
+    /// Accessory Name (turnout name, signal name etc.).
     /// </summary>
-    public string Id { get; }
+    public string Name { get; }
 
     /// <summary>
-    /// Interlocking / signal box identifier from attribute <c>interlocking</c>.
+    /// Interlocking / signal box identifier to which the accessory belongs.
     /// </summary>
     public string Interlocking { get; }
 
     /// <summary>
-    /// AccessoryDecoder protocol parsed from the accessory configuration.
+    /// Accessory decoder protocol.
     /// </summary>
-    public DecoderProtocol Protocol { get; }
+    public AccessoryDecoderProtocol Protocol { get; }
 
     /// <summary>
-    /// Current accessory state last requested through <see cref="SetStateAsync"/>.
+    /// Current state of the accessory (turnout or signal positions etc.). />.
     /// </summary>
     public string? CurrentState { get; private set; }
 
@@ -135,7 +89,7 @@ public class Accessory
     /// Activation time in milliseconds for magnetic accessories (e.g. turnout coils).
     /// For DCC basic this triggers software-based pulse activation with auto-off.
     /// For DCC extended this value is encoded into the data byte (bits 0..6).
-    /// Read from &lt;decoder&gt;&lt;activationtime&gt; in <c>accessory.xml</c>.
+    /// Read from &lt;decoder&gt;&lt;activationtime&gt; in <c>accessories.xml</c>.
     /// Default is 0 (no timed activation).
     /// </summary>
     public int ActivationTime { get; }
@@ -146,12 +100,12 @@ public class Accessory
     /// this delay prevents the decoder from being overwhelmed by simultaneous commands.
     /// This is particularly important for accessories like magnetic coil turnouts that
     /// cannot handle multiple simultaneous commands. Read from &lt;decoder&gt;&lt;delaytime&gt;
-    /// in <c>accessory.xml</c>. Default is 0 (no delay).
+    /// in <c>accessories.xml</c>. Default is 0 (no delay).
     /// </summary>
     public int DelayTime { get; }
 
     /// <summary>
-    /// All parsed state definitions of this accessory.
+    /// All possible states of this accessory (as defined in <c>accessories.xml</c>).
     /// </summary>
     public IReadOnlyList<AccessoryStateDefinition> States => _states;
 
@@ -163,7 +117,7 @@ public class Accessory
         .ToList();
 
     /// <summary>
-    /// Physical decoder instances needed by this accessory.
+    /// Physical decoder instances used by this accessory.
     /// </summary>
     public IReadOnlyList<IAccessoryDecoder> Decoders => _decoders;
 
@@ -173,52 +127,6 @@ public class Accessory
     public event EventHandler<AccessoryStateChangedEventArgs>? StateChanged;
 
     /// <summary>
-    /// Subscribes a command station to all underlying decoders of this accessory.
-    /// </summary>
-    public async Task SubscribeCommandStationAsync(ICommandStation commandStation,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(commandStation);
-
-        if (SubscribedCommandStation is not null && !ReferenceEquals(SubscribedCommandStation, commandStation))
-        {
-            throw new InvalidOperationException(
-                $"Zubehör {Type} {Id}: Es ist bereits eine Zentrale abonniert ({SubscribedCommandStation.GetType().Name}). " +
-                "Vor erneutem Subscribe muss zuerst Unsubscribe aufgerufen werden.");
-        }
-
-        foreach (var decoder in _decoders)
-            await decoder.SubscribeCommandStationAsync(commandStation, cancellationToken).ConfigureAwait(false);
-
-        Console.WriteLine($"Zubehör {Type} {Id}: Zentrale '{commandStation.GetType().Name}' abonniert " +
-                          $"({_decoders.Count} AccessoryDecoder, genau eine Zentrale erlaubt).");
-    }
-
-    /// <summary>
-    /// Synchronously subscribes a command station to all underlying decoders of this accessory.
-    /// </summary>
-    public void SubscribeCommandStation(ICommandStation commandStation)
-        => SubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
-
-    /// <summary>
-    /// Unsubscribes a command station from all underlying decoders of this accessory.
-    /// </summary>
-    public async Task UnsubscribeCommandStationAsync(ICommandStation? commandStation)
-    {
-        if (commandStation is null) return;
-        foreach (var decoder in _decoders)
-            await decoder.UnsubscribeCommandStationAsync(commandStation).ConfigureAwait(false);
-
-        Console.WriteLine($"Zubehör {Type} {Id}: Zentrale '{commandStation.GetType().Name}' abgemeldet.");
-    }
-
-    /// <summary>
-    /// Synchronously unsubscribes a command station from all underlying decoders of this accessory.
-    /// </summary>
-    public void UnsubscribeCommandStation(ICommandStation? commandStation)
-        => UnsubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
-
-    /// <summary>
     /// The subscribed command station (representative view from the first decoder).
     /// For multi-decoder accessories every decoder has the same station binding.
     /// </summary>
@@ -226,6 +134,54 @@ public class Accessory
         _decoders.Count > 0
             ? _decoders[0].SubscribedCommandStation
             : null;
+    
+    /// <summary>
+    /// Creates an accessory instance and binds it to the provided command station.
+    /// </summary>
+    /// <param name="accessoryId">UID of the accessory item to load.</param>
+    /// <param name="commandStation">Command station this accessory is permanently bound to.</param>
+    public Accessory(Guid accessoryId, ICommandStation commandStation)
+    {
+        ArgumentNullException.ThrowIfNull(commandStation);
+
+        AccessoryId = accessoryId;
+
+        try
+        {
+            AccessoryConfig = AccessoryUtils.GetAccessoryConfiguration(accessoryId);
+
+            var typeAttribute = AccessoryConfig.Attribute("type")
+                ?? throw new InvalidOperationException($"Missing required attribute 'type' in accessory '{accessoryId}'.");
+            var subtypeAttribute = AccessoryConfig.Attribute("subtype")
+                ?? throw new InvalidOperationException($"Missing required attribute 'subtype' in accessory '{accessoryId}'.");
+            var nameAttribute = AccessoryConfig.Attribute("name")
+                ?? throw new InvalidOperationException($"Missing required attribute 'id' in accessory '{accessoryId}'.");
+            var interlockingAttribute = AccessoryConfig.Attribute("interlocking");
+            var decoderProtocolElement = AccessoryConfig.Element("decoder")?.Element("protocol");
+
+            Type = AccessoryUtils.GetAccessoryType(typeAttribute.Value);
+            Subtype = subtypeAttribute.Value.Trim();
+            Name = nameAttribute.Value.Trim();
+            Interlocking = interlockingAttribute is null ? string.Empty : interlockingAttribute.Value.Trim();
+            Protocol = AccessoryUtils.GetDecoderProtocol(decoderProtocolElement?.Value);
+
+            ActivationTime = AccessoryUtils.GetActivationTime(AccessoryConfig);
+            DelayTime = AccessoryUtils.GetDelayTime(AccessoryConfig);
+
+            var stateElements = AccessoryUtils.GetStateElements(AccessoryConfig, accessoryId);
+
+            AccessoryStateUtils.ParseAccessoryStates(stateElements, accessoryId, Type, Subtype, Name, Interlocking, Protocol, _states, _statesById);
+            InitializeDecoders();
+            SubscribeCommandStation(commandStation);
+
+            CurrentState = null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
+        {
+            Console.WriteLine($"Fehler beim Laden der Zubehör-Konfiguration '{accessoryId}': {ex.Message}");
+            throw new InvalidOperationException($"Accessory configuration could not be loaded for '{accessoryId}'.", ex);
+        }
+    }
 
     /// <summary>
     /// Sets the accessory to a configured state.
@@ -242,10 +198,10 @@ public class Accessory
         if (string.Equals(CurrentState, state.State, StringComparison.OrdinalIgnoreCase))
             return;
 
-        Console.WriteLine($"Zubehör {Type} {Id}: Setze Zustand '{state.State}'{(string.IsNullOrWhiteSpace(state.Description) ? string.Empty : $" ({state.Description})")}");
+        Console.WriteLine($"Zubehör {Type} {Name}: Setze Zustand '{state.State}'{(string.IsNullOrWhiteSpace(state.Description) ? string.Empty : $" ({state.Description})")}");
 
         var validatedCommands = state.Commands
-            .Select(command => AccessoryStateUtils.ValidateCommandMetadata(AccessoryId, state, command, Type, Subtype, Id, Interlocking))
+            .Select(command => AccessoryStateUtils.ValidateCommandMetadata(AccessoryId, state, command, Type, Subtype, Name, Interlocking))
             .ToList();
 
         var duplicateAddress = validatedCommands
@@ -282,7 +238,7 @@ public class Accessory
                 // Keine zeitgesteuerte Aktivierung:
                 // - DCC basic: explizites Flip-Flop in Accessory (0/1), damit nur ein Ausgang aktiv ist.
                 // - Andere Protokolle: gewählter Ausgang wird normal gesetzt.
-                if (Protocol == DecoderProtocol.Dcc)
+                if (Protocol == AccessoryDecoderProtocol.Dcc)
                 {
                     if (command.OutputValue is not (0 or 1))
                     {
@@ -293,14 +249,14 @@ public class Accessory
                     var otherOutput = command.OutputValue == 0 ? 1 : 0;
 
                     // Gegen-Ausgang zuerst deaktivieren, dann gewählten Ausgang aktivieren.
-                    await decoder.SetFunctionAsync(otherOutput, FunctionState.Off, cancellationToken)
+                    await decoder.SetFunctionAsync(otherOutput, AccessoryFunctionState.Off, cancellationToken)
                         .ConfigureAwait(false);
-                    await decoder.SetFunctionAsync(command.OutputValue, FunctionState.On, cancellationToken)
+                    await decoder.SetFunctionAsync(command.OutputValue, AccessoryFunctionState.On, cancellationToken)
                         .ConfigureAwait(false);
                 }
                 else
                 {
-                    await decoder.SetFunctionAsync(command.OutputValue, FunctionState.On, cancellationToken)
+                    await decoder.SetFunctionAsync(command.OutputValue, AccessoryFunctionState.On, cancellationToken)
                         .ConfigureAwait(false);
                 }
             }
@@ -310,9 +266,9 @@ public class Accessory
 
         if (ActivationTime > 0)
         {
-            Console.WriteLine(Protocol == DecoderProtocol.DccExtended
-                ? $"Zubehör {Type} {Id}: Schaltzeit {ActivationTime} ms als Decoder-Daten übermittelt."
-                : $"Zubehör {Type} {Id}: Auto-Off nach {ActivationTime} ms ausgeführt.");
+            Console.WriteLine(Protocol == AccessoryDecoderProtocol.DccExtended
+                ? $"Zubehör {Type} {Name}: Schaltzeit {ActivationTime} ms als Decoder-Daten übermittelt."
+                : $"Zubehör {Type} {Name}: Auto-Off nach {ActivationTime} ms ausgeführt.");
         }
     }
 
@@ -341,7 +297,7 @@ public class Accessory
     private void InitializeDecoders()
     {
         var commandsByAddress = _states
-            .SelectMany(state => state.Commands.Select(command => AccessoryStateUtils.ValidateCommandMetadata(AccessoryId, state, command, Type, Subtype, Id, Interlocking)))
+            .SelectMany(state => state.Commands.Select(command => AccessoryStateUtils.ValidateCommandMetadata(AccessoryId, state, command, Type, Subtype, Name, Interlocking)))
             .GroupBy(command => command.Address)
             .OrderBy(group => group.Key)
             .ToList();
@@ -354,7 +310,40 @@ public class Accessory
             _decoders.Add(decoder);
         }
     }
+
+    // Zubehörartikel bei Zentrale registrieren
+    private void SubscribeCommandStation(ICommandStation commandStation)
+    {
+        if (SubscribedCommandStation is not null && !ReferenceEquals(SubscribedCommandStation, commandStation))
+        {
+            throw new InvalidOperationException(
+                $"Zubehör {Type} {Name}: Es ist bereits eine Zentrale abonniert ({SubscribedCommandStation.GetType().Name}).");
+        }
+
+        foreach (var decoder in _decoders)
+            decoder.SubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
+
+        Console.WriteLine($"Zubehör {Type} {Name}: Zentrale '{commandStation.GetType().Name}' gebunden " +
+                          $"({_decoders.Count} AccessoryDecoder, genau eine Zentrale erlaubt).");
+    }
+
+    /// <summary>
+    /// Releases the command-station binding of all underlying decoders.
+    /// </summary>
+    public void Dispose()
+    {
+        var commandStation = SubscribedCommandStation;
+        if (commandStation is null)
+            return;
+
+        foreach (var decoder in _decoders)
+            decoder.UnsubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
+
+        Console.WriteLine($"Zubehör {Type} {Name}: Zentrale '{commandStation.GetType().Name}' beim Dispose abgemeldet.");
+        GC.SuppressFinalize(this);
+    }
     
+    // Wird aufgerufen, wenn sich der Zustand des Decoders ändert (Readback von Zentrale)
     private void OnDecoderStateChanged(object? sender, AccessoryStateChangedEventArgs args)
     {
         StateChanged?.Invoke(this, args);
@@ -365,7 +354,7 @@ public class Accessory
             return;
         }
 
-        if (args.FunctionState != FunctionState.On)
+        if (args.FunctionState != AccessoryFunctionState.On)
             return;
 
         string? resolvedStateId;
@@ -378,6 +367,8 @@ public class Accessory
         ApplyResolvedReadBackState(resolvedStateId, delayedEvaluation: false, delayMilliseconds: 0);
     }
 
+    // Verzögerte Readback-Auswertung planen, falls der Zubehörartikel mit mehreren Decodern verbunden ist
+    // (je nachdem werden Decoder auch von externen Clients mit Verzögerung geschaltet).
     private void ScheduleDeferredReadBackStateEvaluation(AccessoryStateChangedEventArgs args)
     {
         int generation;
@@ -386,7 +377,7 @@ public class Accessory
         lock (_readBackSync)
         {
             // Nur On-ReadBacks übernehmen.
-            if (args.FunctionState == FunctionState.On)
+            if (args.FunctionState == AccessoryFunctionState.On)
                 _lastReadBackValuesByAddress[args.Address] = args.OutputValue;
 
             // Neuere Meldungen machen ältere Auswertungen ungültig.
@@ -399,6 +390,7 @@ public class Accessory
         _ = EvaluateDeferredReadBackStateAsync(generation, delayMilliseconds);
     }
 
+    // Wertet Readback-Zustände nach Ablauf des Sammelfensters (Verzögerung) aus.
     private async Task EvaluateDeferredReadBackStateAsync(int generation, int delayMilliseconds)
     {
         // Bis zum Ende des Sammelfensters warten.
@@ -418,6 +410,7 @@ public class Accessory
         ApplyResolvedReadBackState(resolvedStateId, delayedEvaluation: true, delayMilliseconds);
     }
 
+    // Ermittelten Zustand (Weichenstellung, Fahrbegriff) übernehmen.
     private void ApplyResolvedReadBackState(string? resolvedStateId, bool delayedEvaluation, int delayMilliseconds)
     {
         // Nur eindeutige Zustände übernehmen.
@@ -435,11 +428,11 @@ public class Accessory
         {
             // Verzögerte Zustandszuordnung protokollieren.
             Console.WriteLine(
-                $"Zubehör {Type} {Id}: ReadBack-State-ID nach Sammelwartezeit ({delayMilliseconds} ms) = '{CurrentState}'.");
+                $"Zubehör {Type} {Name}: ReadBack-State-ID nach Sammelwartezeit ({delayMilliseconds} ms) = '{CurrentState}'.");
             return;
         }
 
-        Console.WriteLine($"Zubehör {Type} {Id}: ReadBack-State-ID = '{CurrentState}'.");
+        Console.WriteLine($"Zubehör {Type} {Name}: ReadBack-State-ID = '{CurrentState}'.");
     }
 
 }

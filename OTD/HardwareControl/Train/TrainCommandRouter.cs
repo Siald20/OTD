@@ -2,14 +2,29 @@
 //
 // OpenTrainDrive - DecoderControl
 // Copyright (C) 2026
-
+//
+// Authors:
+// - Hansueli Alder <info@batec.net>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace OTD.HardwareControl.Train;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Defines how drive and function commands are routed to command stations.
@@ -159,7 +174,7 @@ public interface ITrainCommandRouter
         Guid locoId,
         int address,
         int function,
-        FunctionState state,
+        LocoDecoderFunctionState state,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -186,15 +201,15 @@ public interface ITrainCommandRouter
 /// </summary>
 public sealed class TrainCommandRouter : ITrainCommandRouter
 {
-    private readonly CommandStation.CommandStation _primary;
-    private readonly CommandStation.CommandStation? _secondary;
+    private readonly CommandStation _primary;
+    private readonly CommandStation? _secondary;
 
     /// <summary>
     /// Creates a new router with a mandatory primary and an optional secondary command station.
     /// </summary>
     /// <param name="primary">Primary command station. Must not be null.</param>
     /// <param name="secondary">Optional secondary command station for mirroring.</param>
-    public TrainCommandRouter(CommandStation.CommandStation primary, CommandStation.CommandStation? secondary = null)
+    public TrainCommandRouter(CommandStation primary, CommandStation? secondary = null)
     {
         ArgumentNullException.ThrowIfNull(primary);
         _primary = primary;
@@ -243,10 +258,10 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
         Guid locoId,
         int address,
         int function,
-        FunctionState state,
+        LocoDecoderFunctionState state,
         CancellationToken cancellationToken = default)
     {
-        bool isOn = state == FunctionState.On;
+        bool isOn = state == LocoDecoderFunctionState.On;
         return DispatchAsync(
             TrainCommandKind.Function,
             trainId,
@@ -289,7 +304,7 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
         Guid trainId,
         Guid? locoId,
         int address,
-        Func<CommandStation.CommandStation, Task> sendAction,
+        Func<CommandStation, Task> sendAction,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -318,8 +333,8 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
         Guid? locoId,
         int address,
         string stationName,
-        CommandStation.CommandStation station,
-        Func<CommandStation.CommandStation, Task> sendAction)
+        CommandStation station,
+        Func<CommandStation, Task> sendAction)
     {
         try
         {
@@ -335,21 +350,21 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
         }
     }
 
-    private List<(string Name, CommandStation.CommandStation Station)> ResolveTargets()
+    private List<(string Name, CommandStation Station)> ResolveTargets()
     {
         return Mode switch
         {
             RoutingMode.PrimaryOnly =>
-                new List<(string, CommandStation.CommandStation)> { ("Primary", _primary) },
+                new List<(string, CommandStation)> { ("Primary", _primary) },
             RoutingMode.SecondaryOnly when _secondary != null =>
-                new List<(string, CommandStation.CommandStation)> { ("Secondary", _secondary) },
+                new List<(string, CommandStation)> { ("Secondary", _secondary) },
             RoutingMode.MirrorBoth when _secondary != null =>
-                new List<(string, CommandStation.CommandStation)>
+                new List<(string, CommandStation)>
                 {
                     ("Primary", _primary),
                     ("Secondary", _secondary)
                 },
-            _ => new List<(string, CommandStation.CommandStation)> { ("Primary", _primary) }
+            _ => new List<(string, CommandStation)> { ("Primary", _primary) }
         };
     }
 }

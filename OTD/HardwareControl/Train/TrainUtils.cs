@@ -1,31 +1,30 @@
-// // SPDX-License-Identifier: GPL-3.0-or-later
-// //
-// // OpenTrainDrive - DecoderControl
-// // Copyright (C) 2026
-// //
-// // Authors:
-// // - Hansueli Alder <inf@batec.net>
-// //
-// // Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// // der GNU General Public License, wie von der Free Software Foundation,
-// // entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// // veröffentlichten Version, weiterverbreiten und/oder modifizieren.
-// //
-// // Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// // jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// // MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// // Siehe die GNU General Public License für weitere Details.
-// //
-// // Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// // Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// OpenTrainDrive - DecoderControl
+// Copyright (C) 2026
+//
+// Authors:
+// - Hansueli Alder <info@batec.net>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace OTD.HardwareControl.Train;
+namespace OTD.HardwareControl;
 
 public static class TrainUtils
 {
@@ -33,7 +32,7 @@ public static class TrainUtils
     /// Parses the train composition from a train configuration element.
     /// Recognized entries are <c>&lt;loco&gt;</c> and <c>&lt;car&gt;</c>.
     /// </summary>
-    /// <param name="trainConfiguration">The train configuration element loaded from <c>train.xml</c>.</param>
+    /// <param name="trainConfiguration">The train configuration element loaded from <c>trains.xml</c>.</param>
     /// <returns>The parsed composition entries in train order.</returns>
     internal static List<TrainVehicle> GetComposition(XElement? trainConfiguration)
     {
@@ -50,7 +49,7 @@ public static class TrainUtils
             var vehicleUidText = vehicleElement.Attribute("uid")?.Value;
             if (!Guid.TryParse(vehicleUidText, out var vehicleId))
             {
-                Console.WriteLine($"Warnung: Ungültige oder fehlende Fahrzeug-UID '{vehicleUidText}' in train.xml.");
+                Console.WriteLine($"Warnung: Ungültige oder fehlende Fahrzeug-UID '{vehicleUidText}' in trains.xml.");
                 continue;
             }
 
@@ -154,7 +153,7 @@ public static class TrainUtils
     }
 
     /// <summary>
-    /// Parses the optional train-level length fallback from <c>train.xml</c>.
+    /// Parses the optional train-level length fallback from <c>trains.xml</c>.
     /// Returns 0 if the attribute is missing, empty, or explicitly set to 0.
     /// </summary>
     /// <param name="lengthAttributeValue">The train <c>length</c> attribute value as string.</param>
@@ -237,7 +236,7 @@ public static class TrainUtils
     public static XElement? ReadXConfiguration(string configType, Guid id)
     {
         var configFilePath = GetConfigFilePath();
-        configFilePath = Path.Combine(configFilePath, $"{configType}.xml");
+        configFilePath = Path.Combine(configFilePath, GetConfigFileName(configType));
 
         if (!File.Exists(configFilePath))
         {
@@ -252,7 +251,7 @@ public static class TrainUtils
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Fehler beim Laden der Datei {configType}.xml: {ex.Message}");
+            Console.WriteLine($"Fehler beim Laden der Datei {GetConfigFileName(configType)}: {ex.Message}");
             return null;
         }
 
@@ -267,14 +266,14 @@ public static class TrainUtils
     }
 
     /// <summary>
-    /// Replaces the <c>&lt;composition&gt;</c> element of the specified train in <c>train.xml</c>
+    /// Replaces the <c>&lt;composition&gt;</c> element of the specified train in <c>trains.xml</c>
     /// with the provided vehicle entries.
     /// </summary>
     /// <param name="trainId">UID of the train element to update.</param>
     /// <param name="vehicles">Ordered composition entries to persist.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="vehicles"/> is null.</exception>
     /// <exception cref="InvalidOperationException">
-    /// Thrown when train.xml is missing, the train UID does not exist, the composition is empty,
+    /// Thrown when trains.xml is missing, the train UID does not exist, the composition is empty,
     /// no locomotive exists, or a vehicle type is unsupported.
     /// </exception>
     internal static void UpdateTrainComposition(Guid trainId, IReadOnlyList<TrainVehicle> vehicles)
@@ -288,7 +287,7 @@ public static class TrainUtils
         if (!vehicles.Any(vehicle => string.Equals(vehicle.VehicleType, "loco", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException($"Train {trainId} doesn't include at least one locomotive.");
 
-        var trainConfigPath = Path.Combine(GetConfigFilePath(), "train.xml");
+        var trainConfigPath = Path.Combine(GetConfigFilePath(), "trains.xml");
         if (!File.Exists(trainConfigPath))
             throw new InvalidOperationException($"Configuration file not found: {trainConfigPath}");
 
@@ -299,7 +298,7 @@ public static class TrainUtils
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"Failed to load train.xml: {ex.Message}", ex);
+            throw new InvalidOperationException($"Failed to load trains.xml: {ex.Message}", ex);
         }
 
         var trainElement = document.Root?
@@ -307,7 +306,7 @@ public static class TrainUtils
             .FirstOrDefault(element => element.Attribute("uid")?.Value == trainId.ToString());
 
         if (trainElement is null)
-            throw new InvalidOperationException($"Train {trainId} could not be found in train.xml.");
+            throw new InvalidOperationException($"Train {trainId} could not be found in trains.xml.");
 
         var compositionElement = trainElement.Element("composition");
         if (compositionElement is null)
@@ -350,9 +349,19 @@ public static class TrainUtils
         catch (Exception ex)
         {
             throw new InvalidOperationException(
-                $"Failed to save train.xml (backup: {backupPath}): {ex.Message}", ex);
+                $"Failed to save trains.xml (backup: {backupPath}): {ex.Message}", ex);
         }
     }
+
+    private static string GetConfigFileName(string configType)
+        => configType switch
+        {
+            "train" => "trains.xml",
+            "loco" => "locos.xml",
+            "car" => "cars.xml",
+            "accessory" => "accessories.xml",
+            _ => $"{configType}.xml"
+        };
 
     //  Ermittelt den absoluten Pfad zur Konfigurationsdatei im AppData-Verzeichnis
     //  ToDo: Später in globale Anwendungs-Konfiguration implementieren

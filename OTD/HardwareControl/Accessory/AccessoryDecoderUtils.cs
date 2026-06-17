@@ -1,19 +1,26 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// OpenTrainDrive - AccessoryControl
+// OpenTrainDrive - DecoderControl
 // Copyright (C) 2026
 //
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie koennen es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder spaeteren
-// veroeffentlichten Version, weiterverbreiten und/oder modifizieren.
-
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 
-namespace OTD.HardwareControl.Accessory;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Provides parsing and mapping helpers for accessory decoder configuration values.
@@ -23,7 +30,7 @@ internal static class AccessoryDecoderUtils
     /// <summary>
     /// Reads the accessory decoder protocol from configuration.
     /// </summary>
-    internal static DecoderProtocol GetProtocol(string? protocolElement)
+    internal static AccessoryDecoderProtocol GetProtocol(string? protocolElement)
         => AccessoryUtils.GetDecoderProtocol(protocolElement);
 
     /// <summary>
@@ -48,15 +55,15 @@ internal static class AccessoryDecoderUtils
     /// <summary>
     /// Converts a protocol enum value to the XML protocol string used in decoder elements.
     /// </summary>
-    internal static string GetProtocolElementValue(DecoderProtocol protocol)
+    internal static string GetProtocolElementValue(AccessoryDecoderProtocol protocol)
     {
         return protocol switch
         {
-            DecoderProtocol.Dcc => "DCC",
-            DecoderProtocol.DccExtended => "DCC-Extended",
-            DecoderProtocol.Motorola => "Motorola",
-            DecoderProtocol.M3 => "M3",
-            DecoderProtocol.Mfx => "Mfx",
+            AccessoryDecoderProtocol.Dcc => "DCC",
+            AccessoryDecoderProtocol.DccExtended => "DCC-Extended",
+            AccessoryDecoderProtocol.Motorola => "Motorola",
+            AccessoryDecoderProtocol.M3 => "M3",
+            AccessoryDecoderProtocol.Mfx => "Mfx",
             _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol, "Unsupported accessory decoder protocol.")
         };
     }

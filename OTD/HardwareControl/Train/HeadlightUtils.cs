@@ -4,26 +4,25 @@
 // Copyright (C) 2026
 //
 // Authors:
-// - Hansueli Alder <name@example.com>
+// - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie können es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-// veröffentlichten Version, weiterverbreiten und/oder modifizieren.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// Dieses Programm wird in der Hoffnung bereitgestellt, dass es nützlich sein wird,
-// jedoch OHNE JEDE GEWÄHRLEISTUNG; sogar ohne die implizite Gewährleistung der
-// MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-// Siehe die GNU General Public License für weitere Details.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
 //
-// Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
-// Programm erhalten haben. Falls nicht, siehe <https://www.gnu.org/licenses/>.
-
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace OTD.HardwareControl.Train;
+namespace OTD.HardwareControl;
 
 /// <summary>
 /// Provides complete headlight functionality: parsing, pattern matching and decoder switching.
@@ -93,24 +92,24 @@ internal static class HeadlightUtils
     }
 
     /// <summary>
-    /// Bestimmt den globalen Zielzustand der Stirnbeleuchtung basierend auf Modus und Betriebsmodus.
+    /// Determines the global target state of the headlight based on headlight mode and operating mode.
     /// </summary>
-    public static FunctionState DetermineMainHeadlightState(HeadlightMode mode, TrainOperatingMode operatingMode)
+    public static LocoDecoderFunctionState DetermineMainHeadlightState(HeadlightMode mode, TrainOperatingMode operatingMode)
         => (mode, operatingMode) switch
         {
             // HeadlightMode.Off: immer aus
-            (HeadlightMode.Off, _) => FunctionState.Off,
+            (HeadlightMode.Off, _) => LocoDecoderFunctionState.Off,
 
             // HeadlightMode.Auto: abhängig vom OperatingMode
-            (HeadlightMode.Auto, TrainOperatingMode.ShutDown) => FunctionState.Off,
-            (HeadlightMode.Auto, TrainOperatingMode.Parking) => FunctionState.On, // ToDo: Parklicht-Abfrage via HeadlightUtils
-            (HeadlightMode.Auto, TrainOperatingMode.Shunting) => FunctionState.On,
-            (HeadlightMode.Auto, TrainOperatingMode.Travelling) => FunctionState.On,
+            (HeadlightMode.Auto, TrainOperatingMode.ShutDown) => LocoDecoderFunctionState.Off,
+            (HeadlightMode.Auto, TrainOperatingMode.Parking) => LocoDecoderFunctionState.On, // ToDo: Parklicht-Abfrage via HeadlightUtils
+            (HeadlightMode.Auto, TrainOperatingMode.Shunting) => LocoDecoderFunctionState.On,
+            (HeadlightMode.Auto, TrainOperatingMode.Travelling) => LocoDecoderFunctionState.On,
 
             // HeadlightMode.On: immer an
-            (HeadlightMode.On, _) => FunctionState.On,
+            (HeadlightMode.On, _) => LocoDecoderFunctionState.On,
 
-            _ => FunctionState.Undefined
+            _ => LocoDecoderFunctionState.Undefined
         };
 
     // Sucht und gibt übereinstimmendes Headlight-Pattern zurück

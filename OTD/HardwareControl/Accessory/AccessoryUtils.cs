@@ -1,24 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// OpenTrainDrive - AccessoryControl
+// OpenTrainDrive - DecoderControl
 // Copyright (C) 2026
 //
 // Authors:
 // - Hansueli Alder <info@batec.net>
 //
-// Dieses Programm ist freie Software: Sie koennen es unter den Bedingungen
-// der GNU General Public License, wie von der Free Software Foundation,
-// entweder Version 3 der Lizenz oder (nach Ihrer Wahl) jeder spaeteren
-// veroeffentlichten Version, weiterverbreiten und/oder modifizieren.
-
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace OTD.HardwareControl.Accessory;
+namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides XML parsing helpers for accessory configuration values from <c>accessory.xml</c>.
+/// Provides XML parsing helpers for accessory configuration values from <c>accessories.xml</c>.
 /// </summary>
 internal static class AccessoryUtils
 {
@@ -27,13 +34,14 @@ internal static class AccessoryUtils
     /// </summary>
     internal static XElement GetAccessoryConfiguration(Guid accessoryId)
     {
-        return Train.TrainUtils.ReadXConfiguration("accessory", accessoryId)
+        // ToDo: Umstellung auf zentrales Konfiguration-Utility
+        return TrainUtils.ReadXConfiguration("accessory", accessoryId)
                ?? throw new InvalidOperationException(
                    $"Accessory configuration not found for accessory '{accessoryId}'.");
     }
 
     /// <summary>
-    /// Parses the accessory type attribute from <c>accessory.xml</c>.
+    /// Parses the accessory type attribute from <c>accessories.xml</c>.
     /// </summary>
     internal static AccessoryType GetAccessoryType(string? rawType)
     {
@@ -55,7 +63,7 @@ internal static class AccessoryUtils
     /// <param name="address">Decoder address</param>
     /// <param name="protocol">Decoder protocol</param>
     /// <returns>XML configuration element suitable for AccessoryDecoder construction</returns>
-    internal static XElement GetDecoderConfiguration(int address, DecoderProtocol protocol)
+    internal static XElement GetDecoderConfiguration(int address, AccessoryDecoderProtocol protocol)
     {
         return new XElement("decoder",
             new XElement("protocol", AccessoryDecoderUtils.GetProtocolElementValue(protocol)),
@@ -65,7 +73,7 @@ internal static class AccessoryUtils
     /// <summary>
     /// Parses accessory decoder protocol from configuration.
     /// </summary>
-    internal static DecoderProtocol GetDecoderProtocol(string? rawProtocol)
+    internal static AccessoryDecoderProtocol GetDecoderProtocol(string? rawProtocol)
     {
         if (string.IsNullOrWhiteSpace(rawProtocol))
             throw new InvalidOperationException(
@@ -74,8 +82,8 @@ internal static class AccessoryUtils
 
         return rawProtocol.Trim().ToLowerInvariant() switch
         {
-            "dcc" or "dcc14" or "dcc28" or "dcc128" => DecoderProtocol.Dcc,
-            "dcc-extended" or "dccextended" => DecoderProtocol.DccExtended,
+            "dcc" or "dcc14" or "dcc28" or "dcc128" => AccessoryDecoderProtocol.Dcc,
+            "dcc-extended" or "dccextended" => AccessoryDecoderProtocol.DccExtended,
             // "motorola" => DecoderProtocol.Motorola,
             // "m3" => DecoderProtocol.M3,
             // "mfx" => DecoderProtocol.Mfx,
