@@ -26,6 +26,12 @@ build_property.EnableCodeStyleSeverity =
 [/home/hua/RiderProjects/OTD/OTD/App.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
+[/home/hua/RiderProjects/OTD/OTD/BlockTestWindow.axaml]
+build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
+
+[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/BlockTiles/BlockTile.axaml]
+build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
+
 [/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/ButtonTiles/AutomaticButtonTiles.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 

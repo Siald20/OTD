@@ -57,9 +57,9 @@ All hardware control goes through `ICommandStation` (manufacturer-independent):
 ### 3. XML Configuration as Single Source of Truth
 
 Train/Vehicle/Decoder configs live in `OTD/AppData/` as XML:
-- `train.xml`: Train compositions, vehicle references
-- `loco.xml`: Decoder protocol, speedsteps, address, function tables
-- `accessory.xml`: Zubehör configuration
+- `trains.xml`: Train compositions, vehicle references
+- `locos.xml`: Decoder protocol, speedsteps, address, function tables
+- `accessories.xml`: Zubehör configuration
 - `deviceconfig.xml`: Command station + feedback module drivers/connection settings (UID-based lookup)
 - **Required decoder fields** (throws `InvalidOperationException` if missing):
   - `<protocol>`, `<speedsteps>`, `<address>`, `<functiontable>` (optional)

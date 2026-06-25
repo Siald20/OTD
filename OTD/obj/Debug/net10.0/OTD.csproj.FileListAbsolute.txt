@@ -829,6 +829,12 @@ C:/Users/saemi/RiderProjects/OTD/OTD/build_verify_logic_ui/runtimes/win-x64/nati
 C:/Users/saemi/RiderProjects/OTD/OTD/build_verify_logic_ui/runtimes/win-x86/native/libSkiaSharp.dll
 /home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.csproj.AssemblyReference.cache
 /home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/Avalonia/Resources.Inputs.cache
+/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/Avalonia/resources
+/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.GeneratedMSBuildEditorConfig.editorconfig
+/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.AssemblyInfoInputs.cache
+/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.AssemblyInfo.cs
+/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.csproj.CoreCompileInputs.cache
+/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.sourcelink.json
 /home/hua/RiderProjects/OTD/OTD/bin/Debug/net10.0/OTD
 /home/hua/RiderProjects/OTD/OTD/bin/Debug/net10.0/OTD.deps.json
 /home/hua/RiderProjects/OTD/OTD/bin/Debug/net10.0/OTD.runtimeconfig.json
@@ -906,12 +912,6 @@ C:/Users/saemi/RiderProjects/OTD/OTD/build_verify_logic_ui/runtimes/win-x86/nati
 /home/hua/RiderProjects/OTD/OTD/bin/Debug/net10.0/runtimes/win-x64/native/libSkiaSharp.pdb
 /home/hua/RiderProjects/OTD/OTD/bin/Debug/net10.0/runtimes/win-x86/native/libSkiaSharp.dll
 /home/hua/RiderProjects/OTD/OTD/bin/Debug/net10.0/runtimes/win-x86/native/libSkiaSharp.pdb
-/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/Avalonia/resources
-/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.GeneratedMSBuildEditorConfig.editorconfig
-/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.AssemblyInfoInputs.cache
-/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.AssemblyInfo.cs
-/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.csproj.CoreCompileInputs.cache
-/home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.sourcelink.json
 /home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.csproj.Up2Date
 /home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/OTD.dll
 /home/hua/RiderProjects/OTD/OTD/obj/Debug/net10.0/refint/OTD.dll
