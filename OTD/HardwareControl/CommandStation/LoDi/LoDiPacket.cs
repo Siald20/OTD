@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 
 namespace OTD.HardwareControl.Drivers;
@@ -27,32 +28,17 @@ namespace OTD.HardwareControl.Drivers;
 /// </summary>
 /// <remarks>
 ///     Packet format (API General, pp. 2-3):
-///     
 ///     UDP:  [PacketType][Command][PacketNumber][Payload...]
 ///     TCP:  [Length High][Length Low][PacketType][Command][PacketNumber][Payload...]
-///     
 ///     - PacketType: 0x20=REQ, 0x21=ACK, 0x22=EVT, 0x23=BUSY, 0x3F=NACK
 ///     - Command: Command code (e.g. 0x0F for GetVersion)
 ///     - PacketNumber: Reflected in the response packet (0x00..0xFF)
 ///     - Payload: Optional, length-specific
 ///     - Length (only TCP): Bytes from PacketType to the last Payload byte
-///     
 ///     There is no XOR checksum - error protection is provided by the TCP/UDP protocol.
 /// </remarks>
 internal sealed class LoDiPacket
 {
-    /// <summary>Packet type (0x20=REQ, 0x21=ACK, 0x22=EVT, 0x23=BUSY, 0x3F=NACK)</summary>
-    public byte PacketType { get; }
-
-    /// <summary>Command code</summary>
-    public byte Command { get; }
-
-    /// <summary>Packet number (reflected in responses)</summary>
-    public byte PacketNumber { get; }
-
-    /// <summary>Payload of the packet</summary>
-    public byte[] Payload { get; }
-
     // -------------------------------------------------------------------------
     // Construction
     // -------------------------------------------------------------------------
@@ -67,8 +53,22 @@ internal sealed class LoDiPacket
     }
 
     /// <summary>Creates a new packet without payload.</summary>
-    public LoDiPacket(byte packetType, byte command, byte packetNumber) 
-        : this(packetType, command, packetNumber, Array.Empty<byte>()) { }
+    public LoDiPacket(byte packetType, byte command, byte packetNumber)
+        : this(packetType, command, packetNumber, Array.Empty<byte>())
+    {
+    }
+
+    /// <summary>Packet type (0x20=REQ, 0x21=ACK, 0x22=EVT, 0x23=BUSY, 0x3F=NACK)</summary>
+    public byte PacketType { get; }
+
+    /// <summary>Command code</summary>
+    public byte Command { get; }
+
+    /// <summary>Packet number (reflected in responses)</summary>
+    public byte PacketNumber { get; }
+
+    /// <summary>Payload of the packet</summary>
+    public byte[] Payload { get; }
 
     // -------------------------------------------------------------------------
     // Serialization (Packet → Byte Array for Sending)
@@ -177,8 +177,10 @@ internal sealed class LoDiPacket
     // Helper Methods
     // -------------------------------------------------------------------------
 
-    public override string ToString() =>
-        $"LoDiPacket [{LoDiProtocol.GetPacketTypeName(PacketType)} (0x{PacketType:X2}), " +
-        $"Cmd={LoDiProtocol.GetCommandName(Command)} (0x{Command:X2}), " +
-        $"Nr=0x{PacketNumber:X2}, Payload={Payload.Length} bytes]";
+    public override string ToString()
+    {
+        return $"LoDiPacket [{LoDiProtocol.GetPacketTypeName(PacketType)} (0x{PacketType:X2}), " +
+               $"Cmd={LoDiProtocol.GetCommandName(Command)} (0x{Command:X2}), " +
+               $"Nr=0x{PacketNumber:X2}, Payload={Payload.Length} bytes]";
+    }
 }

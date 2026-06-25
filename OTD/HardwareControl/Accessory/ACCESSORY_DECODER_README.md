@@ -2,9 +2,11 @@
 
 ### Kernregel
 
-Der Accessory-Decoder ist für **stationäre** Decoder (Weichen, Signale, Entkuppler) und ist fest an **genau eine** Kommandozentrale gebunden.
+Der Accessory-Decoder ist für **stationäre** Decoder (Weichen, Signale, Entkuppler) und ist fest an **genau eine**
+Kommandozentrale gebunden.
 
-- Fahrzeugdecoder: mobil, können zwischen Zentralen wechseln -> Subscribe-Modell in `OTD/HardwareControl/Train/LocoDecoder.cs`
+- Fahrzeugdecoder: mobil, können zwischen Zentralen wechseln -> Subscribe-Modell in
+  `OTD/HardwareControl/Train/LocoDecoder.cs`
 - Zubehördecoder: stationär, eine feste Zentrale -> `OTD/HardwareControl/Accessory/AccessoryAccessoryDecoder.cs`
 
 ### API-Überblick (value-basiert)
@@ -71,7 +73,8 @@ public async Task AccessoryDecoder_SendValue_WorksCorrectly()
 
 ### Hinweise für die Systemintegration
 
-- Wenn es mehrere Zentralen im Gesamtsystem gibt, sollte die Zuordnung im Layout/Loader erfolgen (z. B. über `commandStationId`).
+- Wenn es mehrere Zentralen im Gesamtsystem gibt, sollte die Zuordnung im Layout/Loader erfolgen (z. B. über
+  `commandStationId`).
 - Der Accessory-Decoder verwendet `SendValueAsync(...)` als einzige Sende-API.
 - Eine nicht verbundene `CommandStation` führt beim Senden zu einem Fehler aus der jeweiligen Zentrale.
 

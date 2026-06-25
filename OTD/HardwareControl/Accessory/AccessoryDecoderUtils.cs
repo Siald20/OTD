@@ -18,32 +18,33 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides parsing and mapping helpers for accessory decoder configuration values.
+///     Provides parsing and mapping helpers for accessory decoder configuration values.
 /// </summary>
 internal static class AccessoryDecoderUtils
 {
     /// <summary>
-    /// Reads the accessory decoder protocol from configuration.
+    ///     Reads the accessory decoder protocol from configuration.
     /// </summary>
     internal static AccessoryDecoderProtocol GetProtocol(string? protocolElement)
-        => AccessoryUtils.GetDecoderProtocol(protocolElement);
+    {
+        return AccessoryUtils.GetDecoderProtocol(protocolElement);
+    }
 
     /// <summary>
-    /// Reads the decoder address from configuration.
+    ///     Reads the decoder address from configuration.
     /// </summary>
     internal static int GetAddress(string? addressElementValue)
     {
         if (!string.IsNullOrWhiteSpace(addressElementValue) &&
             int.TryParse(addressElementValue, out var address) &&
             address is >= 1 and <= 10239)
-        {
             return address;
-        }
 
         throw new ArgumentOutOfRangeException(
             nameof(addressElementValue),
@@ -53,7 +54,7 @@ internal static class AccessoryDecoderUtils
 
 
     /// <summary>
-    /// Converts a protocol enum value to the XML protocol string used in decoder elements.
+    ///     Converts a protocol enum value to the XML protocol string used in decoder elements.
     /// </summary>
     internal static string GetProtocolElementValue(AccessoryDecoderProtocol protocol)
     {
@@ -64,8 +65,8 @@ internal static class AccessoryDecoderUtils
             AccessoryDecoderProtocol.Motorola => "Motorola",
             AccessoryDecoderProtocol.M3 => "M3",
             AccessoryDecoderProtocol.Mfx => "Mfx",
-            _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol, "Unsupported accessory decoder protocol.")
+            _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol,
+                "Unsupported accessory decoder protocol.")
         };
     }
 }
-

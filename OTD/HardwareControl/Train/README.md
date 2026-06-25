@@ -21,26 +21,26 @@ Train
 ```
 
 - `Train`
-  - Oberste Orchestrierung eines Zuges
-  - Laedt Konfiguration, baut Komposition, setzt Betriebsmodus, Richtung, Geschwindigkeit, Funktionen
+    - Oberste Orchestrierung eines Zuges
+    - Laedt Konfiguration, baut Komposition, setzt Betriebsmodus, Richtung, Geschwindigkeit, Funktionen
 - `IVehicle`
-  - Gemeinsamer Vertrag fuer Lok und Wagen
-  - Fuer Richtungssetzung: `SetDirectionAsync(TrainDirection, VehicleOrientation, ...)`
-  - Physische/skalierte Werte: `HasDecoder`, `Length`, `VMin`, `VMax`, `Weight`, `Direction`
+    - Gemeinsamer Vertrag fuer Lok und Wagen
+    - Fuer Richtungssetzung: `SetDirectionAsync(TrainDirection, VehicleOrientation, ...)`
+    - Physische/skalierte Werte: `HasDecoder`, `Length`, `VMin`, `VMax`, `Weight`, `Direction`
 - `ILocoDecoder`
-  - Decoderfaehigkeiten fuer Train-Logik (Zugriff auf `LocoDecoder`-Instanz)
+    - Decoderfaehigkeiten fuer Train-Logik (Zugriff auf `LocoDecoder`-Instanz)
 - `Loco`
-  - Decoder ist Pflicht
-  - Verarbeitet Geschwindigkeit via SpeedTable und VMax-Guards
-  - Zusaetzlich: `SetSpeedVAsync(int speed, ...)` — nur auf `Loco`, nicht Teil von `IVehicle`
+    - Decoder ist Pflicht
+    - Verarbeitet Geschwindigkeit via SpeedTable und VMax-Guards
+    - Zusaetzlich: `SetSpeedVAsync(int speed, ...)` — nur auf `Loco`, nicht Teil von `IVehicle`
 - `Car`
-  - Decoder ist optional
-  - Empfaengt nur Richtungsbefehle (SpeedStep immer 0)
-  - Kein `SetSpeedVAsync`
+    - Decoder ist optional
+    - Empfaengt nur Richtungsbefehle (SpeedStep immer 0)
+    - Kein `SetSpeedVAsync`
 - `LocoDecoder`
-  - Niedrige Ebene fuer Command-Station-Bindung und Decoderbefehle
+    - Niedrige Ebene fuer Command-Station-Bindung und Decoderbefehle
 - Utilities
-  - `TrainUtils`, `LocoDecoderUtils`, `HeadlightUtils`, `AutoCouplingUtils`, `TrainCompositionUtils`
+    - `TrainUtils`, `LocoDecoderUtils`, `HeadlightUtils`, `AutoCouplingUtils`, `TrainCompositionUtils`
 
 ## Trennung von Richtungs- und Geschwindigkeitssteuerung
 
@@ -62,8 +62,8 @@ Ein zentrales Designprinzip ist die klare Trennung zwischen Richtungs- und Gesch
 Datei: `OTD/HardwareControl/Train/ILocoDecoder.cs`
 
 - `LocoDecoder? LocoDecoder { get; }`
-  - Direkter Zugriff auf die konkrete Decoder-Instanz
-  - Kann `null` sein bei Fahrzeugen ohne Decoder
+    - Direkter Zugriff auf die konkrete Decoder-Instanz
+    - Kann `null` sein bei Fahrzeugen ohne Decoder
 
 ### `IVehicle`
 
@@ -72,16 +72,16 @@ Datei: `OTD/HardwareControl/Train/IVehicle.cs`
 Erweitert `ILocoDecoder` und fuegt fahrzeugbezogene Aspekte hinzu:
 
 - Identitaet und Konfiguration:
-   - `Guid VehicleId`
-   - `XElement? VehicleConfig`
+    - `Guid VehicleId`
+    - `XElement? VehicleConfig`
 - Decoder-Zustand:
-   - `bool HasDecoder`
-   - `VehicleDirection Direction`
+    - `bool HasDecoder`
+    - `VehicleDirection Direction`
 - Physische/skalierte Werte:
-   - `Length`, `VMin`, `VMax`, `Weight`
+    - `Length`, `VMin`, `VMax`, `Weight`
 - Richtungssteuerung (alle Fahrzeuge):
-   - `SetDirectionAsync(TrainDirection, VehicleOrientation, bool forceSend, CancellationToken)`
-     Setzt die Decoder-Fahrtrichtung und SpeedStep 0. Muss vor Fahrbefehlen aufgerufen werden.
+    - `SetDirectionAsync(TrainDirection, VehicleOrientation, bool forceSend, CancellationToken)`
+      Setzt die Decoder-Fahrtrichtung und SpeedStep 0. Muss vor Fahrbefehlen aufgerufen werden.
 
 ## Fahrzeuge
 
@@ -91,9 +91,10 @@ Datei: `OTD/HardwareControl/Train/Loco.cs`
 
 - Decoder ist Pflicht (`_locoDecoder` nicht-null)
 - `SetDirectionAsync(...)`: Setzt Decoder-Richtung, haelt an (SpeedStep 0)
-- `SetSpeedVAsync(int speed, ...)`: Setzt Geschwindigkeit anhand SpeedTable; nutzt bereits gesetzte `_locoDecoder.Direction`
-  - VMax-Guard: Befehle ueber VMax werden unterdrueckt
-  - Duplikat-Unterdrueckung: Gleiches Speed/Richtungs-Paar wird nicht erneut gesendet
+- `SetSpeedVAsync(int speed, ...)`: Setzt Geschwindigkeit anhand SpeedTable; nutzt bereits gesetzte
+  `_locoDecoder.Direction`
+    - VMax-Guard: Befehle ueber VMax werden unterdrueckt
+    - Duplikat-Unterdrueckung: Gleiches Speed/Richtungs-Paar wird nicht erneut gesendet
 - `LocoDecoder`-Property liefert immer eine Instanz
 
 ### `Car`
@@ -146,14 +147,14 @@ Datei: `OTD/HardwareControl/Train/Train.cs`
 
 ### Betriebssteuerung
 
-| Methode | Beschreibung |
-|---|---|
-| `SetOperatingModeAsync(mode)` | Wechselt Betriebsmodus; bei `Shunting`/`Travelling` wird zuerst `SetDirectionAsync` an alle Fahrzeuge gesendet |
-| `SetTrainDirectionAsync(direction)` | Setzt Fahrtrichtung; sendet `SetDirectionAsync` an alle Fahrzeuge |
-| `SetSpeedVAsync(speed)` | Sendet `SetSpeedVAsync` an alle Lokomotiven der Komposition |
-| `EmergencyStopAsync()` | Notbremsung aller Lokomotiven |
-| `SetFunctionStateAsync(...)` | Funktionssteuerung |
-| `ActivateFunctionAsync(...)` | Zeitgesteuerte Funktionsaktivierung |
+| Methode                             | Beschreibung                                                                                                   |
+|-------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| `SetOperatingModeAsync(mode)`       | Wechselt Betriebsmodus; bei `Shunting`/`Travelling` wird zuerst `SetDirectionAsync` an alle Fahrzeuge gesendet |
+| `SetTrainDirectionAsync(direction)` | Setzt Fahrtrichtung; sendet `SetDirectionAsync` an alle Fahrzeuge                                              |
+| `SetSpeedVAsync(speed)`             | Sendet `SetSpeedVAsync` an alle Lokomotiven der Komposition                                                    |
+| `EmergencyStopAsync()`              | Notbremsung aller Lokomotiven                                                                                  |
+| `SetFunctionStateAsync(...)`        | Funktionssteuerung                                                                                             |
+| `ActivateFunctionAsync(...)`        | Zeitgesteuerte Funktionsaktivierung                                                                            |
 
 ### Interner Ablauf bei Fahrtbefehl
 
@@ -179,12 +180,14 @@ Datei: `OTD/HardwareControl/Train/TrainEnums.cs`
 ## Threading und Async-Konventionen
 
 - Decoder-seitige Sendeoperationen sind asynchron und werden ueber `_commandLock` serialisiert
-- Train-Ebene verwendet teils synchrone Wrapper auf async (`GetAwaiter().GetResult()`), um bestehende API konsistent zu halten
+- Train-Ebene verwendet teils synchrone Wrapper auf async (`GetAwaiter().GetResult()`), um bestehende API konsistent zu
+  halten
 - Rueckmeldungen der Zentrale laufen ueber `CommandStation.RegisterDecoder(...)` und `LocoDecoder.StateChanged`
 
 ## Designentscheidungen
 
-- `Subscribe/Unsubscribe` sind nicht Teil von `ILocoDecoder`/`IVehicle`; die konkrete `LocoDecoder`-Instanz ist ueber `ILocoDecoder.LocoDecoder` erreichbar
+- `Subscribe/Unsubscribe` sind nicht Teil von `ILocoDecoder`/`IVehicle`; die konkrete `LocoDecoder`-Instanz ist ueber
+  `ILocoDecoder.LocoDecoder` erreichbar
 - `SetSpeedVAsync` ist bewusst nicht Teil von `IVehicle`, da nur Lokomotiven eine SpeedTable besitzen
 - `VehicleOrientation` ist Kompositions-Kontext (`TrainVehicle`), kein intrinsisches Fahrzeug-Attribut
 - `Train` garantiert immer: Richtung setzen vor Fahrbefehl

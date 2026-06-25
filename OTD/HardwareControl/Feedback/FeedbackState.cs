@@ -18,12 +18,13 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Occupancy state of a single rail sensor (track circuit / S88 contact).
+///     Occupancy state of a single rail sensor (track circuit / S88 contact).
 /// </summary>
 public enum RailSensorState
 {
@@ -35,12 +36,12 @@ public enum RailSensorState
 }
 
 /// <summary>
-/// Extensible per-sensor metadata.
+///     Extensible per-sensor metadata.
 /// </summary>
 public readonly record struct SensorInfo(int SensorNumber, string SensorName, RailSensorState State);
 
 /// <summary>
-/// Event args raised when a sensor changes state.
+///     Event args raised when a sensor changes state.
 /// </summary>
 public sealed class SensorStateChangedEventArgs(
     Guid providerUid,
@@ -50,17 +51,16 @@ public sealed class SensorStateChangedEventArgs(
     public Guid ProviderUid { get; } = providerUid;
 
     /// <summary>
-    /// Provider-global sensor number (1-based, continuous across all modules).
-    /// Module address details are managed internally by the provider.
+    ///     Provider-global sensor number (1-based, continuous across all modules).
+    ///     Module address details are managed internally by the provider.
     /// </summary>
     public int SensorNumber { get; } = sensorInfo.SensorNumber;
 
     /// <summary>
-    /// Human-readable sensor label for orientation (e.g. "1.2").
+    ///     Human-readable sensor label for orientation (e.g. "1.2").
     /// </summary>
     public string SensorName { get; } = sensorInfo.SensorName;
 
     /// <summary>New state of the sensor.</summary>
     public RailSensorState State { get; } = sensorInfo.State;
 }
-

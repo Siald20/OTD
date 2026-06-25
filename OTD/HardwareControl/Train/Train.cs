@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,11 +30,14 @@ namespace OTD.HardwareControl;
 
 public class Train
 {
-    private readonly List<ICommandStation> _subscribedCommandStations = [];
     private readonly SemaphoreSlim _operationLock = new(1, 1);
+    private readonly List<ICommandStation> _subscribedCommandStations = [];
     private HeadlightMode _headlightMode = HeadlightMode.Auto;
-    private TrainDirection _trainDirection = TrainDirection.A;
     private TrainOperatingMode _operatingMode = TrainOperatingMode.ShutDown;
+    private TrainDirection _trainDirection = TrainDirection.A;
+
+    // ToDo: ggf. obsolet, da nicht als public property verfügbar sein muss.
+    public XElement? TrainConfig;
 
     public Train(
         Guid trainId,
@@ -56,9 +60,6 @@ public class Train
     ///     User-defined identifier for this train.
     /// </summary>
     public string Id { get; }
-
-    // ToDo: ggf. obsolet, da nicht als public property verfügbar sein muss.
-    public XElement? TrainConfig;
 
     /// <summary>
     ///     Total train length.
@@ -108,7 +109,7 @@ public class Train
         get => _operatingMode;
         set => SetOperatingModeAsync(value).GetAwaiter().GetResult();
     }
-    
+
     /// <summary>
     ///     Globally enables or disables train headlights via decoder master functions.
     ///     Enabling triggers a re-initialization of headlight patterns for the current operating mode.
@@ -139,7 +140,7 @@ public class Train
     ///     All command stations currently subscribed for this train.
     /// </summary>
     public IReadOnlyList<ICommandStation> SubscribedCommandStations => _subscribedCommandStations.AsReadOnly();
-    
+
     /// <summary>
     ///     Refreshes the train composition and re-initializes all runtime vehicle instances based
     ///     on the current train and vehicle configuration.
@@ -198,7 +199,7 @@ public class Train
         Weight = TrainComposition.Weight > 0 ? TrainComposition.Weight : configuredWeight;
 
         TrainConfig = trainConfig;
-    
+
         Console.WriteLine(
             $"Loading of train composition {Id} completed. {TrainComposition.Count} vehicle(s) initialized. Length: {Length} mm, VMin: {VMin} km/h, VMax: {VMax} km/h, Weight: {Weight} t.");
     }
@@ -306,6 +307,12 @@ public class Train
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (speed != 0 && (speed < VMin || speed > VMax))
+                throw new ArgumentOutOfRangeException(
+                    nameof(speed),
+                    speed,
+                    $"Zug {TrainId}: Fahrbefehl muss 0 oder im Bereich von VMin ({VMin}) bis VMax ({VMax}) liegen.");
+
             if (_operatingMode is not (TrainOperatingMode.Shunting or TrainOperatingMode.Travelling))
                 throw new InvalidOperationException(
                     $"Zug {TrainId}: Fahrbefehl {speed} km/h nicht zulässig im Modus {_operatingMode}.");
@@ -314,10 +321,8 @@ public class Train
             {
                 var shuntingVMax = Math.Min(VMax, 40);
                 if (speed > shuntingVMax)
-                {
                     throw new InvalidOperationException(
                         $"Zug {TrainId}: Fahrbefehl {speed} km/h überschreitet die zulässige Rangier-Höchstgeschwindigkeit von {shuntingVMax} km/h.");
-                }
             }
 
             await SendSpeedCommandToAllAsync(speed, cancellationToken).ConfigureAwait(false);
@@ -361,7 +366,8 @@ public class Train
             await SubscribeCommandStationAsync(TrainComposition, commandStation, cancellationToken)
                 .ConfigureAwait(false);
 
-            Console.WriteLine($"Zug {TrainId}: Zentrale '{commandStation.GetType().Name}' abonniert. Insgesamt {_subscribedCommandStations.Count} Zentrale(n) gebunden.");
+            Console.WriteLine(
+                $"Zug {TrainId}: Zentrale '{commandStation.GetType().Name}' abonniert. Insgesamt {_subscribedCommandStations.Count} Zentrale(n) gebunden.");
         }
         finally
         {
@@ -373,7 +379,9 @@ public class Train
     ///     Synchronously subscribes a command station for all locomotive decoders in this train.
     /// </summary>
     public void SubscribeCommandStation(ICommandStation commandStation)
-        => SubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
+    {
+        SubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
+    }
 
     /// <summary>
     ///     Unsubscribes a command station from all locomotive decoders in this train.
@@ -394,7 +402,8 @@ public class Train
             await UnsubscribeStationAsync(TrainComposition, commandStation, cancellationToken)
                 .ConfigureAwait(false);
 
-            Console.WriteLine($"Zug {TrainId}: Zentrale '{commandStation.GetType().Name}' abgemeldet. Noch {_subscribedCommandStations.Count} Zentrale(n) gebunden.");
+            Console.WriteLine(
+                $"Zug {TrainId}: Zentrale '{commandStation.GetType().Name}' abgemeldet. Noch {_subscribedCommandStations.Count} Zentrale(n) gebunden.");
         }
         finally
         {
@@ -406,7 +415,9 @@ public class Train
     ///     Synchronously unsubscribes a command station from all locomotive decoders in this train.
     /// </summary>
     public void UnsubscribeCommandStation(ICommandStation? commandStation)
-        => UnsubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
+    {
+        UnsubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
+    }
 
     private async Task SendSpeedCommandToAllAsync(int speed,
         CancellationToken cancellationToken)
@@ -536,15 +547,17 @@ public class Train
     }
 
     /// <summary>
-    ///     Detaches the currently bound composition so it can be modified via <see cref="TrainCompositionBuilder"/>.
-    ///     This is only allowed in <see cref="TrainOperatingMode.ShutDown"/>.
+    ///     Detaches the currently bound composition so it can be modified via <see cref="TrainCompositionBuilder" />.
+    ///     This is only allowed in <see cref="TrainOperatingMode.ShutDown" />.
     /// </summary>
     public TrainCompositionBuilder DetachComposition()
-        => DetachCompositionAsync().GetAwaiter().GetResult();
+    {
+        return DetachCompositionAsync().GetAwaiter().GetResult();
+    }
 
     /// <summary>
-    ///     Detaches the currently bound composition so it can be modified via <see cref="TrainCompositionBuilder"/>.
-    ///     This is only allowed in <see cref="TrainOperatingMode.ShutDown"/>.
+    ///     Detaches the currently bound composition so it can be modified via <see cref="TrainCompositionBuilder" />.
+    ///     This is only allowed in <see cref="TrainOperatingMode.ShutDown" />.
     /// </summary>
     public async Task<TrainCompositionBuilder> DetachCompositionAsync(
         CancellationToken cancellationToken = default)
@@ -568,10 +581,10 @@ public class Train
 
             return new TrainCompositionBuilder(
                 compositionToDetach,
-                preserveRuntimeState: false,
-                trainId: TrainId,
-                vehicleFactory: CreateVehicleController,
-                commandStations: _subscribedCommandStations.ToArray());
+                false,
+                TrainId,
+                CreateVehicleController,
+                _subscribedCommandStations.ToArray());
         }
         finally
         {
@@ -805,11 +818,9 @@ public class Train
 
             var masterFunction = availableHeadlightFunctions.FirstOrDefault(f => f.IsMaster);
             if (!masterFunction.IsMaster)
-            {
                 throw new InvalidOperationException(
                     $"Keine Master-Stirnlichtfunktion für Fahrzeug {vehicleEntry.VehicleId} konfiguriert. " +
                     "Bitte in der XML-Konfiguration eine Headlight-Funktion mit master=\"true\" definieren.");
-            }
 
             var isFirstOrLastVehicle = vehicleEntry.Position == 1 || vehicleEntry.Position == TrainComposition.Count;
             var decoderDirection = LocoDecoderUtils.ResolveDecoderDirection(_trainDirection, vehicleEntry.Orientation);
@@ -854,7 +865,8 @@ public class Train
 
             // Ausschalten: falls Stirnbeleuchtung global ausgeschaltet wird oder Fahrzeug innerhalb des Zuges
             // liegt und keine spezifischen Funktionen/Patterns definiert sind.
-            if (mainHeadlightState == LocoDecoderFunctionState.Off || (!isFirstOrLastVehicle && matchingPatternFunction is null))
+            if (mainHeadlightState == LocoDecoderFunctionState.Off ||
+                (!isFirstOrLastVehicle && matchingPatternFunction is null))
             {
                 // zuerst Master-Stirnlichtfunktion ausschalten
                 if (decoder.GetFunctionState(masterFunction.FunctionNumber) != LocoDecoderFunctionState.Off)
@@ -872,11 +884,14 @@ public class Train
             // Einschalten 1: spezifische Stirnlicht-Funktion einschalten und ggf. übrige aktive
             // Stirnlicht-Funktion(en) ausschalten.
             var matchingNonMasterNumber = matchingPatternFunction is { IsMaster: false } m
-                ? m.FunctionNumber : (int?)null;
+                ? m.FunctionNumber
+                : (int?)null;
 
             foreach (var fn in nonMasterFunctionNumbers)
             {
-                var targetState = fn == matchingNonMasterNumber ? LocoDecoderFunctionState.On : LocoDecoderFunctionState.Off;
+                var targetState = fn == matchingNonMasterNumber
+                    ? LocoDecoderFunctionState.On
+                    : LocoDecoderFunctionState.Off;
                 if (decoder.GetFunctionState(fn) != targetState)
                     tasks.Add(decoder.SetFunctionStateAsync(fn, targetState, cancellationToken));
             }
@@ -889,5 +904,5 @@ public class Train
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
     }
-
 }
+

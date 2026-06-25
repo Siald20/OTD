@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 
 namespace OTD.HardwareControl.Drivers;
@@ -29,26 +30,29 @@ namespace OTD.HardwareControl.Drivers;
 /// <summary>Arguments for connection state change events.</summary>
 internal sealed class LoDiConnectionChangedEventArgs : EventArgs
 {
-    /// <summary>Indicates whether a connection to the Commander exists.</summary>
-    public bool IsConnected { get; }
-
-    /// <summary>Optional error message (only set on connection loss).</summary>
-    public string? ErrorMessage { get; }
-
     public LoDiConnectionChangedEventArgs(bool isConnected, string? errorMessage = null)
     {
         IsConnected = isConnected;
         ErrorMessage = errorMessage;
     }
+
+    /// <summary>Indicates whether a connection to the Commander exists.</summary>
+    public bool IsConnected { get; }
+
+    /// <summary>Optional error message (only set on connection loss).</summary>
+    public string? ErrorMessage { get; }
 }
 
 /// <summary>Arguments for receiving a raw LoDi packet.</summary>
 internal sealed class LoDiPacketReceivedEventArgs : EventArgs
 {
+    public LoDiPacketReceivedEventArgs(LoDiPacket packet)
+    {
+        Packet = packet;
+    }
+
     /// <summary>The received and parsed packet.</summary>
     public LoDiPacket Packet { get; }
-
-    public LoDiPacketReceivedEventArgs(LoDiPacket packet) => Packet = packet;
 }
 
 // -------------------------------------------------------------------------
@@ -56,11 +60,18 @@ internal sealed class LoDiPacketReceivedEventArgs : EventArgs
 // -------------------------------------------------------------------------
 
 /// <summary>
-/// Arguments for S88 state change events.
-/// Raised when a single contact on an S88 module changes state.
+///     Arguments for S88 state change events.
+///     Raised when a single contact on an S88 module changes state.
 /// </summary>
 internal sealed class S88StateChangedEventArgs : EventArgs
 {
+    public S88StateChangedEventArgs(int moduleAddress, int contactNumber, bool isOccupied)
+    {
+        ModuleAddress = moduleAddress;
+        ContactNumber = contactNumber;
+        IsOccupied = isOccupied;
+    }
+
     /// <summary>Address of the S88 module (1-based).</summary>
     public int ModuleAddress { get; }
 
@@ -69,50 +80,52 @@ internal sealed class S88StateChangedEventArgs : EventArgs
 
     /// <summary>New contact state (<c>true</c> = occupied, <c>false</c> = free).</summary>
     public bool IsOccupied { get; }
-
-    public S88StateChangedEventArgs(int moduleAddress, int contactNumber, bool isOccupied)
-    {
-        ModuleAddress = moduleAddress;
-        ContactNumber = contactNumber;
-        IsOccupied = isOccupied;
-    }
 }
 
 /// <summary>
-/// Arguments for a full S88 module state snapshot.
-/// Contains the state of all 16 contacts of one S88 module.
+///     Arguments for a full S88 module state snapshot.
+///     Contains the state of all 16 contacts of one S88 module.
 /// </summary>
 internal sealed class S88ModuleStateEventArgs : EventArgs
 {
+    public S88ModuleStateEventArgs(int moduleAddress, byte statusHigh, byte statusLow, int snapshotIndex = 0,
+        int snapshotCount = 0)
+    {
+        ModuleAddress = moduleAddress;
+        StatusHigh = statusHigh;
+        StatusLow = statusLow;
+        StateBitmask = (ushort)((statusHigh << 8) | statusLow);
+        SnapshotIndex = snapshotIndex;
+        SnapshotCount = snapshotCount;
+    }
+
     /// <summary>Address of the S88 module (1-based).</summary>
     public int ModuleAddress { get; }
 
     /// <summary>
-    /// State bitmask of the module.
-    /// Bit 0 = contact 1, Bit 1 = contact 2, ... Bit 15 = contact 16.
-    /// A set bit means: section occupied.
+    ///     State bitmask of the module.
+    ///     Bit 0 = contact 1, Bit 1 = contact 2, ... Bit 15 = contact 16.
+    ///     A set bit means: section occupied.
     /// </summary>
     public ushort StateBitmask { get; }
 
+    /// <summary>Raw StatusHigh byte from the LoDi 0x30 snapshot response.</summary>
+    public byte StatusHigh { get; }
+
+    /// <summary>Raw StatusLow byte from the LoDi 0x30 snapshot response.</summary>
+    public byte StatusLow { get; }
+
     /// <summary>
-    /// Position of this module within the current S88MelderGet response (1-based).
-    /// 0 means unknown / not part of a 0x30 snapshot.
+    ///     Position of this module within the current S88MelderGet response (1-based).
+    ///     0 means unknown / not part of a 0x30 snapshot.
     /// </summary>
     public int SnapshotIndex { get; }
 
     /// <summary>
-    /// Total module count in the current S88MelderGet response (first payload byte).
-    /// 0 means unknown / not part of a 0x30 snapshot.
+    ///     Total module count in the current S88MelderGet response (first payload byte).
+    ///     0 means unknown / not part of a 0x30 snapshot.
     /// </summary>
     public int SnapshotCount { get; }
-
-    public S88ModuleStateEventArgs(int moduleAddress, ushort stateBitmask, int snapshotIndex = 0, int snapshotCount = 0)
-    {
-        ModuleAddress = moduleAddress;
-        StateBitmask = stateBitmask;
-        SnapshotIndex = snapshotIndex;
-        SnapshotCount = snapshotCount;
-    }
 
     /// <summary>Returns the state of a single contact (1-based, 1-16).</summary>
     public bool GetContactState(int contactNumber)
@@ -121,6 +134,23 @@ internal sealed class S88ModuleStateEventArgs : EventArgs
             throw new ArgumentOutOfRangeException(nameof(contactNumber), "Contact number must be between 1 and 16.");
 
         return (StateBitmask & (1 << (contactNumber - 1))) != 0;
+    }
+
+    public int[] GetActiveContacts()
+    {
+        var contacts = new int[16];
+        var count = 0;
+
+        for (var contact = 1; contact <= 16; contact++)
+            if (GetContactState(contact))
+                contacts[count++] = contact;
+
+        if (count == contacts.Length)
+            return contacts;
+
+        var result = new int[count];
+        Array.Copy(contacts, result, count);
+        return result;
     }
 }
 
@@ -131,6 +161,17 @@ internal sealed class S88ModuleStateEventArgs : EventArgs
 /// <summary>Represents a LoDi device found via UDP discovery.</summary>
 internal sealed class LoDiDeviceInfo
 {
+    public LoDiDeviceInfo(string ipAddress, int tcpPort, string deviceType,
+        string deviceName, string serialNumber, string firmwareVersion)
+    {
+        IpAddress = ipAddress;
+        TcpPort = tcpPort;
+        DeviceType = deviceType;
+        DeviceName = deviceName;
+        SerialNumber = serialNumber;
+        FirmwareVersion = firmwareVersion;
+    }
+
     /// <summary>IP address of the discovered device.</summary>
     public string IpAddress { get; }
 
@@ -149,17 +190,8 @@ internal sealed class LoDiDeviceInfo
     /// <summary>Firmware version of the device.</summary>
     public string FirmwareVersion { get; }
 
-    public LoDiDeviceInfo(string ipAddress, int tcpPort, string deviceType,
-        string deviceName, string serialNumber, string firmwareVersion)
+    public override string ToString()
     {
-        IpAddress = ipAddress;
-        TcpPort = tcpPort;
-        DeviceType = deviceType;
-        DeviceName = deviceName;
-        SerialNumber = serialNumber;
-        FirmwareVersion = firmwareVersion;
+        return $"{DeviceType} '{DeviceName}' (S/N: {SerialNumber}, FW: {FirmwareVersion}) @ {IpAddress}:{TcpPort}";
     }
-
-    public override string ToString() =>
-        $"{DeviceType} '{DeviceName}' (S/N: {SerialNumber}, FW: {FirmwareVersion}) @ {IpAddress}:{TcpPort}";
 }

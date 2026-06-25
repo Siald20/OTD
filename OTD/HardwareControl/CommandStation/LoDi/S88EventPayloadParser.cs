@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System.Collections.Generic;
 using System.Linq;
 
@@ -42,14 +43,14 @@ internal static class S88EventPayloadParser
         if (count == 0 && payload.Length == 1)
         {
             result = new S88EventPayloadParseResult(
-                format: S88EventPayloadFormat.Heartbeat,
-                count: 0,
-                changes: [],
-                trailingBytes: 0,
-                moduleAddress1: null,
-                moduleType: null,
-                moduleAddress2: null,
-                moduleAddress3: null);
+                S88EventPayloadFormat.Heartbeat,
+                0,
+                [],
+                0,
+                null,
+                null,
+                null,
+                null);
             return true;
         }
 
@@ -73,38 +74,45 @@ internal static class S88EventPayloadParser
             }
 
             result = new S88EventPayloadParseResult(
-                format: S88EventPayloadFormat.ContactChanges,
-                count: count,
-                changes: changes,
-                trailingBytes: payload.Length - expectedLength,
-                moduleAddress1: null,
-                moduleType: null,
-                moduleAddress2: null,
-                moduleAddress3: null);
+                S88EventPayloadFormat.ContactChanges,
+                count,
+                changes,
+                payload.Length - expectedLength,
+                null,
+                null,
+                null,
+                null);
             return true;
         }
 
-        // Alternative LoDi-Interpretation fuer Diagnose:
-        // [Anzahl][Moduladresse1][Modultyp][Moduladresse2][Moduladresse3]
-        if (payload.Length >= 5)
-        {
-            result = new S88EventPayloadParseResult(
-                format: S88EventPayloadFormat.ModuleOverview,
-                count: count,
-                changes: [],
-                trailingBytes: payload.Length - 5,
-                moduleAddress1: payload[1],
-                moduleType: payload[2],
-                moduleAddress2: payload[3],
-                moduleAddress3: payload[4]);
-            return true;
-        }
-
+        // Zu kurze Payload fuer ContactChanges: erst als echten Fehler behandeln,
+        // damit das Problem im Diagnose-Log sichtbar wird.
+        // WICHTIG: Der ModuleOverview-Fallback darf NICHT vor diesem Check stehen,
+        // weil er sonst EVT-Pakete mit count > 1 und unerwarteter Laenge still
+        // verschluckt – das fuehrt dazu, dass nur Einzelaenderungen (count=1)
+        // als ContactChanges ankommen und alle anderen Sensoren stumm bleiben.
         if (payload.Length < expectedLength)
         {
             error = $"Ungueltige Laenge: erwartet mindestens {expectedLength} Byte(s), erhalten {payload.Length}.";
             return false;
         }
+
+        // Alternative LoDi-Interpretation fuer Diagnose (nur wenn Laenge nicht zu kurz):
+        // [Anzahl][Moduladresse1][Modultyp][Moduladresse2][Moduladresse3]
+        if (payload.Length >= 5)
+        {
+            result = new S88EventPayloadParseResult(
+                S88EventPayloadFormat.ModuleOverview,
+                count,
+                [],
+                payload.Length - 5,
+                payload[1],
+                payload[2],
+                payload[3],
+                payload[4]);
+            return true;
+        }
+
 
         error = $"Payload konnte keinem bekannten EVT-Format zugeordnet werden. Laenge={payload.Length}.";
         return false;
@@ -140,15 +148,6 @@ internal sealed class S88EventPayloadChange(
 
 internal sealed class S88EventPayloadParseResult
 {
-    public S88EventPayloadFormat Format { get; }
-    public int Count { get; }
-    public IReadOnlyList<S88EventPayloadChange> Changes { get; }
-    public int TrailingBytes { get; }
-    public byte? ModuleAddress1 { get; }
-    public byte? ModuleType { get; }
-    public byte? ModuleAddress2 { get; }
-    public byte? ModuleAddress3 { get; }
-
     public S88EventPayloadParseResult(
         S88EventPayloadFormat format,
         int count,
@@ -169,6 +168,15 @@ internal sealed class S88EventPayloadParseResult
         ModuleAddress3 = moduleAddress3;
     }
 
+    public S88EventPayloadFormat Format { get; }
+    public int Count { get; }
+    public IReadOnlyList<S88EventPayloadChange> Changes { get; }
+    public int TrailingBytes { get; }
+    public byte? ModuleAddress1 { get; }
+    public byte? ModuleType { get; }
+    public byte? ModuleAddress2 { get; }
+    public byte? ModuleAddress3 { get; }
+
     public bool IsHeartbeat => Format == S88EventPayloadFormat.Heartbeat;
 
     public IReadOnlyList<int> ModuleAddresses => Changes
@@ -177,4 +185,3 @@ internal sealed class S88EventPayloadParseResult
         .OrderBy(moduleAddress => moduleAddress)
         .ToArray();
 }
-

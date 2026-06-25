@@ -18,16 +18,16 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using OTD.HardwareControl.Drivers;
 
 namespace OTD.HardwareControl.Drivers;
 
 /// <summary>
-/// Simulated feedback test that maps keyboard keys to 40 sensors.
-/// Uses MockCommandStation and a keyboard-driven mock feedback provider.
+///     Simulated feedback test that maps keyboard keys to 40 sensors.
+///     Uses MockCommandStation and a keyboard-driven mock feedback provider.
 /// </summary>
 internal static class MockKeyboardFeedback
 {
@@ -62,7 +62,7 @@ internal static class MockKeyboardFeedback
             {
                 while (Console.KeyAvailable)
                 {
-                    var key = Console.ReadKey(intercept: true);
+                    var key = Console.ReadKey(true);
 
                     if (key.Key == ConsoleKey.Spacebar)
                     {
@@ -107,4 +107,3 @@ internal static class MockKeyboardFeedback
         Console.WriteLine();
     }
 }
-

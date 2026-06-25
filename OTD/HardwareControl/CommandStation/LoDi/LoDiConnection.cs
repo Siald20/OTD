@@ -18,7 +18,9 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -38,32 +40,30 @@ internal enum LoDiTransportMode
 /// </summary>
 internal sealed class LoDiConnection : IDisposable
 {
+    // TCP-Fragmentierungspuffer für robuste Paket-Verarbeitung
+    private readonly byte[] _tcpBuffer = new byte[4096];
     // -------------------------------------------------------------------------
     // Felder
     // -------------------------------------------------------------------------
 
     private readonly LoDiTransportMode _transportMode;
-    private TcpClient? _tcpClient;
-    private NetworkStream? _stream;
-    private UdpClient? _udpClient;
-    private CancellationTokenSource? _receiveCts;
-    private Task? _receiveTask;
     private bool _disposed;
     private byte _nextPacketNumber;
-
-    // TCP-Fragmentierungspuffer für robuste Paket-Verarbeitung
-    private readonly byte[] _tcpBuffer = new byte[4096];
+    private CancellationTokenSource? _receiveCts;
+    private Task? _receiveTask;
+    private NetworkStream? _stream;
     private int _tcpBufferIndex;
+    private TcpClient? _tcpClient;
+    private UdpClient? _udpClient;
 
     // -------------------------------------------------------------------------
-    // Events
+    // Konstruktor / Verbindungsaufbau
     // -------------------------------------------------------------------------
 
-    /// <summary>Triggered when the connection state changes.</summary>
-    public event EventHandler<LoDiConnectionChangedEventArgs>? ConnectionChanged;
-
-    /// <summary>Triggered when a complete, valid packet has been received.</summary>
-    public event EventHandler<LoDiPacketReceivedEventArgs>? PacketReceived;
+    public LoDiConnection(LoDiTransportMode transportMode = LoDiTransportMode.Tcp)
+    {
+        _transportMode = transportMode;
+    }
 
     // -------------------------------------------------------------------------
     // Eigenschaften
@@ -75,13 +75,51 @@ internal sealed class LoDiConnection : IDisposable
         : _udpClient != null;
 
     // -------------------------------------------------------------------------
-    // Konstruktor / Verbindungsaufbau
+    // IDisposable
     // -------------------------------------------------------------------------
 
-    public LoDiConnection(LoDiTransportMode transportMode = LoDiTransportMode.Tcp)
+    public void Dispose()
     {
-        _transportMode = transportMode;
+        if (_disposed) return;
+        _disposed = true;
+
+        // Signal to stop the receive loop
+        _receiveCts?.Cancel();
+
+        // Wait for the receive loop to complete, so no new events are triggered
+        // while resources are being released.
+        // This prevents race conditions.
+        try
+        {
+            if (_receiveTask != null && !_receiveTask.IsCompleted)
+                // Wait with timeout to avoid hanging
+                _receiveTask.Wait(TimeSpan.FromSeconds(5));
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected – the task was canceled
+        }
+        catch
+        {
+            // Ignore errors while waiting
+        }
+
+        // Now it's safe that no new events are triggered
+        _stream?.Dispose();
+        _tcpClient?.Dispose();
+        _udpClient?.Dispose();
+        _receiveCts?.Dispose();
     }
+
+    // -------------------------------------------------------------------------
+    // Events
+    // -------------------------------------------------------------------------
+
+    /// <summary>Triggered when the connection state changes.</summary>
+    public event EventHandler<LoDiConnectionChangedEventArgs>? ConnectionChanged;
+
+    /// <summary>Triggered when a complete, valid packet has been received.</summary>
+    public event EventHandler<LoDiPacketReceivedEventArgs>? PacketReceived;
 
     /// <summary>
     ///     Establishes a TCP connection to the specified LoDi device and
@@ -90,7 +128,7 @@ internal sealed class LoDiConnection : IDisposable
     /// <param name="ipAddress">IP address of the device</param>
     /// <param name="port">TCP port of the device (default: 11092)</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    public async Task ConnectAsync(string ipAddress, int port = LoDiProtocol.DefaultTcpPort, 
+    public async Task ConnectAsync(string ipAddress, int port = LoDiProtocol.DefaultTcpPort,
         CancellationToken cancellationToken = default)
     {
         if (IsConnected)
@@ -116,10 +154,14 @@ internal sealed class LoDiConnection : IDisposable
             await _receiveCts.CancelAsync();
 
             if (_receiveTask != null)
-            {
-                try { await _receiveTask; }
-                catch (OperationCanceledException) { /* expected */ }
-            }
+                try
+                {
+                    await _receiveTask;
+                }
+                catch (OperationCanceledException)
+                {
+                    /* expected */
+                }
         }
 
         _stream?.Close();
@@ -178,12 +220,14 @@ internal sealed class LoDiConnection : IDisposable
 
     /// <summary>
     ///     Continuously reads incoming data from the TCP stream and
-    ///     triggers the <see cref="PacketReceived"/> event for each complete packet.
+    ///     triggers the <see cref="PacketReceived" /> event for each complete packet.
     /// </summary>
     private Task RunReceiveLoopAsync(CancellationToken cancellationToken)
-        => _transportMode == LoDiTransportMode.Tcp
+    {
+        return _transportMode == LoDiTransportMode.Tcp
             ? ReceiveTcpLoopAsync(cancellationToken)
             : ReceiveUdpLoopAsync(cancellationToken);
+    }
 
     private async Task ReceiveTcpLoopAsync(CancellationToken cancellationToken)
     {
@@ -198,7 +242,7 @@ internal sealed class LoDiConnection : IDisposable
                 if (bytesRead == 0)
                 {
                     // Connection was closed by the device
-                    ConnectionChanged?.Invoke(this, new LoDiConnectionChangedEventArgs(false, 
+                    ConnectionChanged?.Invoke(this, new LoDiConnectionChangedEventArgs(false,
                         "Connection closed by the counterpart."));
                     break;
                 }
@@ -213,7 +257,7 @@ internal sealed class LoDiConnection : IDisposable
         }
         catch (Exception ex)
         {
-            ConnectionChanged?.Invoke(this, new LoDiConnectionChangedEventArgs(false, 
+            ConnectionChanged?.Invoke(this, new LoDiConnectionChangedEventArgs(false,
                 $"Connection error: {ex.Message}"));
         }
     }
@@ -248,16 +292,14 @@ internal sealed class LoDiConnection : IDisposable
     {
         // Append data to fragmentation buffer
         if (_tcpBufferIndex + length > _tcpBuffer.Length)
-        {
             // Buffer overflow: likely garbage data, reset
             _tcpBufferIndex = 0;
-        }
 
         Array.Copy(buffer, 0, _tcpBuffer, _tcpBufferIndex, length);
         _tcpBufferIndex += length;
 
         // Try to extract packets from the buffer
-        int offset = 0;
+        var offset = 0;
         while (offset < _tcpBufferIndex)
         {
             // At least 2 bytes needed for the length prefix
@@ -329,7 +371,9 @@ internal sealed class LoDiConnection : IDisposable
     }
 
     private static void LogPacketProcessingError(string transportName, Exception ex)
-        => Console.WriteLine($"[LoDiConnection] Error in {transportName} packet processing: {ex.Message}");
+    {
+        Console.WriteLine($"[LoDiConnection] Error in {transportName} packet processing: {ex.Message}");
+    }
 
     // -------------------------------------------------------------------------
     // UDP-Discovery (statisch)
@@ -342,16 +386,16 @@ internal sealed class LoDiConnection : IDisposable
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of all found LoDi devices</returns>
-    public static async Task<System.Collections.Generic.List<LoDiDeviceInfo>> DiscoverDevicesAsync(
+    public static async Task<List<LoDiDeviceInfo>> DiscoverDevicesAsync(
         CancellationToken cancellationToken = default)
     {
-        var devices = new System.Collections.Generic.List<LoDiDeviceInfo>();
+        var devices = new List<LoDiDeviceInfo>();
 
         using var udpClient = new UdpClient();
         udpClient.EnableBroadcast = true;
 
         // Discovery request: REQ packet with GetVersion (0x0F)
-        var discoveryPacket = new LoDiPacket(LoDiProtocol.PacketTypeRequest, 
+        var discoveryPacket = new LoDiPacket(LoDiProtocol.PacketTypeRequest,
             LoDiProtocol.Commands.General.GetVersion, 0x00);
         var requestBytes = discoveryPacket.ToUdpBytes();
 
@@ -371,11 +415,10 @@ internal sealed class LoDiConnection : IDisposable
                 while (!timeoutCts.Token.IsCancellationRequested)
                 {
                     var result = await udpClient.ReceiveAsync(timeoutCts.Token);
-                    
+
                     if (LoDiPacket.TryParseUdp(result.Buffer, out var packet) && packet != null)
-                    {
                         // Response to GetVersion (packet type ACK=0x21, command 0x0F)
-                        if (packet.Command == LoDiProtocol.Commands.General.GetVersion && 
+                        if (packet.Command == LoDiProtocol.Commands.General.GetVersion &&
                             packet.PacketType == LoDiProtocol.PacketTypeAck &&
                             packet.Payload.Length >= 4)
                         {
@@ -383,7 +426,6 @@ internal sealed class LoDiConnection : IDisposable
                             if (deviceInfo != null)
                                 devices.Add(deviceInfo);
                         }
-                    }
                 }
             }
             catch (OperationCanceledException)
@@ -418,12 +460,12 @@ internal sealed class LoDiConnection : IDisposable
         var firmwareVersion = $"v{packet.Payload[1]:D2}.{packet.Payload[2]:D2}.{packet.Payload[3]:D2}";
 
         return new LoDiDeviceInfo(
-            ipAddress: ipAddress,
-            tcpPort: LoDiProtocol.DefaultTcpPort,
-            deviceType: deviceType,
-            deviceName: deviceType,
-            serialNumber: "N/A",
-            firmwareVersion: firmwareVersion
+            ipAddress,
+            LoDiProtocol.DefaultTcpPort,
+            deviceType,
+            deviceType,
+            "N/A",
+            firmwareVersion
         );
     }
 
@@ -431,45 +473,9 @@ internal sealed class LoDiConnection : IDisposable
     // Hilfsmethoden
     // -------------------------------------------------------------------------
 
-    private byte GetNextPacketNumber() => _nextPacketNumber++;
-
-    // -------------------------------------------------------------------------
-    // IDisposable
-    // -------------------------------------------------------------------------
-
-    public void Dispose()
+    private byte GetNextPacketNumber()
     {
-        if (_disposed) return;
-        _disposed = true;
-
-        // Signal to stop the receive loop
-        _receiveCts?.Cancel();
-
-        // Wait for the receive loop to complete, so no new events are triggered
-        // while resources are being released.
-        // This prevents race conditions.
-        try
-        {
-            if (_receiveTask != null && !_receiveTask.IsCompleted)
-            {
-                // Wait with timeout to avoid hanging
-                _receiveTask.Wait(TimeSpan.FromSeconds(5));
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected – the task was canceled
-        }
-        catch
-        {
-            // Ignore errors while waiting
-        }
-
-        // Now it's safe that no new events are triggered
-        _stream?.Dispose();
-        _tcpClient?.Dispose();
-        _udpClient?.Dispose();
-        _receiveCts?.Dispose();
+        return _nextPacketNumber++;
     }
 
     private async Task ConnectTcpAsync(string ipAddress, int port, CancellationToken cancellationToken)
@@ -527,9 +533,7 @@ internal sealed class LoDiConnection : IDisposable
         {
             if (e.Packet.PacketType == LoDiProtocol.PacketTypeAck &&
                 e.Packet.Command == LoDiProtocol.Commands.General.GetVersion)
-            {
                 tcs.TrySetResult(true);
-            }
         }
 
         PacketReceived += Handler;
@@ -553,5 +557,3 @@ internal sealed class LoDiConnection : IDisposable
         }
     }
 }
-
-

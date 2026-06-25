@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,13 +26,16 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using OTD.HardwareControl.Drivers;
 using OTD.HardwareControl.Test;
+using OTD.TrainDriving.Examples;
 
 namespace OTD.HardwareControl;
 
 internal static class RunTests
 {
     public static void Run()
-        => RunAsync().GetAwaiter().GetResult();
+    {
+        RunAsync().GetAwaiter().GetResult();
+    }
 
     private static async Task RunAsync()
     {
@@ -45,7 +49,8 @@ internal static class RunTests
             throw new InvalidOperationException("No commandstations configured in commandstations.xml.");
 
         if (feedbackStations.Count == 0)
-            throw new InvalidOperationException("No feedback-capable commandstations configured in commandstations.xml.");
+            throw new InvalidOperationException(
+                "No feedback-capable commandstations configured in commandstations.xml.");
 
         Console.Clear();
         Console.WriteLine("=== RunTests ===");
@@ -68,6 +73,8 @@ internal static class RunTests
         using var commandStation = new CommandStation(commandStationUid);
         using var feedbackModule = new Feedback(feedbackUid);
 
+        
+        
         var testEntries = BuildTestEntries(commandStationUid, feedbackUid);
 
         while (true)
@@ -107,7 +114,7 @@ internal static class RunTests
 
             Console.WriteLine();
             Console.WriteLine("Test beendet. Taste druecken fuer Rueckkehr zum Menue...");
-            Console.ReadKey(intercept: true);
+            Console.ReadKey(true);
         }
     }
 
@@ -116,32 +123,52 @@ internal static class RunTests
         return
         [
             new TestEntry(
+                new SelectableEntry("TRAINDRIVING_TEST2", "test", "TrainDriving: Test2 (Rundkurs BR193 mit Sensorabgleich)", null, 0),
+                (cs, fb) =>
+                {
+                    Test2.Run(cs, fb);
+                    return Task.CompletedTask;
+                },
+                true,
+                true),
+
+            new TestEntry(
+                new SelectableEntry("TRAINDRIVING_BRAKE_SENSOR56", "test", "TrainDriving: Sensor56 -> Bremsen 40->0 auf 200cm", null, 0),
+                (cs, fb) =>
+                {
+                    Test1.Run(cs, fb);
+                    return Task.CompletedTask;
+                },
+                true,
+                true),
+
+            new TestEntry(
                 new SelectableEntry("OPERATION_FLOW_BI", "test", "OperationFlowBi (Ablauf mit Sensorlogik)", null, 0),
                 (cs, fb) =>
                 {
                     TestOperationFlowBi.Run(cs, fb);
                     return Task.CompletedTask;
                 },
-                RequiresCommandStation: true,
-                RequiresFeedback: true),
+                true,
+                true),
 
             new TestEntry(
                 new SelectableEntry("FEEDBACK_SINGLE", "test", "Feedback Einzelmodul", null, 0),
                 (_, _) => FeedbackTests.RunSingleModuleAsync(selectedFeedbackUid),
-                RequiresCommandStation: false,
-                RequiresFeedback: false),
+                true,
+                true),
 
             new TestEntry(
                 new SelectableEntry("READBACK_LOCO", "test", "Readback Lokdecoder", null, 0),
                 (cs, _) => ReadbackTests.ReadBackTestLocoAsync(cs),
-                RequiresCommandStation: true,
-                RequiresFeedback: false),
+                true,
+                false),
 
             new TestEntry(
                 new SelectableEntry("READBACK_ACCESSORY", "test", "Readback Zubehoerdecoder", null, 0),
                 (cs, _) => ReadbackTests.ReadBackTestAccessoryAsync(cs),
-                RequiresCommandStation: true,
-                RequiresFeedback: false),
+                true,
+                false),
 
             new TestEntry(
                 new SelectableEntry("FEEDBACK_TRIGGER_DIAG", "test", "Feedback Trigger Diagnose", null, 0),
@@ -156,14 +183,14 @@ internal static class RunTests
                         pulseAddress,
                         pulseValue);
                 },
-                RequiresCommandStation: false,
-                RequiresFeedback: false),
+                false,
+                false),
 
             new TestEntry(
                 new SelectableEntry("FEEDBACK_MOCK_KEYBOARD", "test", "Mock Keyboard Feedback", null, 0),
                 (_, _) => MockKeyboardFeedback.RunAsync(),
-                RequiresCommandStation: false,
-                RequiresFeedback: false)
+                false,
+                false)
         ];
     }
 
@@ -184,7 +211,8 @@ internal static class RunTests
 
         var ready = await feedbackModule.EnsureOperationalAsync().ConfigureAwait(false);
         if (!ready)
-            throw new InvalidOperationException("Feedback konnte nicht in einen betriebsbereiten Zustand gebracht werden.");
+            throw new InvalidOperationException(
+                "Feedback konnte nicht in einen betriebsbereiten Zustand gebracht werden.");
 
         Console.WriteLine($"  Feedback bereit, Sensoren: {feedbackModule.SensorCount}");
     }
@@ -224,44 +252,48 @@ internal static class RunTests
     private static List<SelectableEntry> LoadCommandStations(XDocument document)
     {
         return document.Root?
-            .Elements("commandstation")
-            .Where(element => !IsFeedbackDriver(element.Attribute("driver")?.Value))
-            .Select(element =>
-            {
-                var uid = element.Attribute("uid")?.Value ?? "<missing-uid>";
-                var driver = element.Attribute("driver")?.Value ?? "<missing-driver>";
-                var ip = element.Element("connection")?.Attribute("ip")?.Value;
-                var portRaw = element.Element("connection")?.Attribute("port")?.Value;
-                var port = int.TryParse(portRaw, out var parsedPort) ? parsedPort : 0;
-                var endpoint = string.IsNullOrWhiteSpace(ip) ? "-" : $"{ip}:{port}";
-                return new SelectableEntry(uid, driver, $"UID={uid} | Driver={driver} | Endpoint={endpoint}", ip, port);
-            })
-            .ToList()
-            ?? [];
+                   .Elements("commandstation")
+                   .Where(element => !IsFeedbackDriver(element.Attribute("driver")?.Value))
+                   .Select(element =>
+                   {
+                       var uid = element.Attribute("uid")?.Value ?? "<missing-uid>";
+                       var driver = element.Attribute("driver")?.Value ?? "<missing-driver>";
+                       var ip = element.Element("connection")?.Attribute("ip")?.Value;
+                       var portRaw = element.Element("connection")?.Attribute("port")?.Value;
+                       var port = int.TryParse(portRaw, out var parsedPort) ? parsedPort : 0;
+                       var endpoint = string.IsNullOrWhiteSpace(ip) ? "-" : $"{ip}:{port}";
+                       return new SelectableEntry(uid, driver, $"UID={uid} | Driver={driver} | Endpoint={endpoint}", ip,
+                           port);
+                   })
+                   .ToList()
+               ?? [];
     }
 
     private static List<SelectableEntry> LoadFeedbackStations(XDocument document)
     {
         return document.Root?
-            .Elements("commandstation")
-            .Where(element => IsFeedbackDriver(element.Attribute("driver")?.Value))
-            .Select(element =>
-            {
-                var uid = element.Attribute("uid")?.Value ?? "<missing-uid>";
-                var driver = element.Attribute("driver")?.Value ?? "<missing-driver>";
-                var ip = element.Element("connection")?.Attribute("ip")?.Value;
-                var portRaw = element.Element("connection")?.Attribute("port")?.Value;
-                var port = int.TryParse(portRaw, out var parsedPort) ? parsedPort : 0;
-                var endpoint = string.IsNullOrWhiteSpace(ip) ? "-" : $"{ip}:{port}";
-                return new SelectableEntry(uid, driver, $"UID={uid} | Driver={driver} | Endpoint={endpoint}", ip, port);
-            })
-            .ToList()
-            ?? [];
+                   .Elements("commandstation")
+                   .Where(element => IsFeedbackDriver(element.Attribute("driver")?.Value))
+                   .Select(element =>
+                   {
+                       var uid = element.Attribute("uid")?.Value ?? "<missing-uid>";
+                       var driver = element.Attribute("driver")?.Value ?? "<missing-driver>";
+                       var ip = element.Element("connection")?.Attribute("ip")?.Value;
+                       var portRaw = element.Element("connection")?.Attribute("port")?.Value;
+                       var port = int.TryParse(portRaw, out var parsedPort) ? parsedPort : 0;
+                       var endpoint = string.IsNullOrWhiteSpace(ip) ? "-" : $"{ip}:{port}";
+                       return new SelectableEntry(uid, driver, $"UID={uid} | Driver={driver} | Endpoint={endpoint}", ip,
+                           port);
+                   })
+                   .ToList()
+               ?? [];
     }
 
     private static bool IsFeedbackDriver(string? driver)
-        => string.Equals(driver, "lodi-s88-commander", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(driver, "mock-keyboard-feedback", StringComparison.OrdinalIgnoreCase);
+    {
+        return string.Equals(driver, "lodi-s88-commander", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(driver, "mock-keyboard-feedback", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static SelectableEntry SelectOption(string title, IReadOnlyList<SelectableEntry> options)
     {
@@ -270,7 +302,7 @@ internal static class RunTests
         while (true)
         {
             RenderMenu(title, options, index);
-            var key = Console.ReadKey(intercept: true).Key;
+            var key = Console.ReadKey(true).Key;
 
             switch (key)
             {

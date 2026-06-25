@@ -18,42 +18,23 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Event arguments for accessory decoder state changes reported by a command station.
+///     Event arguments for accessory decoder state changes reported by a command station.
 /// </summary>
 public class AccessoryStateChangedEventArgs : EventArgs
 {
-    /// <summary>
-    /// Address of the accessory decoder.
-    /// </summary>
-    public int Address { get; }
-
-    /// <summary>
-    /// Protocol-specific accessory output value that was reported.
-    /// </summary>
-    public int OutputValue { get; }
-
-    /// <summary>
-    /// New channel function state.
-    /// </summary>
-    public AccessoryFunctionState FunctionState { get; }
-
-    /// <summary>
-    /// Backward-compatible alias of <see cref="FunctionState"/>.
-    /// </summary>
-    public AccessoryFunctionState State => FunctionState;
-
     /// <summary>
     /// Backward-compatible view of <see cref="FunctionState"/>.
     /// </summary>
     //public bool IsActive => FunctionState == this.FunctionState.On;
 
     /// <summary>
-    /// Creates a new AccessoryStateChangedEventArgs instance.
+    ///     Creates a new AccessoryStateChangedEventArgs instance.
     /// </summary>
     public AccessoryStateChangedEventArgs(int address, int outputValue, AccessoryFunctionState functionState)
     {
@@ -62,6 +43,28 @@ public class AccessoryStateChangedEventArgs : EventArgs
         FunctionState = functionState;
     }
 
+    /// <summary>
+    ///     Address of the accessory decoder.
+    /// </summary>
+    public int Address { get; }
+
+    /// <summary>
+    ///     Protocol-specific accessory output value that was reported.
+    /// </summary>
+    public int OutputValue { get; }
+
+    /// <summary>
+    ///     New channel function state.
+    /// </summary>
+    public AccessoryFunctionState FunctionState { get; }
+
+    /// <summary>
+    ///     Backward-compatible alias of <see cref="FunctionState" />.
+    /// </summary>
+    public AccessoryFunctionState State => FunctionState;
+
     public override string ToString()
-        => $"AccessoryDecoder {Address} OutputValue {OutputValue} = {FunctionState}";
+    {
+        return $"AccessoryDecoder {Address} OutputValue {OutputValue} = {FunctionState}";
+    }
 }

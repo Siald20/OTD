@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,19 +28,18 @@ using System.Threading.Tasks;
 namespace OTD.HardwareControl.Drivers;
 
 /// <summary>
-/// Mock feedback provider for console keyboard simulation.
-/// Sensors are mapped to keyboard keys and exposed as 1-based sensor numbers.
+///     Mock feedback provider for console keyboard simulation.
+///     Sensors are mapped to keyboard keys and exposed as 1-based sensor numbers.
 /// </summary>
 internal sealed class KeyboardMockFeedback : IFeedback
 {
     // Simulated key-release timeout for console input (no real KeyUp available).
     private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromMilliseconds(300);
-
-    private readonly Dictionary<int, RailSensorState> _states = [];
-    private readonly Dictionary<int, DateTimeOffset> _lastKeyPressUtc = [];
     private readonly HashSet<int> _heldSensors = [];
     private readonly Dictionary<ConsoleKey, int> _keyToSensor = BuildKeyMap();
-    private bool _connected;
+    private readonly Dictionary<int, DateTimeOffset> _lastKeyPressUtc = [];
+
+    private readonly Dictionary<int, RailSensorState> _states = [];
 
     public KeyboardMockFeedback(Guid uniqueId)
     {
@@ -50,7 +50,7 @@ internal sealed class KeyboardMockFeedback : IFeedback
 
     public Guid UniqueId { get; }
 
-    public bool IsConnected => _connected;
+    public bool IsConnected { get; private set; }
 
     public int SensorCount => 40;
 
@@ -58,13 +58,13 @@ internal sealed class KeyboardMockFeedback : IFeedback
 
     public Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        _connected = true;
+        IsConnected = true;
         return Task.CompletedTask;
     }
 
     public Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
-        _connected = false;
+        IsConnected = false;
         _heldSensors.Clear();
         _lastKeyPressUtc.Clear();
 
@@ -92,7 +92,7 @@ internal sealed class KeyboardMockFeedback : IFeedback
 
     public bool TryHandleKey(ConsoleKey key)
     {
-        if (!_connected)
+        if (!IsConnected)
             return false;
 
         if (!_keyToSensor.TryGetValue(key, out var sensorNumber))
@@ -115,17 +115,15 @@ internal sealed class KeyboardMockFeedback : IFeedback
 
     public void UpdateKeyReleases(DateTimeOffset nowUtc)
     {
-        if (!_connected)
+        if (!IsConnected)
             return;
 
         foreach (var (sensorNumber, lastPressUtc) in _lastKeyPressUtc.ToArray())
-        {
             if (nowUtc - lastPressUtc >= ReleaseTimeout)
             {
                 _heldSensors.Remove(sensorNumber);
                 _lastKeyPressUtc.Remove(sensorNumber);
             }
-        }
     }
 
     private void SetState(int sensorNumber, RailSensorState newState)
@@ -190,4 +188,3 @@ internal sealed class KeyboardMockFeedback : IFeedback
         };
     }
 }
-

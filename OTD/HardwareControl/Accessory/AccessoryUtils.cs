@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Linq;
 using System.Xml.Linq;
@@ -25,12 +26,12 @@ using System.Xml.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides XML parsing helpers for accessory configuration values from <c>accessories.xml</c>.
+///     Provides XML parsing helpers for accessory configuration values from <c>accessories.xml</c>.
 /// </summary>
 internal static class AccessoryUtils
 {
     /// <summary>
-    /// Reads the accessory configuration element for a specific accessory UID.
+    ///     Reads the accessory configuration element for a specific accessory UID.
     /// </summary>
     internal static XElement GetAccessoryConfiguration(Guid accessoryId)
     {
@@ -41,7 +42,7 @@ internal static class AccessoryUtils
     }
 
     /// <summary>
-    /// Parses the accessory type attribute from <c>accessories.xml</c>.
+    ///     Parses the accessory type attribute from <c>accessories.xml</c>.
     /// </summary>
     internal static AccessoryType GetAccessoryType(string? rawType)
     {
@@ -58,7 +59,7 @@ internal static class AccessoryUtils
     }
 
     /// <summary>
-    /// Gets an XML configuration element for an accessory decoder.
+    ///     Gets an XML configuration element for an accessory decoder.
     /// </summary>
     /// <param name="address">Decoder address</param>
     /// <param name="protocol">Decoder protocol</param>
@@ -69,9 +70,9 @@ internal static class AccessoryUtils
             new XElement("protocol", AccessoryDecoderUtils.GetProtocolElementValue(protocol)),
             new XElement("address", address.ToString()));
     }
-    
+
     /// <summary>
-    /// Parses accessory decoder protocol from configuration.
+    ///     Parses accessory decoder protocol from configuration.
     /// </summary>
     internal static AccessoryDecoderProtocol GetDecoderProtocol(string? rawProtocol)
     {
@@ -94,8 +95,8 @@ internal static class AccessoryUtils
     }
 
     /// <summary>
-    /// Reads activation time (milliseconds) from decoder configuration.
-    /// Returns 0 when missing, invalid or non-positive.
+    ///     Reads activation time (milliseconds) from decoder configuration.
+    ///     Returns 0 when missing, invalid or non-positive.
     /// </summary>
     internal static int GetActivationTime(XElement accessoryConfiguration)
     {
@@ -108,10 +109,10 @@ internal static class AccessoryUtils
     }
 
     /// <summary>
-    /// Reads delay time (milliseconds) from decoder configuration.
-    /// Returns 0 when missing, invalid or non-positive.
-    /// Delay time is used to introduce delays between consecutive decoder address changes
-    /// in multi-address accessories to prevent decoder overload.
+    ///     Reads delay time (milliseconds) from decoder configuration.
+    ///     Returns 0 when missing, invalid or non-positive.
+    ///     Delay time is used to introduce delays between consecutive decoder address changes
+    ///     in multi-address accessories to prevent decoder overload.
     /// </summary>
     internal static int GetDelayTime(XElement accessoryConfiguration)
     {
@@ -122,14 +123,15 @@ internal static class AccessoryUtils
             ? dt
             : 0;
     }
-    
+
     /// <summary>
-    /// Returns all configured state elements and validates that at least one state exists.
+    ///     Returns all configured state elements and validates that at least one state exists.
     /// </summary>
     internal static XElement[] GetStateElements(XElement accessoryConfiguration, Guid accessoryId)
     {
         var stateElements = accessoryConfiguration.Element("states")?.Elements("state").ToList() ?? [];
-        return stateElements.Count == 0 ? throw new InvalidOperationException($"Accessory '{accessoryId}' does not define any <state> entries.") : stateElements.ToArray();
+        return stateElements.Count == 0
+            ? throw new InvalidOperationException($"Accessory '{accessoryId}' does not define any <state> entries.")
+            : stateElements.ToArray();
     }
-
 }

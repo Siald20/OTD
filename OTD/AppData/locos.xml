@@ -174,7 +174,7 @@
                           actuation="toggle"/>
             </functiontable>
             <speedtable>
-                <speed step="1" v="3"/>
+                <speed step="1" v="1"/>
                 <speed step="28" v="126"/>
             </speedtable>
         </decoder>

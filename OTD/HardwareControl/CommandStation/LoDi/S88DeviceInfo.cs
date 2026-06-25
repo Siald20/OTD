@@ -18,12 +18,13 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 namespace OTD.HardwareControl.Drivers;
 
 /// <summary>
-/// Device information of the LoDi S88 commander.
-/// Contains the configuration of both S88 buses (Bus 1 and Bus 2).
-/// Each S88 module has a fixed 16 sensor inputs.
+///     Device information of the LoDi S88 commander.
+///     Contains the configuration of both S88 buses (Bus 1 and Bus 2).
+///     Each S88 module has a fixed 16 sensor inputs.
 /// </summary>
 /// <param name="Bus1SensorCount">Number of sensors on Bus 1 (calculated: number of modules × 16 sensor inputs per module).</param>
 /// <param name="Bus2SensorCount">Number of sensors on Bus 2 (calculated: number of modules × 16 sensor inputs per module).</param>

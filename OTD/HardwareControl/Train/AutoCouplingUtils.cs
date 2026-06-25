@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,12 +28,12 @@ using System.Threading.Tasks;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides automatic uncoupling functionality for vehicles.
+///     Provides automatic uncoupling functionality for vehicles.
 /// </summary>
 internal static class AutoCouplingUtils
 {
     /// <summary>
-    /// Parses all decoder functions of type <c>autocoupling</c> from generic vehicle functions.
+    ///     Parses all decoder functions of type <c>autocoupling</c> from generic vehicle functions.
     /// </summary>
     internal static List<AutoCouplingFunction> GetAutoCouplingFunctions(IReadOnlyList<VehicleFunctions> functions)
     {
@@ -57,11 +58,9 @@ internal static class AutoCouplingUtils
                     .Value;
 
                 if (string.IsNullOrWhiteSpace(durationRaw))
-                {
                     durationRaw = f.Attributes
                         .FirstOrDefault(a => string.Equals(a.Key, "activationtime", StringComparison.OrdinalIgnoreCase))
                         .Value;
-                }
 
                 var activationTime = int.TryParse(durationRaw, out var duration)
                     ? Math.Max(0, duration)
@@ -76,24 +75,22 @@ internal static class AutoCouplingUtils
     }
 
     /// <summary>
-    /// Returns the first matching auto coupling function for a requested direction.
+    ///     Returns the first matching auto coupling function for a requested direction.
     /// </summary>
     internal static AutoCouplingFunction? FindAutoCouplingFunction(
         IReadOnlyList<AutoCouplingFunction> availableAutoCouplings,
         VehicleDirection requestedDirection)
     {
         foreach (var function in availableAutoCouplings)
-        {
             if (function.Direction == requestedDirection)
                 return function;
-        }
 
         return null;
     }
 
     /// <summary>
-    /// Applies a single auto coupling action on the vehicle decoder.
-    /// Requires a vehicle with a configured decoder.
+    ///     Applies a single auto coupling action on the vehicle decoder.
+    ///     Requires a vehicle with a configured decoder.
     /// </summary>
     internal static async Task ApplyAutoCouplingAsync(
         IVehicle vehicle,
@@ -116,4 +113,3 @@ public readonly record struct AutoCouplingFunction(
     int FunctionNumber,
     VehicleDirection Direction,
     int ActivationTime);
-

@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,12 +27,12 @@ using System.Xml.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides helpers for parsing accessory state definitions.
+///     Provides helpers for parsing accessory state definitions.
 /// </summary>
 internal static class AccessoryStateUtils
 {
     /// <summary>
-    /// Parses a required integer attribute from a state decoder element.
+    ///     Parses a required integer attribute from a state decoder element.
     /// </summary>
     internal static int ParseRequiredIntAttribute(XElement element, string attributeName, string context)
     {
@@ -43,7 +44,7 @@ internal static class AccessoryStateUtils
     }
 
     /// <summary>
-    /// Parses the required decoder output value from a state decoder element.
+    ///     Parses the required decoder output value from a state decoder element.
     /// </summary>
     internal static int ParseRequiredOutputValueAttribute(XElement element, string context)
     {
@@ -56,10 +57,10 @@ internal static class AccessoryStateUtils
     }
 
     /// <summary>
-    /// Resolves the current accessory state from observed readback output values.
-    /// Matches the observed outputs against all configured state definitions and returns
-    /// the state if exactly one state matches. Returns null if no state matches or
-    /// multiple states match (ambiguous).
+    ///     Resolves the current accessory state from observed readback output values.
+    ///     Matches the observed outputs against all configured state definitions and returns
+    ///     the state if exactly one state matches. Returns null if no state matches or
+    ///     multiple states match (ambiguous).
     /// </summary>
     /// <param name="states">All configured state definitions of the accessory</param>
     /// <param name="lastReadBackValuesByAddress">Dictionary mapping decoder addresses to last-observed output values</param>
@@ -80,8 +81,8 @@ internal static class AccessoryStateUtils
     }
 
     /// <summary>
-    /// Parses all state elements and returns lists of state definitions and id-indexed states.
-    /// Validates state IDs, output values, and protocol compliance during parsing.
+    ///     Parses all state elements and returns lists of state definitions and id-indexed states.
+    ///     Validates state IDs, output values, and protocol compliance during parsing.
     /// </summary>
     /// <param name="stateElements">XML state elements from accessory configuration</param>
     /// <param name="accessoryId">Accessor UID for error reporting</param>
@@ -109,7 +110,8 @@ internal static class AccessoryStateUtils
             var stateId = stateIdAttribute is null ? string.Empty : stateIdAttribute.Value.Trim();
 
             if (string.IsNullOrWhiteSpace(stateId))
-                throw new InvalidOperationException($"Accessory '{accessoryId}' contains a <state> without required 'id' attribute.");
+                throw new InvalidOperationException(
+                    $"Accessory '{accessoryId}' contains a <state> without required 'id' attribute.");
 
             var descriptionAttribute = stateElement.Attribute("description");
             var description = descriptionAttribute is null ? string.Empty : descriptionAttribute.Value.Trim();
@@ -117,8 +119,8 @@ internal static class AccessoryStateUtils
 
             foreach (var decoderElement in stateElement.Elements("decoder"))
             {
-                var address = AccessoryStateUtils.ParseRequiredIntAttribute(decoderElement, "address", $"state '{stateId}'");
-                var outputValue = AccessoryStateUtils.ParseRequiredOutputValueAttribute(
+                var address = ParseRequiredIntAttribute(decoderElement, "address", $"state '{stateId}'");
+                var outputValue = ParseRequiredOutputValueAttribute(
                     decoderElement,
                     $"state '{stateId}'");
 
@@ -134,17 +136,19 @@ internal static class AccessoryStateUtils
             }
 
             if (commands.Count == 0)
-                throw new InvalidOperationException($"Accessory '{accessoryId}' contains state '{stateId}' without any <decoder> commands.");
+                throw new InvalidOperationException(
+                    $"Accessory '{accessoryId}' contains state '{stateId}' without any <decoder> commands.");
 
-            var stateDefinition = new AccessoryStateDefinition(type, subtype, id, interlocking, stateId, description, commands);
+            var stateDefinition =
+                new AccessoryStateDefinition(type, subtype, id, interlocking, stateId, description, commands);
             states.Add(stateDefinition);
             statesById.Add(stateDefinition.State, stateDefinition);
         }
     }
 
     /// <summary>
-    /// Validates that a command's metadata matches the accessory's properties.
-    /// Throws if there's a mismatch.
+    ///     Validates that a command's metadata matches the accessory's properties.
+    ///     Throws if there's a mismatch.
     /// </summary>
     internal static AccessoryStateCommand ValidateCommandMetadata(
         Guid accessoryId,
@@ -160,10 +164,8 @@ internal static class AccessoryStateUtils
             !string.Equals(command.Id, id, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(command.Interlocking, interlocking, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(command.State, state.State, StringComparison.OrdinalIgnoreCase))
-        {
             throw new InvalidOperationException(
                 $"Accessory '{accessoryId}' contains inconsistent metadata for state '{state.State}'.");
-        }
 
         return command;
     }

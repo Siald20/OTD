@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,57 +26,57 @@ using System.Threading.Tasks;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Common contract for accessory decoders (turnouts, signals, etc.).
-/// Accessory decoders differ fundamentally from locomotive decoders:
-/// - They are commanded using protocol-specific data values per decoder address
-/// - They use different DCC protocols (SetAccessoryValueAsync vs SetLocoSpeedAsync)
-/// - They support no speed control or function mapping like locomotives
-/// - Like locomotive decoders, they use a subscribe model for command stations
+///     Common contract for accessory decoders (turnouts, signals, etc.).
+///     Accessory decoders differ fundamentally from locomotive decoders:
+///     - They are commanded using protocol-specific data values per decoder address
+///     - They use different DCC protocols (SetAccessoryValueAsync vs SetLocoSpeedAsync)
+///     - They support no speed control or function mapping like locomotives
+///     - Like locomotive decoders, they use a subscribe model for command stations
 /// </summary>
 public interface IAccessoryDecoder
 {
     /// <summary>
-    /// DCC address of the accessory decoder (1–2048).
+    ///     DCC address of the accessory decoder (1–2048).
     /// </summary>
     int Address { get; }
 
     /// <summary>
-    /// AccessoryDecoder communication protocol.
+    ///     AccessoryDecoder communication protocol.
     /// </summary>
     AccessoryDecoderProtocol Protocol { get; }
 
     /// <summary>
-    /// The currently subscribed command station.
-    /// Accessory decoders are stationary and can be bound to exactly one station at a time.
+    ///     The currently subscribed command station.
+    ///     Accessory decoders are stationary and can be bound to exactly one station at a time.
     /// </summary>
     ICommandStation? SubscribedCommandStation { get; }
 
     /// <summary>
-    /// Subscribes a command station to receive commands from this accessory decoder.
+    ///     Subscribes a command station to receive commands from this accessory decoder.
     /// </summary>
     Task SubscribeCommandStationAsync(ICommandStation commandStation,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Unsubscribes a command station from this accessory decoder.
+    ///     Unsubscribes a command station from this accessory decoder.
     /// </summary>
     Task UnsubscribeCommandStationAsync(ICommandStation? commandStation);
 
     /// <summary>
-    /// Raised when the command station sends a state update for this accessory decoder.
+    ///     Raised when the command station sends a state update for this accessory decoder.
     /// </summary>
     event EventHandler<AccessoryStateChangedEventArgs>? StateChanged;
-    
+
     /// <summary>
-    /// Sends a protocol-specific output value and activation state to the subscribed command station.
+    ///     Sends a protocol-specific output value and activation state to the subscribed command station.
     /// </summary>
     Task SetFunctionAsync(int outputValue, AccessoryFunctionState state, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Activates an output value for the specified time span.
-    /// For protocols without native timing, the output is switched on, waits for the timeout,
-    /// then switched off in software. Protocols with native timing may encode the timeout
-    /// directly into the transmitted command instead.
+    ///     Activates an output value for the specified time span.
+    ///     For protocols without native timing, the output is switched on, waits for the timeout,
+    ///     then switched off in software. Protocols with native timing may encode the timeout
+    ///     directly into the transmitted command instead.
     /// </summary>
     Task ActivateFunctionAsync(int outputValue, int timeout, CancellationToken cancellationToken = default);
 }

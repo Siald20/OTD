@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,20 +27,20 @@ using System.Xml.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides parsing helpers for decoder configuration values.
+///     Provides parsing helpers for decoder configuration values.
 /// </summary>
 internal static class LocoDecoderUtils
 {
     internal const int DefaultSpeedSteps = 128;
 
     /// <summary>
-    /// Reads the decoder protocol from the decoder configuration.
+    ///     Reads the decoder protocol from the decoder configuration.
     /// </summary>
     /// <param name="protocolElement">The protocol element value as string.</param>
     /// <returns>The configured decoder protocol.</returns>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// Thrown if the protocol is missing, empty, or not one of the supported values:
-    /// dcc14, dcc28, dcc128, motorola, m3, mfx.
+    ///     Thrown if the protocol is missing, empty, or not one of the supported values:
+    ///     dcc14, dcc28, dcc128, motorola, m3, mfx.
     /// </exception>
     internal static LocoDecoderProtocol GetProtocol(string? protocolElement)
     {
@@ -67,14 +68,14 @@ internal static class LocoDecoderUtils
     }
 
     /// <summary>
-    /// Reads the effective number of speed steps from the decoder configuration.
-    /// Returns <see cref="DefaultSpeedSteps"/> if the <c>&lt;speedsteps&gt;</c>
-    /// element is missing or empty.
+    ///     Reads the effective number of speed steps from the decoder configuration.
+    ///     Returns <see cref="DefaultSpeedSteps" /> if the <c>&lt;speedsteps&gt;</c>
+    ///     element is missing or empty.
     /// </summary>
     /// <param name="speedStepsElementValue">The decoder configuration element.</param>
     /// <returns>The configured effective speed step count.</returns>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// Thrown if the configured speed step value is missing or not numeric.
+    ///     Thrown if the configured speed step value is missing or not numeric.
     /// </exception>
     internal static int GetSpeedSteps(string? speedStepsElementValue)
     {
@@ -93,20 +94,18 @@ internal static class LocoDecoderUtils
     }
 
     /// <summary>
-    /// Reads the decoder address from the decoder configuration.
+    ///     Reads the decoder address from the decoder configuration.
     /// </summary>
     /// <param name="addressElementValue">The address element value as string.</param>
     /// <returns>The configured decoder address.</returns>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// Thrown if the address is missing, empty, not numeric, or outside the valid range 1..10239.
+    ///     Thrown if the address is missing, empty, not numeric, or outside the valid range 1..10239.
     /// </exception>
     internal static int GetAddress(string? addressElementValue)
     {
         if (!string.IsNullOrWhiteSpace(addressElementValue))
-        {
             if (int.TryParse(addressElementValue, out var address) && address is >= 1 and <= 10239)
                 return address;
-        }
 
         throw new ArgumentOutOfRangeException(
             nameof(addressElementValue),
@@ -115,7 +114,7 @@ internal static class LocoDecoderUtils
     }
 
     /// <summary>
-    /// Resolves the decoder direction from train direction and vehicle orientation.
+    ///     Resolves the decoder direction from train direction and vehicle orientation.
     /// </summary>
     internal static VehicleDirection ResolveDecoderDirection(
         TrainDirection trainDirection,
@@ -132,23 +131,21 @@ internal static class LocoDecoderUtils
         };
 
         if (orientation == VehicleOrientation.Reverse)
-        {
             decoderDirection = decoderDirection == VehicleDirection.Forward
                 ? VehicleDirection.Backward
                 : VehicleDirection.Forward;
-        }
 
         return decoderDirection;
     }
 
     /// <summary>
-    /// Parses all <c>&lt;function&gt;</c> entries from a decoder <c>&lt;functiontable&gt;</c>.
-    /// Maps attribute <c>no</c> to a dedicated field, keeps attribute <c>type</c>
-    /// as an open string value and stores all remaining attributes as key/value pairs.
+    ///     Parses all <c>&lt;function&gt;</c> entries from a decoder <c>&lt;functiontable&gt;</c>.
+    ///     Maps attribute <c>no</c> to a dedicated field, keeps attribute <c>type</c>
+    ///     as an open string value and stores all remaining attributes as key/value pairs.
     /// </summary>
     /// <param name="functionTableElement">The decoder <c>functiontable</c> element.</param>
     /// <returns>
-    /// Parsed function entries. Invalid entries without numeric <c>no</c> are skipped.
+    ///     Parsed function entries. Invalid entries without numeric <c>no</c> are skipped.
     /// </returns>
     internal static List<VehicleFunctions> GetFunctions(XElement? functionTableElement)
     {
@@ -213,10 +210,14 @@ internal static class LocoDecoderUtils
     }
 
     private static bool HasFunctionType(VehicleFunctions function, string expectedType)
-        => string.Equals(function.Type, expectedType, StringComparison.OrdinalIgnoreCase);
+    {
+        return string.Equals(function.Type, expectedType, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string GetAttributeOrEmpty(VehicleFunctions function, string attributeName)
-        => GetAttributeOrDefault(function, attributeName, string.Empty);
+    {
+        return GetAttributeOrDefault(function, attributeName, string.Empty);
+    }
 
     private static string GetAttributeOrDefault(VehicleFunctions function, string attributeName, string defaultValue)
     {
@@ -242,45 +243,45 @@ internal static class LocoDecoderUtils
 }
 
 /// <summary>
-    /// Represents a generic decoder function parsed from <c>&lt;functiontable&gt;</c>.
-    /// </summary>
-    /// <param name="Number">Function number from attribute <c>no</c>.</param>
-    /// <param name="Type">Function type from attribute <c>type</c>.</param>
-    /// <param name="Attributes">All remaining attributes as key/value pairs.</param>
-    public readonly record struct VehicleFunctions(
-        int Number,
-        string Type,
-        IReadOnlyList<KeyValuePair<string, string>> Attributes);
+///     Represents a generic decoder function parsed from <c>&lt;functiontable&gt;</c>.
+/// </summary>
+/// <param name="Number">Function number from attribute <c>no</c>.</param>
+/// <param name="Type">Function type from attribute <c>type</c>.</param>
+/// <param name="Attributes">All remaining attributes as key/value pairs.</param>
+public readonly record struct VehicleFunctions(
+    int Number,
+    string Type,
+    IReadOnlyList<KeyValuePair<string, string>> Attributes);
 
-    /// <summary>
-    /// Represents a sound function parsed from <c>&lt;functiontable&gt;</c>.
-    /// </summary>
-    /// <param name="FunctionNumber">LocoDecoder function number.</param>
-    /// <param name="Description">Human-readable description.</param>
-    /// <param name="Actuation">Actuation mode (e.g. toggle, momentary).</param>
-    /// <param name="Visible">Whether this function is shown in the UI.</param>
-    /// <param name="Image">Optional image identifier for the UI.</param>
-    public readonly record struct SoundFunction(
-        int FunctionNumber,
-        string Description,
-        string Actuation,
-        bool Visible,
-        string Image);
+/// <summary>
+///     Represents a sound function parsed from <c>&lt;functiontable&gt;</c>.
+/// </summary>
+/// <param name="FunctionNumber">LocoDecoder function number.</param>
+/// <param name="Description">Human-readable description.</param>
+/// <param name="Actuation">Actuation mode (e.g. toggle, momentary).</param>
+/// <param name="Visible">Whether this function is shown in the UI.</param>
+/// <param name="Image">Optional image identifier for the UI.</param>
+public readonly record struct SoundFunction(
+    int FunctionNumber,
+    string Description,
+    string Actuation,
+    bool Visible,
+    string Image);
 
-    /// <summary>
-    /// Represents a decoder function that is neither a headlight, sound nor auto-coupling function,
-    /// as parsed from <c>&lt;functiontable&gt;</c>.
-    /// </summary>
-    /// <param name="FunctionNumber">LocoDecoder function number.</param>
-    /// <param name="Type">Raw function type string from the configuration.</param>
-    /// <param name="Description">Human-readable description.</param>
-    /// <param name="Actuation">Actuation mode (e.g. toggle, momentary).</param>
-    /// <param name="Visible">Whether this function is shown in the UI.</param>
-    /// <param name="Image">Optional image identifier for the UI.</param>
-    public readonly record struct OtherFunction(
-        int FunctionNumber,
-        string Type,
-        string Description,
-        string Actuation,
-        bool Visible,
-        string Image);
+/// <summary>
+///     Represents a decoder function that is neither a headlight, sound nor auto-coupling function,
+///     as parsed from <c>&lt;functiontable&gt;</c>.
+/// </summary>
+/// <param name="FunctionNumber">LocoDecoder function number.</param>
+/// <param name="Type">Raw function type string from the configuration.</param>
+/// <param name="Description">Human-readable description.</param>
+/// <param name="Actuation">Actuation mode (e.g. toggle, momentary).</param>
+/// <param name="Visible">Whether this function is shown in the UI.</param>
+/// <param name="Image">Optional image identifier for the UI.</param>
+public readonly record struct OtherFunction(
+    int FunctionNumber,
+    string Type,
+    string Description,
+    string Actuation,
+    bool Visible,
+    string Image);

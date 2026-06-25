@@ -91,6 +91,66 @@
             </state>
         </states>
     </accessory>
+    <!-- Normale Weiche mit einem Antrieb (Basis-Protokoll, Aktivierungszeit 500 ms) -->
+    <accessory uid="cb5275e6-8b00-4d7d-b090-25a6db69624e" type="turnout" subtype="left" interlocking="Bi" name="W101" >
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state name="straight" description="gerade">
+                <decoder address="13" outputvalue="1" />
+            </state>
+            <state name="diverging" description="abzweigend">
+                <decoder address="13" outputvalue="0"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Normale Weiche mit einem Antrieb (Basis-Protokoll, Aktivierungszeit 500 ms) -->
+    <accessory uid="2b3c4d5e-6f70-4812-9304-0b1c2d3e4f5a" type="turnout" subtype="left" interlocking="Bi" name="W102" >
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state name="straight" description="gerade">
+                <decoder address="14" outputvalue="1" />
+            </state>
+            <state name="diverging" description="abzweigend">
+                <decoder address="14" outputvalue="0"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Normale Weiche mit einem Antrieb (Basis-Protokoll, Aktivierungszeit 500 ms) -->
+    <accessory uid="3c4d5e6f-7081-4923-a405-1c2d3e4f5a6b" type="turnout" subtype="left" interlocking="Bi" name="W103" >
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state name="straight" description="gerade">
+                <decoder address="15" outputvalue="1" />
+            </state>
+            <state name="diverging" description="abzweigend">
+                <decoder address="15" outputvalue="0"/>
+            </state>
+        </states>
+    </accessory>
+    <!-- Normale Weiche mit einem Antrieb (Basis-Protokoll, Aktivierungszeit 500 ms) -->
+    <accessory uid="4d5e6f70-8192-4a34-b506-2d3e4f5a6b7c" type="turnout" subtype="left" interlocking="Bi" name="W104" >
+        <decoder>
+            <protocol>DCC</protocol>
+            <activationtime>500</activationtime>
+        </decoder>
+        <states>
+            <state name="straight" description="gerade">
+                <decoder address="60" outputvalue="1" />
+            </state>
+            <state name="diverging" description="abzweigend">
+                <decoder address="60" outputvalue="0"/>
+            </state>
+        </states>
+    </accessory>
     <!-- Signal Typ SBB-L (Basis-Protokoll, Aktivierungszeit 500 ms, keine Pause zwischen Schaltvorgängen) -->
     <!-- Die Idee wäre, die beiden Ausgänge bei Adresse 203 alternativ für Hilfssignal/Besetzte Einfahrt zu nutzen
      mit der aktuell programmierten "Flip-Flop" Funktion bei Dauerschaltung lassn sich jedoch nicht beide ausschalten.

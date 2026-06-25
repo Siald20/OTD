@@ -18,17 +18,19 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 namespace OTD.HardwareControl;
 
 internal static class FeedbackTests
 {
     /// <summary>
-    /// Führt einen interaktiven Einzelmodul-Test aus (Connect, Snapshot, Live-Monitoring).
+    ///     Führt einen interaktiven Einzelmodul-Test aus (Connect, Snapshot, Live-Monitoring).
     /// </summary>
     public static async Task RunSingleModuleAsync(
         Guid moduleUid,
@@ -42,7 +44,8 @@ internal static class FeedbackTests
         Console.WriteLine("\n[1/3] Verbinde...");
         await module.ConnectAsync(cancellationToken).ConfigureAwait(false);
         var isReady = await module.EnsureOperationalAsync(cancellationToken).ConfigureAwait(false);
-        Console.WriteLine($"      Verbunden: {module.IsConnected}  |  Operational: {isReady}  |  Sensoren: {module.SensorCount}");
+        Console.WriteLine(
+            $"      Verbunden: {module.IsConnected}  |  Operational: {isReady}  |  Sensoren: {module.SensorCount}");
 
         Console.WriteLine("\n[2/3] Sensor-Snapshot abfragen...");
         var snapshot = await module.QueryAllSensorsAsync(cancellationToken).ConfigureAwait(false);
@@ -71,7 +74,7 @@ internal static class FeedbackTests
     }
 
     /// <summary>
-    /// Startet eine Diagnose mit mehreren Trigger-Szenarien und vergleicht eingehende Rückmeldungen.
+    ///     Startet eine Diagnose mit mehreren Trigger-Szenarien und vergleicht eingehende Rückmeldungen.
     /// </summary>
     public static async Task RunEnsureOperationalTriggerTestAsync(
         Guid stationUid,
@@ -121,7 +124,7 @@ internal static class FeedbackTests
     }
 
     /// <summary>
-    /// Führt ein einzelnes Trigger-Szenario aus und protokolliert die erste/gesamt empfangene Rückmeldung.
+    ///     Führt ein einzelnes Trigger-Szenario aus und protokolliert die erste/gesamt empfangene Rückmeldung.
     /// </summary>
     private static async Task RunScenarioAsync(
         string title,
@@ -200,7 +203,7 @@ internal static class FeedbackTests
     }
 
     /// <summary>
-    /// Sendet einen kurzen Accessory-Impuls (On -> Off) als deterministischen Testtrigger.
+    ///     Sendet einen kurzen Accessory-Impuls (On -> Off) als deterministischen Testtrigger.
     /// </summary>
     private static async Task SendAccessoryPulseAsync(
         CommandStation commandStation,
@@ -228,7 +231,7 @@ internal static class FeedbackTests
     }
 
     /// <summary>
-    /// Gibt einen kompakten Sensor-Snapshot aus und listet aktive Sensoren explizit auf.
+    ///     Gibt einen kompakten Sensor-Snapshot aus und listet aktive Sensoren explizit auf.
     /// </summary>
     private static void PrintSnapshot(
         Guid moduleUid,
@@ -254,11 +257,11 @@ internal static class FeedbackTests
     }
 
     /// <summary>
-    /// Wartet bis Tastendruck oder Abbruchsignal eintritt.
+    ///     Wartet bis Tastendruck oder Abbruchsignal eintritt.
     /// </summary>
     private static Task WaitForKeyOrCancelAsync(CancellationToken cancellationToken)
     {
-        var keyTask = Task.Run(() => Console.ReadKey(intercept: true), cancellationToken);
+        var keyTask = Task.Run(() => Console.ReadKey(true), cancellationToken);
         var cancelTask = Task.Delay(Timeout.Infinite, cancellationToken);
         return Task.WhenAny(keyTask, cancelTask);
     }

@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 namespace OTD.HardwareControl.Drivers;
 
 /// <summary>
@@ -56,6 +57,7 @@ internal static class LoDiProtocol
     ///     Length = Bytes from PacketType to the last Payload byte (excl. length bytes)
     /// </summary>
     public const int TcpHeaderLength = 2; // Length bytes (High + Low)
+
     public const int MinUdpPacketLength = 3; // PacketType + Command + PacketNumber
     public const int MinTcpPacketLength = 5; // Length(2) + PacketType + Command + PacketNumber
 
@@ -77,6 +79,70 @@ internal static class LoDiProtocol
 
     /// <summary>Nack: REQ packet is defective, request cannot be processed</summary>
     public const byte PacketTypeNack = 0x3F;
+
+    // -------------------------------------------------------------------------
+    // Payload flags and values
+    // -------------------------------------------------------------------------
+
+    /// <summary>Device type: LoDi-Rektor (API LoDi-Rektor p. 1)</summary>
+    public const byte DeviceTypeLoDiRektor = 0x03;
+
+    /// <summary>Device type: LoDi-S88-Commander LX (API S88 p. 1)</summary>
+    public const byte DeviceTypeLoDiS88Commander = 0x0A;
+
+    // -------------------------------------------------------------------------
+    // Diagnostic helper methods
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Returns the readable name of a command code (for diagnostic log).
+    ///     Unknown codes are returned as "Unknown".
+    /// </summary>
+    public static string GetCommandName(byte command)
+    {
+        return command switch
+        {
+            Commands.General.GetVersion => "GetVersion",
+            Commands.General.CloseConnection => "CloseConnection",
+            Commands.General.SetWatchdog => "SetWatchdog",
+            Commands.General.DeviceConfigGet => "DeviceConfigGet",
+            Commands.Booster.On => "BoosterOn",
+            Commands.Booster.Status => "BoosterStatus",
+            Commands.Booster.Diagnostics => "BoosterDiagnostics",
+            Commands.Booster.ConfigGet => "GetBoosterConfig",
+            Commands.Decoder.LocoRelease => "DecoderLocoRelease",
+            Commands.Decoder.LocoSpeed => "DecoderLocoSpeed",
+            Commands.Decoder.LocoFunction => "DecoderLocoFunction",
+            Commands.Decoder.LocoBinary => "DecoderLocoBinary",
+            Commands.Decoder.AccessoryState => "DecoderAccessoryState",
+            Commands.Decoder.LocoCv => "DecoderLocoCv",
+            Commands.Decoder.AccessoryCv => "DecoderAccessoryCv",
+            // 0x30/0x31 werden je nach Gerätefamilie unterschiedlich interpretiert.
+            Commands.Cv.ReadServiceMode => "0x30 (CvReadServiceMode / S88QueryModules)",
+            Commands.Cv.WriteServiceMode => "0x31 (CvWriteServiceMode / S88GetContactState)",
+            Commands.Cv.ReadPom => "CvReadPom",
+            Commands.Cv.WritePom => "CvWritePom",
+            Commands.S88.SetFeedbackUpdatesActive => "S88SetFeedbackUpdatesActive",
+            Commands.S88.DeviceConfigGet => "S88DeviceConfigGet",
+            _ => "Unknown"
+        };
+    }
+
+    /// <summary>
+    ///     Returns the readable name of a packet type (for diagnostic log).
+    /// </summary>
+    public static string GetPacketTypeName(byte packetType)
+    {
+        return packetType switch
+        {
+            PacketTypeRequest => "REQ",
+            PacketTypeAck => "ACK",
+            PacketTypeEvent => "EVT",
+            PacketTypeBusy => "BUSY",
+            PacketTypeNack => "NACK",
+            _ => "UNKNOWN"
+        };
+    }
 
     // -------------------------------------------------------------------------
     // Commands (Command Codes, API General + Rektor + S88-Commander)
@@ -165,68 +231,13 @@ internal static class LoDiProtocol
             /// <summary>S88 QueryModules: Query S88 modules (0x30, opcode range overlaps with CV commands on other devices)</summary>
             public const byte QueryModules = 0x30;
 
-            /// <summary>S88 GetContactState: Query contact state or S88 status operations (0x31, opcode range overlaps with CV commands on other devices)</summary>
+            /// <summary>
+            ///     S88 GetContactState: Query contact state or S88 status operations (0x31, opcode range overlaps with CV
+            ///     commands on other devices)
+            /// </summary>
             public const byte GetContactState = 0x31;
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Payload flags and values
-    // -------------------------------------------------------------------------
-
-    /// <summary>Device type: LoDi-Rektor (API LoDi-Rektor p. 1)</summary>
-    public const byte DeviceTypeLoDiRektor = 0x03;
-
-    /// <summary>Device type: LoDi-S88-Commander LX (API S88 p. 1)</summary>
-    public const byte DeviceTypeLoDiS88Commander = 0x0A;
-
-    // -------------------------------------------------------------------------
-    // Diagnostic helper methods
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    ///     Returns the readable name of a command code (for diagnostic log).
-    ///     Unknown codes are returned as "Unknown".
-    /// </summary>
-    public static string GetCommandName(byte command) => command switch
-    {
-        Commands.General.GetVersion          => "GetVersion",
-        Commands.General.CloseConnection     => "CloseConnection",
-        Commands.General.SetWatchdog         => "SetWatchdog",
-        Commands.General.DeviceConfigGet     => "DeviceConfigGet",
-        Commands.Booster.On                  => "BoosterOn",
-        Commands.Booster.Status              => "BoosterStatus",
-        Commands.Booster.Diagnostics         => "BoosterDiagnostics",
-        Commands.Booster.ConfigGet           => "GetBoosterConfig",
-        Commands.Decoder.LocoRelease         => "DecoderLocoRelease",
-        Commands.Decoder.LocoSpeed           => "DecoderLocoSpeed",
-        Commands.Decoder.LocoFunction        => "DecoderLocoFunction",
-        Commands.Decoder.LocoBinary          => "DecoderLocoBinary",
-        Commands.Decoder.AccessoryState      => "DecoderAccessoryState",
-        Commands.Decoder.LocoCv              => "DecoderLocoCv",
-        Commands.Decoder.AccessoryCv         => "DecoderAccessoryCv",
-        // 0x30/0x31 werden je nach Gerätefamilie unterschiedlich interpretiert.
-        Commands.Cv.ReadServiceMode         => "0x30 (CvReadServiceMode / S88QueryModules)",
-        Commands.Cv.WriteServiceMode        => "0x31 (CvWriteServiceMode / S88GetContactState)",
-        Commands.Cv.ReadPom                 => "CvReadPom",
-        Commands.Cv.WritePom                => "CvWritePom",
-        Commands.S88.SetFeedbackUpdatesActive => "S88SetFeedbackUpdatesActive",
-        Commands.S88.DeviceConfigGet         => "S88DeviceConfigGet",
-        _                                   => "Unknown"
-    };
-
-    /// <summary>
-    ///     Returns the readable name of a packet type (for diagnostic log).
-    /// </summary>
-    public static string GetPacketTypeName(byte packetType) => packetType switch
-    {
-        PacketTypeRequest => "REQ",
-        PacketTypeAck     => "ACK",
-        PacketTypeEvent   => "EVT",
-        PacketTypeBusy    => "BUSY",
-        PacketTypeNack    => "NACK",
-        _                 => "UNKNOWN"
-    };
 }
 
 /// <summary>
@@ -253,6 +264,7 @@ internal static class LoDiDecoderProtocol
     public const byte M3 = 0x30;
 
     public static byte Build(byte protocolMain, byte protocolSub)
-        => (byte)(((protocolSub & 0x0F) << 4) | (protocolMain & 0x0F));
+    {
+        return (byte)(((protocolSub & 0x0F) << 4) | (protocolMain & 0x0F));
+    }
 }
-

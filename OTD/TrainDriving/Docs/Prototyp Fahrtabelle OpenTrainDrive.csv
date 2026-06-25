@@ -1,0 +1,18 @@
+Position [cm],ID,Abschnitt (Block),Strecke [cm],Sensor,Sensor Status,Signal,Signal Status,Geschwindigkeit V [km/h],Aktion,Bemerkung
+0,1,SA1,5,RS1,(ist aktiv),,,20,Abfahrt,Zug steht nach Halt in Streckenabschnitt SA1. Falls aus vorheriger Fahrt keine Informationen zur geltenden Vmax vorhanden: Beginn Beschleunigung bis max. Release-Geschwindigkeit 20 km/h
+5,2,SA1,10,,(ist aktiv),S1,Fahrbegriff Im2,40,Vorbeifahrt bei Signal,"Beschleunigen auf 40 km/h. Falls Position aus vorheriger Fahrt nicht bekannt ist: Weiterfahrt mit Release-Geschwindigkeit bis zum ersten Positionsabgleich, erst dann auf angegebene Geschwindigkeit beschleunigen"
+15,3,W2,40,RS2,wird aktiv,,,,Positionsabgleich,Beginn Überfahrt Weiche W2
+55,4,W1,40,RS3,wird aktiv,,,,Positionsabgleich,Beginn Überfahrt Weiche W1
+95,5,SA2,175,RS4,wird aktiv,,,,Positionsabgleich,Beginn Überfahrt Streckenabschnitt SA2
+-,6,-,-,RS3,wird inaktiv,,,60,Impuls Geschwindigkeitsänderung,Weiche W1 nach Vorbeifahrt Zugschluss frei: Beschleunigen auf 60 km/h. Dieser Trigger darf die Weiterfahrt in davor liegende Abschnitte (z.B. Sensor RS5) nicht blockieren. Ebenso darf er eventuell davor liegende Geschwindigkeitsreduktionen (z.B. Abbremsen für Halt bei Signal S3) nicht übersteuern.
+270,7,SA2,10,,(ist aktiv),S2,Fahrbegriff Im1,80,Vorbeifahrt an Signal,"Beschleunigen auf 80 km/h, jedoch erst nach Vorbeifahrt des ganzen Zuges (Punkt berechnen)"
+280,8,W3,60,RS5,wird aktiv,,,,Positionsabgleich,Beginn Überfahrt Weiche W3
+340,9,SA3-1,100,RS6,wird aktiv,,,,Positionsabgleich,Beginn Überfahrt Streckenabschnitt SA3-1
+440,10,SA3-2,90,RS6,(ist aktiv),,,,"Auslösen Events:
+- Wenn Zug nach Aktivierung Sensor S6 100 cm gefahren: SA3-2 besetzt melden
+- Wenn Zug nach Aktivierung Sensor S6 100 cm + Zuglänge gefahren: SA3-1 frei melden","Beginn Überfahrt Streckenabschnitt SA3-2: Hier wird die Belegung nicht durch einen Sensor ausgelöst, sondern via Event aufgrund der berechneten Zugposition."
+540,11,SA3-2,10,,(ist aktiv),S3,Fahrbegriff Im3,60,Vorbeifahrt an Signal,Beim Signal müssen 60 km/h erreicht sein
+550,12,W4,60,RS7,wird aktiv,,,,Positionsabgleich,Beginn Überfahrt Weiche W4
+610,13,W5,60,RS8,wird aktiv,,,,Positionsabgleich,Beginn Überfahrt Weiche W5
+670,14,SA4-1,180,RS9,wird aktiv,,,,Positionsabgleich,Beginn Überfahrt Streckenabschnitt SA4-1
+850,15,SA4-1,30,RS9,(ist aktiv),S4,Halt,0,Abbremsen vor Signal,Nach 180 cm Halt vor Einfahrtsignal. Reststrecke bis Ende Sensor-Strecke für Weiterfahrt merken für Belegung SA4-2

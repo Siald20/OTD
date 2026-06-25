@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -27,38 +28,20 @@ using System.Xml.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides low-level locomotive decoder control.
+///     Provides low-level locomotive decoder control.
 /// </summary>
 public class LocoDecoder : ILocoDecoder
 {
-    private readonly List<ICommandStation> _subscribedCommandStations = [];
     private readonly SemaphoreSlim _commandLock = new(1, 1);
     private readonly Dictionary<int, LocoDecoderFunctionState> _functionStates = [];
-
-    /// <inheritdoc/>
-    public int Address { get; }
-
-    /// <inheritdoc/>
-    public LocoDecoderProtocol Protocol { get; }
-
-    /// <inheritdoc/>
-    public VehicleDirection Direction { get; private set; } = VehicleDirection.Undefined;
-
-    /// <inheritdoc/>
-    public int TotalSpeedSteps { get; }
-
-    /// <inheritdoc/>
-    public int SpeedStep { get; private set; }
-
-    /// <inheritdoc/>
-    public IReadOnlyList<VehicleFunctions> Functions { get; }
+    private readonly List<ICommandStation> _subscribedCommandStations = [];
 
     /// <summary>
-    /// Creates a decoder instance from the given decoder XML configuration element.
-    /// To complete setup, subscribe one or more command stations via <see cref="SubscribeCommandStationAsync"/>.
+    ///     Creates a decoder instance from the given decoder XML configuration element.
+    ///     To complete setup, subscribe one or more command stations via <see cref="SubscribeCommandStationAsync" />.
     /// </summary>
     /// <param name="decoderConfiguration">The <c>&lt;decoder&gt;</c> XML element from the vehicle configuration.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="decoderConfiguration"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="decoderConfiguration" /> is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown if required configuration elements are missing or invalid.</exception>
     public LocoDecoder(XElement decoderConfiguration)
     {
@@ -82,7 +65,8 @@ public class LocoDecoder : ILocoDecoder
             TotalSpeedSteps = LocoDecoderUtils.GetSpeedSteps(speedStepsValue);
             Address = LocoDecoderUtils.GetAddress(addressValue);
             // ToDo: Prüfen, ob Betrieb ohne konfigurierte Funktionen geht.
-            Functions = LocoDecoderUtils.GetFunctions(decoderConfiguration.Element("functiontable") ?? new XElement("functiontable"));
+            Functions = LocoDecoderUtils.GetFunctions(decoderConfiguration.Element("functiontable") ??
+                                                      new XElement("functiontable"));
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
         {
@@ -91,8 +75,27 @@ public class LocoDecoder : ILocoDecoder
         }
     }
 
-    /// <inheritdoc/>
-    public async Task SubscribeCommandStationAsync(ICommandStation commandStation, CancellationToken cancellationToken = default)
+    /// <inheritdoc />
+    public int Address { get; }
+
+    /// <inheritdoc />
+    public LocoDecoderProtocol Protocol { get; }
+
+    /// <inheritdoc />
+    public VehicleDirection Direction { get; private set; } = VehicleDirection.Undefined;
+
+    /// <inheritdoc />
+    public int TotalSpeedSteps { get; }
+
+    /// <inheritdoc />
+    public int SpeedStep { get; private set; }
+
+    /// <inheritdoc />
+    public IReadOnlyList<VehicleFunctions> Functions { get; }
+
+    /// <inheritdoc />
+    public async Task SubscribeCommandStationAsync(ICommandStation commandStation,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(commandStation);
 
@@ -104,15 +107,15 @@ public class LocoDecoder : ILocoDecoder
             // Callback für Statusmeldungen (Fahrbefehle und Funktionen) von der Zentrale registrieren
             if (commandStation is CommandStation concreteStation)
                 concreteStation.RegisterDecoder(Address, this);
-            Console.WriteLine($"Zentrale '{commandStation.GetType().Name}' abonniert. Insgesamt {_subscribedCommandStations.Count} abonniert.");
+            Console.WriteLine(
+                $"Zentrale '{commandStation.GetType().Name}' abonniert. Insgesamt {_subscribedCommandStations.Count} abonniert.");
 
             try
             {
-
                 // // Geschwindigkeit und Fahrtrichtung abfragen (Antworten werden über Callback verarbeitet)
                 Console.WriteLine($"Frage aktuelle Geschwindigkeit von der Zentrale ab (Adresse {Address})...");
                 await commandStation.QueryLocoSpeedDirectionAsync(Address, cancellationToken).ConfigureAwait(false);
-      
+
                 // // alle für das Fahrzeug konfigurierten Funktionen abfragen (Antworten werden über Callback verarbeitet)
                 // var functionNumbers = Functions
                 //     .Select(f => f.Number)
@@ -129,8 +132,9 @@ public class LocoDecoder : ILocoDecoder
         }
     }
 
-    /// <inheritdoc/>
-    public Task UnsubscribeCommandStationAsync(ICommandStation? commandStation, CancellationToken cancellationToken = default)
+    /// <inheritdoc />
+    public Task UnsubscribeCommandStationAsync(ICommandStation? commandStation,
+        CancellationToken cancellationToken = default)
     {
         if (commandStation is null)
             return Task.CompletedTask;
@@ -140,18 +144,67 @@ public class LocoDecoder : ILocoDecoder
             // Registrierung der Status-Callbacks beenden
             if (commandStation is CommandStation concreteStation)
                 concreteStation.UnregisterDecoder(Address);
-            Console.WriteLine($"Zentrale '{commandStation.GetType().Name}' abgemeldet. Noch {_subscribedCommandStations.Count} abonniert.");
+            Console.WriteLine(
+                $"Zentrale '{commandStation.GetType().Name}' abgemeldet. Noch {_subscribedCommandStations.Count} abonniert.");
         }
 
         return Task.CompletedTask;
     }
 
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public IReadOnlyList<ICommandStation> SubscribedCommandStations => _subscribedCommandStations;
 
+    /// <inheritdoc />
+    public async Task SetFunctionStateAsync(
+        int function,
+        LocoDecoderFunctionState state,
+        CancellationToken cancellationToken = default)
+    {
+        if (state is LocoDecoderFunctionState.Undefined)
+            throw new ArgumentOutOfRangeException(nameof(state), state,
+                "FunctionState.Undefined: kein gültiger Wert zum Schalten.");
+
+        await _commandLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // Send function command to all subscribed command stations
+            foreach (var station in _subscribedCommandStations)
+                await station.SetLocoFunctionAsync(Address, function, state == LocoDecoderFunctionState.On,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            _functionStates[function] = state;
+            Console.WriteLine(
+                $"Funktion {function} {(state == LocoDecoderFunctionState.On ? "AN" : "AUS")} an Adresse {Address} gesendet.");
+        }
+        finally
+        {
+            _commandLock.Release();
+        }
+    }
+
+    /// <inheritdoc />
+    public LocoDecoderFunctionState GetFunctionState(int functionNumber)
+    {
+        return _functionStates.GetValueOrDefault(functionNumber, LocoDecoderFunctionState.Undefined);
+    }
+
+    /// <inheritdoc />
+    public async Task ActivateFunctionAsync(
+        int function,
+        int timeout,
+        CancellationToken cancellationToken = default)
+    {
+        await SetFunctionStateAsync(function, LocoDecoderFunctionState.On, cancellationToken).ConfigureAwait(false);
+        await Task.Delay(TimeSpan.FromMilliseconds(timeout), cancellationToken).ConfigureAwait(false);
+        await SetFunctionStateAsync(function, LocoDecoderFunctionState.Off, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public event EventHandler<LocoStateChangedEventArgs>? StateChanged;
+
     /// <summary>
-    /// Sends the specified speed step and direction to all subscribed command stations.
+    ///     Sends the specified speed step and direction to all subscribed command stations.
     /// </summary>
     /// <param name="direction">Target decoder direction.</param>
     /// <param name="speedStep">Target speed step (0 = halt).</param>
@@ -170,9 +223,7 @@ public class LocoDecoder : ILocoDecoder
         {
             // Send drive command to all subscribed command stations.
             foreach (var station in _subscribedCommandStations)
-            {
                 await station.SetLocoSpeedAsync(Address, speedStep, direction, cancellationToken).ConfigureAwait(false);
-            }
             Console.WriteLine($"Fahrbefehl {direction} mit SpeedStep {speedStep} an Adresse {Address} gesendet.");
 
             Direction = direction;
@@ -185,7 +236,7 @@ public class LocoDecoder : ILocoDecoder
     }
 
     /// <summary>
-    /// Sends emergency stop to all subscribed command stations.
+    ///     Sends emergency stop to all subscribed command stations.
     /// </summary>
     protected internal async Task EmergencyStopAsync(CancellationToken cancellationToken = default)
     {
@@ -194,9 +245,7 @@ public class LocoDecoder : ILocoDecoder
         {
             // Send an emergency stop to all subscribed command stations
             foreach (var station in _subscribedCommandStations)
-            {
                 await station.EmergencyStopAsync(Address, cancellationToken).ConfigureAwait(false);
-            }
 
             SpeedStep = 0;
         }
@@ -206,55 +255,8 @@ public class LocoDecoder : ILocoDecoder
         }
     }
 
-    /// <inheritdoc/>
-    public async Task SetFunctionStateAsync(
-        int function,
-        LocoDecoderFunctionState state,
-        CancellationToken cancellationToken = default)
-    {
-        if (state is LocoDecoderFunctionState.Undefined)
-            throw new ArgumentOutOfRangeException(nameof(state), state,
-                "FunctionState.Undefined: kein gültiger Wert zum Schalten.");
-
-        await _commandLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            // Send function command to all subscribed command stations
-            foreach (var station in _subscribedCommandStations)
-            {
-                await station.SetLocoFunctionAsync(Address, function, state == LocoDecoderFunctionState.On,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            _functionStates[function] = state;
-            Console.WriteLine($"Funktion {function} {(state == LocoDecoderFunctionState.On ? "AN" : "AUS")} an Adresse {Address} gesendet.");
-        }
-        finally
-        {
-            _commandLock.Release();
-        }
-    }
-
-    /// <inheritdoc/>
-    public LocoDecoderFunctionState GetFunctionState(int functionNumber)
-        => _functionStates.GetValueOrDefault(functionNumber, LocoDecoderFunctionState.Undefined);
-
-    /// <inheritdoc/>
-    public async Task ActivateFunctionAsync(
-        int function,
-        int timeout,
-        CancellationToken cancellationToken = default)
-    {
-        await SetFunctionStateAsync(function, LocoDecoderFunctionState.On, cancellationToken).ConfigureAwait(false);
-        await Task.Delay(TimeSpan.FromMilliseconds(timeout), cancellationToken).ConfigureAwait(false);
-        await SetFunctionStateAsync(function, LocoDecoderFunctionState.Off, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc/>
-    public event EventHandler<LocoStateChangedEventArgs>? StateChanged;
-
     /// <summary>
-    /// Called by the command station to report drive and function command updates.
+    ///     Called by the command station to report drive and function command updates.
     /// </summary>
     internal void RaiseStateChanged(LocoStateChangedEventArgs args)
     {
@@ -263,7 +265,7 @@ public class LocoDecoder : ILocoDecoder
             SpeedStep = args.SpeedStep.Value;
             Direction = args.Direction;
         }
-        
+
         if (args is { FunctionNumber: not null, FunctionStateValue: not null })
             _functionStates[args.FunctionNumber.Value] = args.FunctionStateValue.Value;
 

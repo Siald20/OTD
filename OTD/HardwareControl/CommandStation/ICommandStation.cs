@@ -18,7 +18,9 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -141,10 +143,12 @@ public interface ICommandStation : IDisposable
     ///     This is useful to initialize a decoder with the real station state.
     /// </summary>
     /// <param name="address">DCC locomotive address (1-9999).</param>
-    /// <param name="functionList">List of function numbers to query.
-    ///     If empty, no functions are queried.</param>
+    /// <param name="functionList">
+    ///     List of function numbers to query.
+    ///     If empty, no functions are queried.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task QueryLocoFunctionsStateAsync(int address, System.Collections.Generic.IReadOnlyList<int> functionList,
+    Task QueryLocoFunctionsStateAsync(int address, IReadOnlyList<int> functionList,
         CancellationToken cancellationToken = default);
 
     /// <summary>

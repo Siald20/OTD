@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -27,6 +28,8 @@ namespace OTD.HardwareControl.Test;
 
 internal static class TestOperationFlowBi
 {
+    private const int SpeedStepKmH = 5;
+
     // verwendete Weichen
     private static Accessory? _turnoutW1;
     private static Accessory? _dkwW2;
@@ -42,7 +45,6 @@ internal static class TestOperationFlowBi
     private static Train? _trainBR193;
 
     private static readonly SemaphoreSlim EmergencyStopGate = new(1, 1);
-    private const int SpeedStepKmH = 5;
     private static readonly TimeSpan SpeedStepInterval = TimeSpan.FromSeconds(1);
 
     public static void Run(CommandStation commandStation, Feedback feedbackModule)
@@ -218,7 +220,7 @@ internal static class TestOperationFlowBi
         Console.WriteLine("[Feedback] Warte auf Sensor 31 (inaktiv)...");
         await WaitForSensorStateAsync(_feedbackModule, 31, RailSensorState.Inactive, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 31 inaktiv - BR193 hat W1 verlassen!");
-        
+
         // Warten auf Sensor-Sequenz: Sensor 54 aktiv -> Sensor 52 aktiv -> Sensor 54 inaktiv
         // => Warteun auf Ankunft VT 612 in Bi2, sicherstellen, dass W5/6 frei sind.
         Console.WriteLine("[Feedback] Warte auf Sensor 54 (aktiv)...");
@@ -251,7 +253,7 @@ internal static class TestOperationFlowBi
 
         // bremsen und anhalten
         await DriveBR193Async(0);
-        
+
         // sicherstellen, dass W5/6 frei ist.
         Console.WriteLine("[Feedback] Warte auf Sensor 54 (inaktiv)...");
         await WaitForSensorStateAsync(_feedbackModule, 54, RailSensorState.Inactive, CancellationToken.None);
@@ -287,7 +289,7 @@ internal static class TestOperationFlowBi
     }
 
     /// <summary>
-    /// Setzt die Zuggeschwindigkeit in gleichmäßigen Schritten (Beschleunigen und Abbremsen).
+    ///     Setzt die Zuggeschwindigkeit in gleichmäßigen Schritten (Beschleunigen und Abbremsen).
     /// </summary>
     private static async Task SetSpeedGraduallyAsync(
         Train train,
@@ -310,7 +312,7 @@ internal static class TestOperationFlowBi
         // In festen Schritten bis zur Zielgeschwindigkeit beschleunigen/abbremsen.
         while (currentSpeed != targetSpeed)
         {
-            var nextSpeed = currentSpeed + (direction * stepKmH);
+            var nextSpeed = currentSpeed + direction * stepKmH;
             if ((direction > 0 && nextSpeed > targetSpeed) || (direction < 0 && nextSpeed < targetSpeed))
                 nextSpeed = targetSpeed;
 
@@ -337,7 +339,7 @@ internal static class TestOperationFlowBi
                     continue;
                 }
 
-                var keyInfo = Console.ReadKey(intercept: true);
+                var keyInfo = Console.ReadKey(true);
                 if (keyInfo.Key != ConsoleKey.Spacebar)
                     continue;
 
@@ -355,7 +357,7 @@ internal static class TestOperationFlowBi
         {
             Console.WriteLine("[Safety] SPACE erkannt -> Nothalt fuer VT612 und BR193...");
 
-            var tasks = new List<Task>(capacity: 2);
+            var tasks = new List<Task>(2);
             if (_trainDt612 is not null)
                 tasks.Add(_trainDt612.EmergencyStopAsync());
             if (_trainBR193 is not null)
@@ -387,8 +389,8 @@ internal static class TestOperationFlowBi
     }
 
     /// <summary>
-    /// Wartet, bis ein Sensor einen bestimmten Zustand erreicht.
-    /// Prüft zuerst den Ist-Zustand, sonst wird auf ein passendes Sensor-Event gewartet.
+    ///     Wartet, bis ein Sensor einen bestimmten Zustand erreicht.
+    ///     Prüft zuerst den Ist-Zustand, sonst wird auf ein passendes Sensor-Event gewartet.
     /// </summary>
     private static async Task WaitForSensorStateAsync(
         Feedback feedbackModule,
@@ -398,10 +400,7 @@ internal static class TestOperationFlowBi
     {
         // Prüfe zunächst den aktuellen Zustand
         var currentState = feedbackModule.GetSensorState(sensorNumber);
-        if (currentState == targetState)
-        {
-            return; // Zielzustand bereits erreicht
-        }
+        if (currentState == targetState) return; // Zielzustand bereits erreicht
 
         // Wenn nicht, registriere einen Event-Handler und warte auf die Änderung
         var tcs = new TaskCompletionSource<bool>();

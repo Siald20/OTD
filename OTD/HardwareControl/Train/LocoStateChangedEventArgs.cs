@@ -18,27 +18,18 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Event data for locomotive state updates from the command station.
-/// Contains either a speed-step/direction update or a function update.
-/// Protocol-independent abstraction for all command stations.
+///     Event data for locomotive state updates from the command station.
+///     Contains either a speed-step/direction update or a function update.
+///     Protocol-independent abstraction for all command stations.
 /// </summary>
 public sealed class LocoStateChangedEventArgs : EventArgs
 {
-    public int Address { get; }
-    public int? SpeedStep { get; }
-    public VehicleDirection Direction { get; }
-    public int? FunctionNumber { get; }
-    public LocoDecoderFunctionState? FunctionStateValue { get; }
-    public bool IsEventPacket { get; }
-
-    public bool HasSpeedUpdate => SpeedStep.HasValue;
-    public bool HasFunctionUpdate => FunctionNumber.HasValue && FunctionStateValue.HasValue;
-
     public LocoStateChangedEventArgs(
         int address,
         int? speedStep,
@@ -54,5 +45,14 @@ public sealed class LocoStateChangedEventArgs : EventArgs
         FunctionStateValue = functionStateValue;
         IsEventPacket = isEventPacket;
     }
-}
 
+    public int Address { get; }
+    public int? SpeedStep { get; }
+    public VehicleDirection Direction { get; }
+    public int? FunctionNumber { get; }
+    public LocoDecoderFunctionState? FunctionStateValue { get; }
+    public bool IsEventPacket { get; }
+
+    public bool HasSpeedUpdate => SpeedStep.HasValue;
+    public bool HasFunctionUpdate => FunctionNumber.HasValue && FunctionStateValue.HasValue;
+}

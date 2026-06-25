@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.IO;
 using System.Linq;
@@ -26,15 +27,15 @@ using System.Xml.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Static helper methods for device configuration loading (XML parsing utilities).
-/// Used by CommandStation and Feedback.
+///     Static helper methods for device configuration loading (XML parsing utilities).
+///     Used by CommandStation and Feedback.
 /// </summary>
 internal static class CommandStationUtils
 {
     private const string ConfigFileName = "commandstations.xml";
 
     /// <summary>
-    /// Returns the default path to commandstations.xml relative to the application base directory.
+    ///     Returns the default path to commandstations.xml relative to the application base directory.
     /// </summary>
     internal static string GetDefaultConfigFilePath()
     {
@@ -43,7 +44,7 @@ internal static class CommandStationUtils
     }
 
     /// <summary>
-    /// Loads and parses an XDocument from the given file path.
+    ///     Loads and parses an XDocument from the given file path.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the file is missing or XML is malformed.</exception>
     internal static XDocument LoadXDocument(string filePath)
@@ -62,7 +63,7 @@ internal static class CommandStationUtils
     }
 
     /// <summary>
-    /// Reads a required string attribute from an XElement.
+    ///     Reads a required string attribute from an XElement.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the attribute is missing or empty.</exception>
     internal static string RequireAttribute(XElement element, string attributeName, string context)
@@ -75,7 +76,7 @@ internal static class CommandStationUtils
     }
 
     /// <summary>
-    /// Parses an optional boolean attribute. Returns <paramref name="defaultValue"/> when absent.
+    ///     Parses an optional boolean attribute. Returns <paramref name="defaultValue" /> when absent.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the value is not a valid boolean.</exception>
     internal static bool ParseBoolAttribute(XElement? element, string attributeName, bool defaultValue)
@@ -94,8 +95,8 @@ internal static class CommandStationUtils
     }
 
     /// <summary>
-    /// Parses an optional integer attribute within an inclusive range.
-    /// Returns <paramref name="defaultValue"/> when absent.
+    ///     Parses an optional integer attribute within an inclusive range.
+    ///     Returns <paramref name="defaultValue" /> when absent.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the value is not a valid integer or out of range.</exception>
     internal static int ParseIntAttribute(XElement? element, string attributeName, int defaultValue,
@@ -116,8 +117,8 @@ internal static class CommandStationUtils
     }
 
     /// <summary>
-    /// Parses an optional integer value from a child element.
-    /// Returns <paramref name="defaultValue"/> when the child element is missing.
+    ///     Parses an optional integer value from a child element.
+    ///     Returns <paramref name="defaultValue" /> when the child element is missing.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the value is not a valid integer or out of range.</exception>
     internal static int ParseIntElement(XElement? parentElement, string childElementName, int defaultValue,
@@ -142,7 +143,7 @@ internal static class CommandStationUtils
     }
 
     /// <summary>
-    /// Parses a required Guid attribute from an XElement.
+    ///     Parses a required Guid attribute from an XElement.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the attribute is missing or not a valid UUID.</exception>
     internal static Guid RequireGuidAttribute(XElement element, string context)
@@ -155,8 +156,8 @@ internal static class CommandStationUtils
     }
 
     /// <summary>
-    /// Loads a single &lt;commandstation&gt; element by UID from commandstations.xml.
-    /// The returned element is a detached copy and can be passed to driver constructors.
+    ///     Loads a single &lt;commandstation&gt; element by UID from commandstations.xml.
+    ///     The returned element is a detached copy and can be passed to driver constructors.
     /// </summary>
     internal static XElement LoadCommandStationElement(Guid stationUid, string? configFilePath = null)
     {
@@ -180,4 +181,3 @@ internal static class CommandStationUtils
         return new XElement(stationElement);
     }
 }
-

@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,14 +28,14 @@ using System.Xml.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides persistence operations for splitting train compositions in <c>trains.xml</c>.
+///     Provides persistence operations for splitting train compositions in <c>trains.xml</c>.
 /// </summary>
 internal static class TrainCompositionUtils
 {
     /// <summary>
-    /// Splits an existing train configuration into two train entries.
-    /// The original train keeps <paramref name="remainingVehicles"/>, while a new train (full metadata clone)
-    /// is created for <paramref name="detachedVehicles"/>.
+    ///     Splits an existing train configuration into two train entries.
+    ///     The original train keeps <paramref name="remainingVehicles" />, while a new train (full metadata clone)
+    ///     is created for <paramref name="detachedVehicles" />.
     /// </summary>
     /// <returns>UID of the newly created train entry.</returns>
     internal static Guid SplitTrainConfiguration(
@@ -90,7 +91,7 @@ internal static class TrainCompositionUtils
         var backupPath = trainConfigPath + ".bak";
         try
         {
-            File.Copy(trainConfigPath, backupPath, overwrite: true);
+            File.Copy(trainConfigPath, backupPath, true);
             document.Save(trainConfigPath);
         }
         catch (Exception ex)
@@ -103,9 +104,9 @@ internal static class TrainCompositionUtils
     }
 
     /// <summary>
-    /// Joins two existing train configurations into one composition.
-    /// Vehicles from <paramref name="train1Id"/> stay first, followed by vehicles from
-    /// <paramref name="train2Id"/>. Metadata of train1 is preserved and train2 is removed.
+    ///     Joins two existing train configurations into one composition.
+    ///     Vehicles from <paramref name="train1Id" /> stay first, followed by vehicles from
+    ///     <paramref name="train2Id" />. Metadata of train1 is preserved and train2 is removed.
     /// </summary>
     internal static void JoinTrainConfigurations(Guid train1Id, Guid train2Id)
     {
@@ -127,8 +128,10 @@ internal static class TrainCompositionUtils
         }
 
         var trainElements = document.Root?.Elements("train").ToList() ?? [];
-        var train1Element = trainElements.FirstOrDefault(element => element.Attribute("uid")?.Value == train1Id.ToString());
-        var train2Element = trainElements.FirstOrDefault(element => element.Attribute("uid")?.Value == train2Id.ToString());
+        var train1Element =
+            trainElements.FirstOrDefault(element => element.Attribute("uid")?.Value == train1Id.ToString());
+        var train2Element =
+            trainElements.FirstOrDefault(element => element.Attribute("uid")?.Value == train2Id.ToString());
 
         if (train1Element is null)
             throw new InvalidOperationException($"Train {train1Id} could not be found in trains.xml.");
@@ -156,7 +159,7 @@ internal static class TrainCompositionUtils
         var backupPath = trainConfigPath + ".bak";
         try
         {
-            File.Copy(trainConfigPath, backupPath, overwrite: true);
+            File.Copy(trainConfigPath, backupPath, true);
             document.Save(trainConfigPath);
         }
         catch (Exception ex)
@@ -174,10 +177,8 @@ internal static class TrainCompositionUtils
         {
             var vehicleType = vehicle.VehicleType.ToLowerInvariant();
             if (vehicleType is not ("loco" or "car"))
-            {
                 throw new InvalidOperationException(
                     $"Invalid vehicle type '{vehicle.VehicleType}' for vehicle UID {vehicle.VehicleId}");
-            }
 
             var vehicleElement = new XElement(vehicleType,
                 new XAttribute("uid", vehicle.VehicleId),
@@ -208,4 +209,3 @@ internal static class TrainCompositionUtils
         return Path.GetFullPath(locoFilePath);
     }
 }
-

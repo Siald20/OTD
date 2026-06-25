@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,28 +27,18 @@ using System.Xml.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Low-level control for one accessory decoder address (turnouts, signals, etc.).
-///
-/// The command station is assigned explicitly via subscribe/unsubscribe on the instance.
-/// In contrast to locomotive decoders, exactly one station can be subscribed at a time
-/// because accessories are stationary and fixed to one control domain.
+///     Low-level control for one accessory decoder address (turnouts, signals, etc.).
+///     The command station is assigned explicitly via subscribe/unsubscribe on the instance.
+///     In contrast to locomotive decoders, exactly one station can be subscribed at a time
+///     because accessories are stationary and fixed to one control domain.
 /// </summary>
 public class AccessoryDecoder : IAccessoryDecoder
 {
     private readonly SemaphoreSlim _commandLock = new(1, 1);
 
-    /// <inheritdoc/>
-    public int Address { get; }
-
-    /// <inheritdoc/>
-    public AccessoryDecoderProtocol Protocol { get; }
-
-    /// <inheritdoc/>
-    public ICommandStation? SubscribedCommandStation { get; private set; }
-
     /// <summary>
-    /// Creates an accessory decoder instance from XML configuration.
-    /// Use <see cref="SubscribeCommandStationAsync"/> to connect a command station.
+    ///     Creates an accessory decoder instance from XML configuration.
+    ///     Use <see cref="SubscribeCommandStationAsync" /> to connect a command station.
     /// </summary>
     public AccessoryDecoder(XElement decoderConfiguration)
     {
@@ -57,11 +48,13 @@ public class AccessoryDecoder : IAccessoryDecoder
         {
             var protocolValue = decoderConfiguration.Element("protocol")?.Value;
             if (string.IsNullOrWhiteSpace(protocolValue))
-                throw new InvalidOperationException("Missing required <protocol> value in accessory decoder configuration.");
+                throw new InvalidOperationException(
+                    "Missing required <protocol> value in accessory decoder configuration.");
 
             var addressValue = decoderConfiguration.Element("address")?.Value;
             if (string.IsNullOrWhiteSpace(addressValue))
-                throw new InvalidOperationException("Missing required <address> value in accessory decoder configuration.");
+                throw new InvalidOperationException(
+                    "Missing required <address> value in accessory decoder configuration.");
 
             Protocol = AccessoryDecoderUtils.GetProtocol(protocolValue);
             Address = AccessoryDecoderUtils.GetAddress(addressValue);
@@ -74,7 +67,16 @@ public class AccessoryDecoder : IAccessoryDecoder
         }
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
+    public int Address { get; }
+
+    /// <inheritdoc />
+    public AccessoryDecoderProtocol Protocol { get; }
+
+    /// <inheritdoc />
+    public ICommandStation? SubscribedCommandStation { get; private set; }
+
+    /// <inheritdoc />
     public async Task SubscribeCommandStationAsync(ICommandStation commandStation,
         CancellationToken cancellationToken = default)
     {
@@ -84,11 +86,9 @@ public class AccessoryDecoder : IAccessoryDecoder
             return;
 
         if (SubscribedCommandStation is not null)
-        {
             throw new InvalidOperationException(
                 $"Zubehördecoder {Address}: Es ist bereits eine Zentrale abonniert ({SubscribedCommandStation.GetType().Name}). " +
                 "Vor erneutem Subscribe muss zuerst Unsubscribe aufgerufen werden.");
-        }
 
         SubscribedCommandStation = commandStation;
         if (commandStation is CommandStation concreteStation)
@@ -100,7 +100,7 @@ public class AccessoryDecoder : IAccessoryDecoder
         await Task.CompletedTask.ConfigureAwait(false);
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public Task UnsubscribeCommandStationAsync(ICommandStation? commandStation)
     {
         if (commandStation is null)
@@ -119,21 +119,22 @@ public class AccessoryDecoder : IAccessoryDecoder
         return Task.CompletedTask;
     }
 
-    /// <inheritdoc/>
-    public async Task SetFunctionAsync(int outputValue, AccessoryFunctionState functionState, CancellationToken cancellationToken = default)
+    /// <inheritdoc />
+    public async Task SetFunctionAsync(int outputValue, AccessoryFunctionState functionState,
+        CancellationToken cancellationToken = default)
     {
         if (Protocol == AccessoryDecoderProtocol.Dcc)
-        {
             if (outputValue is not (0 or 1))
                 throw new ArgumentOutOfRangeException(nameof(outputValue), outputValue,
                     "DCC basic requires output value 0 or 1.");
-        }
 
         if (outputValue is < 0 or > 255)
-            throw new ArgumentOutOfRangeException(nameof(outputValue), outputValue, "Accessory output value must be in range 0..255.");
+            throw new ArgumentOutOfRangeException(nameof(outputValue), outputValue,
+                "Accessory output value must be in range 0..255.");
 
         if (functionState is not (AccessoryFunctionState.On or AccessoryFunctionState.Off))
-            throw new ArgumentOutOfRangeException(nameof(functionState), functionState, "Accessory state must be On or Off.");
+            throw new ArgumentOutOfRangeException(nameof(functionState), functionState,
+                "Accessory state must be On or Off.");
 
         if (SubscribedCommandStation is null)
         {
@@ -150,7 +151,7 @@ public class AccessoryDecoder : IAccessoryDecoder
                     (byte)outputValue,
                     Protocol,
                     functionState,
-                    activationTimeMs: 0,
+                    0,
                     cancellationToken)
                 .ConfigureAwait(false);
 
@@ -163,21 +164,20 @@ public class AccessoryDecoder : IAccessoryDecoder
         }
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public async Task ActivateFunctionAsync(int outputValue, int timeout, CancellationToken cancellationToken = default)
     {
         if (timeout <= 0)
-            throw new ArgumentOutOfRangeException(nameof(timeout), timeout, "Activation timeout must be greater than 0 ms.");
+            throw new ArgumentOutOfRangeException(nameof(timeout), timeout,
+                "Activation timeout must be greater than 0 ms.");
 
         if (Protocol == AccessoryDecoderProtocol.DccExtended)
         {
             // Zeitgesteuerte Aktivierung für erweiterte Zubehördecoder gemäss RCN-213 (2.2): Bit 7 repräsentiert
             // den anzusteuernden Ausgang (0/1), Bits 0-6 die Aktivierungszeit in 100ms-Schritten.
             if (outputValue is not (0 or 1))
-            {
                 throw new ArgumentOutOfRangeException(nameof(outputValue), outputValue,
                     "DCC extended timed activation requires output value 0 or 1.");
-            }
 
             if (SubscribedCommandStation is null)
             {
@@ -194,7 +194,7 @@ public class AccessoryDecoder : IAccessoryDecoder
                         (byte)outputValue,
                         Protocol,
                         AccessoryFunctionState.On,
-                        activationTimeMs: timeout,
+                        timeout,
                         cancellationToken)
                     .ConfigureAwait(false);
 
@@ -208,7 +208,7 @@ public class AccessoryDecoder : IAccessoryDecoder
 
             return;
         }
-        
+
         // Zeitgesteuerte Aktivierung für einfache Zubehördecoder gemäss RCN-213 (2.1): Der gewählte Ausgang (0/1)
         // wird softwaregesteuert mit separatem Bit aktiviert und nach dem Timeout deaktiviert.
         await SetFunctionAsync(outputValue, AccessoryFunctionState.On, cancellationToken).ConfigureAwait(false);
@@ -216,11 +216,11 @@ public class AccessoryDecoder : IAccessoryDecoder
         await SetFunctionAsync(outputValue, AccessoryFunctionState.Off, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public event EventHandler<AccessoryStateChangedEventArgs>? StateChanged;
 
     /// <summary>
-    /// Called by command stations to push state updates into this decoder instance.
+    ///     Called by command stations to push state updates into this decoder instance.
     /// </summary>
     internal void RaiseStateChanged(int outputValue, AccessoryFunctionState functionState)
     {

@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,15 +26,16 @@ using System.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Provides complete headlight functionality: parsing, pattern matching and decoder switching.
+///     Provides complete headlight functionality: parsing, pattern matching and decoder switching.
 /// </summary>
 internal static class HeadlightUtils
 {
     /// <summary>
-    /// Parses all decoder functions of type <c>headlight</c> and returns pattern mappings
-    /// for forward and backward directions.
+    ///     Parses all decoder functions of type <c>headlight</c> and returns pattern mappings
+    ///     for forward and backward directions.
     /// </summary>
-    internal static List<HeadlightPatternFunction> GetAvailableHeadlightFunctions(IReadOnlyList<VehicleFunctions> functions)
+    internal static List<HeadlightPatternFunction> GetAvailableHeadlightFunctions(
+        IReadOnlyList<VehicleFunctions> functions)
     {
         var result = new List<HeadlightPatternFunction>();
 
@@ -59,11 +61,9 @@ internal static class HeadlightUtils
             if (hasMode)
             {
                 if (hasDirectionalPatterns)
-                {
                     Console.WriteLine(
                         $"Warnung: Headlight-Funktion {function.Number} kombiniert mode=\"{mode}\" mit forward/backward-Pattern. " +
                         "Bei mode-basierten Funktionen werden forward/backward ignoriert.");
-                }
 
                 result.Add(new HeadlightPatternFunction(function.Number, isMaster, mode, VehicleDirection.Forward,
                     string.Empty));
@@ -92,17 +92,20 @@ internal static class HeadlightUtils
     }
 
     /// <summary>
-    /// Determines the global target state of the headlight based on headlight mode and operating mode.
+    ///     Determines the global target state of the headlight based on headlight mode and operating mode.
     /// </summary>
-    public static LocoDecoderFunctionState DetermineMainHeadlightState(HeadlightMode mode, TrainOperatingMode operatingMode)
-        => (mode, operatingMode) switch
+    public static LocoDecoderFunctionState DetermineMainHeadlightState(HeadlightMode mode,
+        TrainOperatingMode operatingMode)
+    {
+        return (mode, operatingMode) switch
         {
             // HeadlightMode.Off: immer aus
             (HeadlightMode.Off, _) => LocoDecoderFunctionState.Off,
 
             // HeadlightMode.Auto: abhängig vom OperatingMode
             (HeadlightMode.Auto, TrainOperatingMode.ShutDown) => LocoDecoderFunctionState.Off,
-            (HeadlightMode.Auto, TrainOperatingMode.Parking) => LocoDecoderFunctionState.On, // ToDo: Parklicht-Abfrage via HeadlightUtils
+            (HeadlightMode.Auto, TrainOperatingMode.Parking) => LocoDecoderFunctionState
+                .On, // ToDo: Parklicht-Abfrage via HeadlightUtils
             (HeadlightMode.Auto, TrainOperatingMode.Shunting) => LocoDecoderFunctionState.On,
             (HeadlightMode.Auto, TrainOperatingMode.Travelling) => LocoDecoderFunctionState.On,
 
@@ -111,6 +114,7 @@ internal static class HeadlightUtils
 
             _ => LocoDecoderFunctionState.Undefined
         };
+    }
 
     // Sucht und gibt übereinstimmendes Headlight-Pattern zurück
     internal static HeadlightPatternFunction FindHeadlightPattern(
@@ -125,22 +129,28 @@ internal static class HeadlightUtils
 
     internal static IReadOnlyList<int> GetNonMasterFunctions(
         IReadOnlyList<HeadlightPatternFunction> availableHeadlightPatterns)
-        => availableHeadlightPatterns
+    {
+        return availableHeadlightPatterns
             .Where(h => !h.IsMaster)
             .Select(h => h.FunctionNumber)
             .Distinct()
             .OrderBy(n => n)
             .ToList();
+    }
 
     /// <summary>
-    /// Returns the configured master headlight function number, if available.
+    ///     Returns the configured master headlight function number, if available.
     /// </summary>
     internal static int? GetMasterFunctionNumber(
         IReadOnlyList<HeadlightPatternFunction> availableHeadlightPatterns)
-        => ResolveMasterFunctionNumber(availableHeadlightPatterns);
+    {
+        return ResolveMasterFunctionNumber(availableHeadlightPatterns);
+    }
 
     private static bool IsFunctionType(VehicleFunctions function, string expectedType)
-        => string.Equals(function.Type, expectedType, StringComparison.OrdinalIgnoreCase);
+    {
+        return string.Equals(function.Type, expectedType, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static int? ResolveMasterFunctionNumber(IReadOnlyList<HeadlightPatternFunction> headlightPatterns)
     {
@@ -154,20 +164,22 @@ internal static class HeadlightUtils
             return null;
 
         if (masterFunctionNumbers.Count > 1)
-        {
             Console.WriteLine(
                 $"Warnung: Mehrere Headlight-Masterfunktionen konfiguriert ({string.Join(", ", masterFunctionNumbers)}). " +
                 $"Es wird die erste verwendet: {masterFunctionNumbers[0]}.");
-        }
 
         return masterFunctionNumbers[0];
     }
 
     private static string GetAttributeOrEmpty(VehicleFunctions function, string attributeName)
-        => GetAttributeOrDefault(function, attributeName, string.Empty);
+    {
+        return GetAttributeOrDefault(function, attributeName, string.Empty);
+    }
 
     private static string GetAttributeOrDefault(VehicleFunctions function, string attributeName, string defaultValue)
-        => TryGetAttribute(function, attributeName, out var value) ? value : defaultValue;
+    {
+        return TryGetAttribute(function, attributeName, out var value) ? value : defaultValue;
+    }
 
     private static bool TryGetAttribute(VehicleFunctions function, string attributeName, out string value)
     {
@@ -186,7 +198,7 @@ internal static class HeadlightUtils
 }
 
 /// <summary>
-/// Represents a headlight function together with the associated pattern for a driving direction.
+///     Represents a headlight function together with the associated pattern for a driving direction.
 /// </summary>
 public readonly record struct HeadlightPatternFunction(
     int FunctionNumber,

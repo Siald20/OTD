@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -39,6 +40,9 @@ namespace OTD.HardwareControl.Drivers;
 internal sealed class LoDiRektor : ICommandStation
 {
     private const string DriverLoDiRector = "lodi-rector";
+    private const byte DefaultLocoProtocol = LoDiDecoderProtocol.Dcc126;
+    private readonly string? _configuredIpAddress;
+    private readonly int _configuredPort;
 
     // -------------------------------------------------------------------------
     // Felder
@@ -46,48 +50,8 @@ internal sealed class LoDiRektor : ICommandStation
 
     private readonly LoDiConnection _connection;
     private readonly Dictionary<int, byte> _locoProtocols = new();
-    private const byte DefaultLocoProtocol = LoDiDecoderProtocol.Dcc126;
-    private string? _configuredIpAddress;
-    private int _configuredPort;
-    private int _networkTimeoutMs;
+    private readonly int _networkTimeoutMs;
     private bool _disposed;
-
-    // -------------------------------------------------------------------------
-    // Events
-    // -------------------------------------------------------------------------
-
-    /// <summary>Triggered when the connection state changes.</summary>
-    public event EventHandler<LoDiConnectionChangedEventArgs>? ConnectionChanged;
-
-    /// <summary>
-    ///     Triggered when a locomotive state update is received from the LoDi rector
-    ///     (speed step/direction or function).
-    /// </summary>
-    public event EventHandler<LocoStateChangedEventArgs>? LocoStateChanged;
-
-    /// <summary>
-    ///     Triggered when an accessory state update is received from the LoDi rector
-    ///     (address + value + On/Off).
-    /// </summary>
-    public event EventHandler<AccessoryStateChangedEventArgs>? AccessoryStateChanged;
-
-    // -------------------------------------------------------------------------
-    // Eigenschaften
-    // -------------------------------------------------------------------------
-
-    /// <summary>Indicates whether an active connection to the LoDi rector exists.</summary>
-    public bool IsConnected => _connection.IsConnected;
-
-    /// <summary>
-    ///     Immediately after a successful connect, performs a BoosterStatus query to
-    ///     initialize the feedback bus early.
-    /// </summary>
-    public bool EnableConnectWarmup { get; set; } = true;
-
-    /// <summary>
-    ///     Logs the completion of the connect warm-up with the current power status.
-    /// </summary>
-    public bool LogConnectWarmup { get; set; }
 
     // -------------------------------------------------------------------------
     // Konstruktor
@@ -120,7 +84,8 @@ internal sealed class LoDiRektor : ICommandStation
                 $"commandstation '{uid}' has driver '{driverName}', expected '{DriverLoDiRector}'.");
 
         var connectionElement = commandStationElement.Element("connection")
-            ?? throw new InvalidOperationException($"commandstation '{uid}' is missing required <connection> element.");
+                                ?? throw new InvalidOperationException(
+                                    $"commandstation '{uid}' is missing required <connection> element.");
 
         _configuredIpAddress = CommandStationUtils
             .RequireAttribute(connectionElement, "ip", $"commandstation '{uid}' / connection");
@@ -137,6 +102,46 @@ internal sealed class LoDiRektor : ICommandStation
             diagnosticsElement, "enableConnectWarmup", EnableConnectWarmup);
     }
 
+    /// <summary>
+    ///     Immediately after a successful connect, performs a BoosterStatus query to
+    ///     initialize the feedback bus early.
+    /// </summary>
+    public bool EnableConnectWarmup { get; set; } = true;
+
+    /// <summary>
+    ///     Logs the completion of the connect warm-up with the current power status.
+    /// </summary>
+    public bool LogConnectWarmup { get; set; }
+
+    // -------------------------------------------------------------------------
+    // Diagnose-Logging (ReadBack-Analyse)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Enables verbose diagnostic logging of all received LoDi packets.
+    ///     Useful for analyzing when ACK vs. EVT readbacks arrive.
+    /// </summary>
+    public bool DiagnosticLogging { get; set; }
+
+    /// <summary>
+    ///     Triggered when a locomotive state update is received from the LoDi rector
+    ///     (speed step/direction or function).
+    /// </summary>
+    public event EventHandler<LocoStateChangedEventArgs>? LocoStateChanged;
+
+    /// <summary>
+    ///     Triggered when an accessory state update is received from the LoDi rector
+    ///     (address + value + On/Off).
+    /// </summary>
+    public event EventHandler<AccessoryStateChangedEventArgs>? AccessoryStateChanged;
+
+    // -------------------------------------------------------------------------
+    // Eigenschaften
+    // -------------------------------------------------------------------------
+
+    /// <summary>Indicates whether an active connection to the LoDi rector exists.</summary>
+    public bool IsConnected => _connection.IsConnected;
+
     // -------------------------------------------------------------------------
     // Verbindung
     // -------------------------------------------------------------------------
@@ -146,55 +151,17 @@ internal sealed class LoDiRektor : ICommandStation
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
     public Task ConnectAsync(CancellationToken cancellationToken = default)
-        => ConnectAsync(ipAddress: null, port: null, cancellationToken);
-
-    /// <summary>
-    ///     Establishes a connection to the LoDi rector.
-    ///     Primarily used internally; external callers should use <see cref="ConnectAsync(System.Threading.CancellationToken)"/>.
-    /// </summary>
-    /// <param name="ipAddress">Optional IP address override; <c>null</c> uses commandstations.xml.</param>
-    /// <param name="port">Optional TCP port override; <c>null</c> uses commandstations.xml.</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    public async Task ConnectAsync(string? ipAddress, int? port,
-        CancellationToken cancellationToken = default)
     {
-        var targetAddress = string.IsNullOrWhiteSpace(ipAddress) ? _configuredIpAddress : ipAddress;
-        if (string.IsNullOrWhiteSpace(targetAddress))
-            throw new InvalidOperationException("No IP address configured for LoDiRektor. Set it in commandstations.xml.");
-
-        var configuredPort = _configuredPort > 0 ? _configuredPort : LoDiProtocol.DefaultTcpPort;
-        var targetPort = port.HasValue && port.Value > 0 ? port.Value : configuredPort;
-
-        await _connection.ConnectAsync(targetAddress, targetPort, cancellationToken);
-
-        if (!EnableConnectWarmup)
-            return;
-
-        try
-        {
-            var currentPowerState = await GetPowerStateAsync(cancellationToken);
-
-            if (LogConnectWarmup)
-            {
-                Console.WriteLine(
-                    $"[LoDi INFO] {DateTimeOffset.Now:HH:mm:ss.fff} ConnectWarmup completed, track voltage={(currentPowerState ? "on" : "off")}."
-                );
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Warning: LoDi connect warm-up failed: {ex.Message}");
-        }
+        return ConnectAsync(null, null, cancellationToken);
     }
 
     /// <summary>
     ///     Disconnects from the LoDi rector.
     /// </summary>
-    public async Task DisconnectAsync() => await _connection.DisconnectAsync();
+    public async Task DisconnectAsync()
+    {
+        await _connection.DisconnectAsync();
+    }
 
     // -------------------------------------------------------------------------
     // Gleisversorgung
@@ -503,11 +470,11 @@ internal sealed class LoDiRektor : ICommandStation
 
                 LocoStateChanged?.Invoke(this, new LocoStateChangedEventArgs(
                     responseAddress,
-                    speedStep: null,
-                    direction: VehicleDirection.Undefined,
+                    null,
+                    VehicleDirection.Undefined,
                     functionNumber,
                     functionStateValue,
-                    isEventPacket: packet.PacketType == LoDiProtocol.PacketTypeEvent));
+                    packet.PacketType == LoDiProtocol.PacketTypeEvent));
 
                 forwardedUpdates++;
             }
@@ -519,7 +486,6 @@ internal sealed class LoDiRektor : ICommandStation
                     $"Addr={address}: received={snapshot.Count}, parsed={parsedPackets}, forwarded={forwardedUpdates}.");
 
                 if (perFunctionResponseCount is not null)
-                {
                     foreach (var entry in perFunctionResponseCount.OrderBy(x => x.Key))
                     {
                         var status = entry.Value > 0 ? $"Responses={entry.Value}" : "no response in time window";
@@ -527,7 +493,6 @@ internal sealed class LoDiRektor : ICommandStation
                             $"[LoDi INFO] {DateTimeOffset.Now:HH:mm:ss.fff} QueryDecoderState " +
                             $"Addr={address} Func={entry.Key}: {status}");
                     }
-                }
             }
         }
         catch (Exception ex)
@@ -551,7 +516,8 @@ internal sealed class LoDiRektor : ICommandStation
             var (addrLow, addrHigh) = EncodeDccAddress(address);
             var locoProtocol = ResolveLocoProtocol(address);
 
-            var speedResponseReceived = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var speedResponseReceived =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var snapshot = await CollectDecoderResponsesAsync(
                 LoDiProtocol.Commands.Decoder.LocoSpeed,
                 packet =>
@@ -591,45 +557,43 @@ internal sealed class LoDiRektor : ICommandStation
                 },
                 cancellationToken);
 
-                var parsedPackets = 0;
-                var forwardedUpdates = 0;
+            var parsedPackets = 0;
+            var forwardedUpdates = 0;
 
-                foreach (var packet in snapshot)
-                {
-                    if (!TryParseLocoSpeedPayload(packet.Payload, out var responseAddress, out var speedStep,
-                            out var direction))
-                        continue;
+            foreach (var packet in snapshot)
+            {
+                if (!TryParseLocoSpeedPayload(packet.Payload, out var responseAddress, out var speedStep,
+                        out var direction))
+                    continue;
 
-                    parsedPackets++;
+                parsedPackets++;
 
-                    if (responseAddress != address)
-                        continue;
-
-                    if (DiagnosticLogging)
-                    {
-                        var packetType = packet.PacketType == LoDiProtocol.PacketTypeEvent ? "EVT" : "ACK";
-                        Console.WriteLine(
-                            $"[LoDi RX] {DateTimeOffset.Now:HH:mm:ss.fff} QueryLocoSpeed " +
-                            $"Addr={responseAddress} Type={packetType} SpeedStep={speedStep} Direction={direction}");
-                    }
-
-                    LocoStateChanged?.Invoke(this, new LocoStateChangedEventArgs(
-                        responseAddress,
-                        speedStep: speedStep,
-                        direction: direction,
-                        functionNumber: null,
-                        functionStateValue: null,
-                        isEventPacket: packet.PacketType == LoDiProtocol.PacketTypeEvent));
-
-                    forwardedUpdates++;
-                }
+                if (responseAddress != address)
+                    continue;
 
                 if (DiagnosticLogging)
                 {
+                    var packetType = packet.PacketType == LoDiProtocol.PacketTypeEvent ? "EVT" : "ACK";
                     Console.WriteLine(
-                        $"[LoDi INFO] {DateTimeOffset.Now:HH:mm:ss.fff} QueryLocoSpeed " +
-                        $"Addr={address}: received={snapshot.Count}, parsed={parsedPackets}, forwarded={forwardedUpdates}.");
+                        $"[LoDi RX] {DateTimeOffset.Now:HH:mm:ss.fff} QueryLocoSpeed " +
+                        $"Addr={responseAddress} Type={packetType} SpeedStep={speedStep} Direction={direction}");
                 }
+
+                LocoStateChanged?.Invoke(this, new LocoStateChangedEventArgs(
+                    responseAddress,
+                    speedStep,
+                    direction,
+                    null,
+                    null,
+                    packet.PacketType == LoDiProtocol.PacketTypeEvent));
+
+                forwardedUpdates++;
+            }
+
+            if (DiagnosticLogging)
+                Console.WriteLine(
+                    $"[LoDi INFO] {DateTimeOffset.Now:HH:mm:ss.fff} QueryLocoSpeed " +
+                    $"Addr={address}: received={snapshot.Count}, parsed={parsedPackets}, forwarded={forwardedUpdates}.");
         }
         catch (Exception ex)
         {
@@ -678,7 +642,68 @@ internal sealed class LoDiRektor : ICommandStation
 
         await _connection.SendAsync(LoDiProtocol.Commands.Decoder.AccessoryState, payload, cancellationToken);
     }
-    
+
+    // -------------------------------------------------------------------------
+    // IDisposable
+    // -------------------------------------------------------------------------
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _connection.Dispose();
+    }
+
+    // -------------------------------------------------------------------------
+    // Events
+    // -------------------------------------------------------------------------
+
+    /// <summary>Triggered when the connection state changes.</summary>
+    public event EventHandler<LoDiConnectionChangedEventArgs>? ConnectionChanged;
+
+    /// <summary>
+    ///     Establishes a connection to the LoDi rector.
+    ///     Primarily used internally; external callers should use
+    ///     <see cref="ConnectAsync(System.Threading.CancellationToken)" />.
+    /// </summary>
+    /// <param name="ipAddress">Optional IP address override; <c>null</c> uses commandstations.xml.</param>
+    /// <param name="port">Optional TCP port override; <c>null</c> uses commandstations.xml.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public async Task ConnectAsync(string? ipAddress, int? port,
+        CancellationToken cancellationToken = default)
+    {
+        var targetAddress = string.IsNullOrWhiteSpace(ipAddress) ? _configuredIpAddress : ipAddress;
+        if (string.IsNullOrWhiteSpace(targetAddress))
+            throw new InvalidOperationException(
+                "No IP address configured for LoDiRektor. Set it in commandstations.xml.");
+
+        var configuredPort = _configuredPort > 0 ? _configuredPort : LoDiProtocol.DefaultTcpPort;
+        var targetPort = port.HasValue && port.Value > 0 ? port.Value : configuredPort;
+
+        await _connection.ConnectAsync(targetAddress, targetPort, cancellationToken);
+
+        if (!EnableConnectWarmup)
+            return;
+
+        try
+        {
+            var currentPowerState = await GetPowerStateAsync(cancellationToken);
+
+            if (LogConnectWarmup)
+                Console.WriteLine(
+                    $"[LoDi INFO] {DateTimeOffset.Now:HH:mm:ss.fff} ConnectWarmup completed, track voltage={(currentPowerState ? "on" : "off")}."
+                );
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: LoDi connect warm-up failed: {ex.Message}");
+        }
+    }
+
     // -------------------------------------------------------------------------
     // CV-Programmierung
     // -------------------------------------------------------------------------
@@ -715,7 +740,8 @@ internal sealed class LoDiRektor : ICommandStation
         var cvHigh = (byte)(cvNumber >> 8);
         var cvLow = (byte)(cvNumber & 0xFF);
 
-        await _connection.SendAsync(LoDiProtocol.Commands.Cv.WriteServiceMode, [cvHigh, cvLow, value], cancellationToken);
+        await _connection.SendAsync(LoDiProtocol.Commands.Cv.WriteServiceMode, [cvHigh, cvLow, value],
+            cancellationToken);
     }
 
     /// <summary>
@@ -735,7 +761,8 @@ internal sealed class LoDiRektor : ICommandStation
         var cvHigh = (byte)(cvNumber >> 8);
         var cvLow = (byte)(cvNumber & 0xFF);
 
-        await _connection.SendAsync(LoDiProtocol.Commands.Cv.ReadPom, [addrHigh, addrLow, cvHigh, cvLow], cancellationToken);
+        await _connection.SendAsync(LoDiProtocol.Commands.Cv.ReadPom, [addrHigh, addrLow, cvHigh, cvLow],
+            cancellationToken);
 
         // TODO: Auf Antwortpaket warten und CV-Wert zurückgeben
         return -1;
@@ -755,18 +782,8 @@ internal sealed class LoDiRektor : ICommandStation
         var cvHigh = (byte)(cvNumber >> 8);
         var cvLow = (byte)(cvNumber & 0xFF);
 
-        await _connection.SendAsync(LoDiProtocol.Commands.Cv.WritePom, [addrHigh, addrLow, cvHigh, cvLow, value], cancellationToken);
-    }
-
-    // -------------------------------------------------------------------------
-    // IDisposable
-    // -------------------------------------------------------------------------
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        _connection.Dispose();
+        await _connection.SendAsync(LoDiProtocol.Commands.Cv.WritePom, [addrHigh, addrLow, cvHigh, cvLow, value],
+            cancellationToken);
     }
 
     private static (byte Low, byte High) EncodeDccAddress(int address)
@@ -808,14 +825,12 @@ internal sealed class LoDiRektor : ICommandStation
                 // - Magnetartikel mit Schaltzeit: Datenbyte kodiert Schaltzeit+Ausgang
                 //   (vollständig nur bei Zentralen möglich, die Bit7 nicht als Protokollmarker missbrauchen).
                 if (activationTimeMs > 0)
-                {
                     // LoDi-Einschränkung: Bei 0xC4 wird Bit7 intern zur Unterscheidung
                     // basic/extended verwendet. Daher ist die RCN-213-Timed-Pulse-Variante
                     // (Bit7 als Ausgangsauswahl) aktuell nicht vollständig umsetzbar.
                     throw new NotSupportedException(
                         "LoDi-Rektor unterstützt DCC-Extended Timed-Pulse (RCN-213 2.2) aktuell nicht vollständig. " +
                         "Bit7 des Datenbytes ist bei LoDi reserviert.");
-                }
 
                 if (value > 126)
                     throw new ArgumentOutOfRangeException(nameof(value), value,
@@ -830,7 +845,10 @@ internal sealed class LoDiRektor : ICommandStation
         }
     }
 
-    private static bool IsBoosterChannelActive(byte status) => status != 0;
+    private static bool IsBoosterChannelActive(byte status)
+    {
+        return status != 0;
+    }
 
     private byte ResolveLocoProtocol(int address)
     {
@@ -853,16 +871,6 @@ internal sealed class LoDiRektor : ICommandStation
         };
     }
 
-    // -------------------------------------------------------------------------
-    // Diagnose-Logging (ReadBack-Analyse)
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// Enables verbose diagnostic logging of all received LoDi packets.
-    /// Useful for analyzing when ACK vs. EVT readbacks arrive.
-    /// </summary>
-    public bool DiagnosticLogging { get; set; }
-
     private void LogDiagnostic(string direction, LoDiPacket packet, string? extra = null)
     {
         if (!DiagnosticLogging) return;
@@ -881,7 +889,7 @@ internal sealed class LoDiRektor : ICommandStation
         // Diagnose: alle empfangenen Pakete protokollieren (ACK, NACK, EVT)
         if (DiagnosticLogging)
         {
-            string extra = "";
+            var extra = "";
             if (e.Packet.PacketType == LoDiProtocol.PacketTypeEvent &&
                 e.Packet.Command == LoDiProtocol.Commands.Decoder.LocoSpeed &&
                 TryParseLocoSpeedPayload(e.Packet.Payload, out var da, out var ds, out var dd))
@@ -898,7 +906,8 @@ internal sealed class LoDiRektor : ICommandStation
                      e.Packet.Command == LoDiProtocol.Commands.Decoder.LocoFunction &&
                      TryParseLocoFunctionPayload(e.Packet.Payload, out var afa, out var afn, out var afs))
                 extra = $"Addr={afa} Func={afn} State={afs}";
-            else if ((e.Packet.PacketType == LoDiProtocol.PacketTypeEvent || e.Packet.PacketType == LoDiProtocol.PacketTypeAck) &&
+            else if ((e.Packet.PacketType == LoDiProtocol.PacketTypeEvent ||
+                      e.Packet.PacketType == LoDiProtocol.PacketTypeAck) &&
                      e.Packet.Command == LoDiProtocol.Commands.Decoder.AccessoryState &&
                      TryParseAccessoryPayload(e.Packet.Payload, out var aaAddr, out var aaValue, out var aaState))
                 extra = $"Addr={aaAddr} Value={aaValue} State={aaState}";
@@ -919,35 +928,29 @@ internal sealed class LoDiRektor : ICommandStation
             case LoDiProtocol.Commands.Decoder.LocoSpeed:
             {
                 if (TryParseLocoSpeedPayload(e.Packet.Payload, out var address, out var speedStep, out var direction))
-                {
                     LocoStateChanged?.Invoke(this, new LocoStateChangedEventArgs(
                         address, speedStep, direction,
-                        functionNumber: null, functionStateValue: null,
-                        isEventPacket: true));
-                }
+                        null, null,
+                        true));
                 return;
             }
             case LoDiProtocol.Commands.Decoder.LocoFunction:
             {
                 if (TryParseLocoFunctionPayload(e.Packet.Payload, out var functionAddress, out var functionNumber,
                         out var functionStateValue))
-                {
                     LocoStateChanged?.Invoke(this, new LocoStateChangedEventArgs(
-                        functionAddress, speedStep: null, direction: VehicleDirection.Undefined,
+                        functionAddress, null, VehicleDirection.Undefined,
                         functionNumber,
                         functionStateValue,
-                        isEventPacket: true));
-                }
+                        true));
 
                 return;
             }
             case LoDiProtocol.Commands.Decoder.AccessoryState:
             {
                 if (TryParseAccessoryPayload(e.Packet.Payload, out var address, out var value, out var state))
-                {
                     AccessoryStateChanged?.Invoke(this,
                         new AccessoryStateChangedEventArgs(address, value, state));
-                }
 
                 break;
             }
@@ -1056,7 +1059,9 @@ internal sealed class LoDiRektor : ICommandStation
         }
 
         lock (packetLock)
+        {
             return new List<LoDiPacket>(receivedPackets);
+        }
     }
 
     private async Task<LoDiPacket?> WaitForPacketAsync(byte command, Func<LoDiPacket, bool>? filter,

@@ -2,14 +2,14 @@
 <commandstations>
     <commandstation uid="eea1ea06-5c31-428f-8992-1c1d160f1131" driver="lodi-rector">
         <connection ip="192.168.1.50" port="11092" timeoutMs="200"/>
-        <diagnostics enabled="true" logConnectWarmup="true" enableConnectWarmup="true"/>
+        <diagnostics enabled="false" logConnectWarmup="true" enableConnectWarmup="true"/>
     </commandstation>
     <commandstation uid="00000000-0000-0000-0000-00000000c001" driver="mock-commandstation">
     </commandstation>
     <commandstation uid="eea1ea06-5c31-428f-8992-1c1d160f1130" driver="lodi-s88-commander">
         <connection ip="192.168.1.51" port="11092"/>
         <startup queryOnStartup="true" subscribeOnStartup="true"/>
-        <diagnostics enabled="true" suppressHeartbeatDiagnostics="true"/>
+        <diagnostics enabled="false" suppressHeartbeatDiagnostics="true"/>
     </commandstation>
     <commandstation uid="00000000-0000-0000-0000-00000000f040" driver="mock-keyboard-feedback">
         <sensorcount>40</sensorcount>

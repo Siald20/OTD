@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -34,15 +35,15 @@ namespace OTD.HardwareControl.Drivers;
 ///     Usage:
 ///     <code>
 ///     var lodi = new LoDi();
-///
+/// 
 ///     // Connect
 ///     await lodi.Rektor.ConnectAsync("192.168.1.100");
 ///     await lodi.S88Commander.ConnectAsync("192.168.1.101");
-///
+/// 
 ///     // Control locomotive
 ///     await lodi.Rektor.SetLocoSpeedAsync(3, 64, LocoDirection.Cab1);
 ///     await lodi.Rektor.SetLocoFunctionAsync(3, 0, true);
-///
+/// 
 ///     // Subscribe to S88 feedback
 ///     lodi.S88Commander.ContactStateChanged += (s, e) =>
 ///         Console.WriteLine($"Module {e.ModuleAddress}, Contact {e.ContactNumber}: {e.IsOccupied}");
@@ -51,6 +52,15 @@ namespace OTD.HardwareControl.Drivers;
 /// </remarks>
 internal sealed class LoDi : IDisposable
 {
+    // -------------------------------------------------------------------------
+    // Konstruktor
+    // -------------------------------------------------------------------------
+
+    public LoDi()
+    {
+        Rektor = new LoDiRektor();
+        S88Commander = new LoDiS88Commander();
+    }
     // -------------------------------------------------------------------------
     // Geräte-Instanzen
     // -------------------------------------------------------------------------
@@ -62,13 +72,13 @@ internal sealed class LoDi : IDisposable
     public LoDiS88Commander S88Commander { get; }
 
     // -------------------------------------------------------------------------
-    // Konstruktor
+    // IDisposable
     // -------------------------------------------------------------------------
 
-    public LoDi()
+    public void Dispose()
     {
-        Rektor = new LoDiRektor();
-        S88Commander = new LoDiS88Commander();
+        Rektor.Dispose();
+        S88Commander.Dispose();
     }
 
     // -------------------------------------------------------------------------
@@ -84,15 +94,5 @@ internal sealed class LoDi : IDisposable
         CancellationToken cancellationToken = default)
     {
         return LoDiConnection.DiscoverDevicesAsync(cancellationToken);
-    }
-
-    // -------------------------------------------------------------------------
-    // IDisposable
-    // -------------------------------------------------------------------------
-
-    public void Dispose()
-    {
-        Rektor.Dispose();
-        S88Commander.Dispose();
     }
 }

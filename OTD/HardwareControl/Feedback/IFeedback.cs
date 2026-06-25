@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -26,9 +27,9 @@ using System.Threading.Tasks;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Common contract for all binary feedback providers (track occupied / free).
-/// Module address management is the responsibility of the concrete implementation.
-/// Consumers work exclusively with flat, continuous sensor numbers (1-based).
+///     Common contract for all binary feedback providers (track occupied / free).
+///     Module address management is the responsibility of the concrete implementation.
+///     Consumers work exclusively with flat, continuous sensor numbers (1-based).
 /// </summary>
 public interface IFeedback
 {
@@ -39,8 +40,8 @@ public interface IFeedback
     bool IsConnected { get; }
 
     /// <summary>
-    /// Total number of sensors managed by this provider.
-    /// Sensor numbers run from 1 to <see cref="SensorCount"/>.
+    ///     Total number of sensors managed by this provider.
+    ///     Sensor numbers run from 1 to <see cref="SensorCount" />.
     /// </summary>
     int SensorCount { get; }
 
@@ -54,15 +55,15 @@ public interface IFeedback
     Task DisconnectAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns the last known state of a single sensor.
+    ///     Returns the last known state of a single sensor.
     /// </summary>
-    /// <param name="sensorNumber">1-based sensor number (1 .. <see cref="SensorCount"/>).</param>
+    /// <param name="sensorNumber">1-based sensor number (1 .. <see cref="SensorCount" />).</param>
     RailSensorState GetSensorState(int sensorNumber);
 
 
     /// <summary>
-    /// Queries the device for current sensor states and returns a complete snapshot.
-    /// Key = sensor number (1-based), Value = current state.
+    ///     Queries the device for current sensor states and returns a complete snapshot.
+    ///     Key = sensor number (1-based), Value = current state.
     /// </summary>
     Task<IReadOnlyDictionary<int, RailSensorState>> QueryAllSensorsAsync(
         CancellationToken cancellationToken = default);

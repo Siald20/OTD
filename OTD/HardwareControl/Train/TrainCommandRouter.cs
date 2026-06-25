@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,38 +28,42 @@ using System.Threading.Tasks;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Defines how drive and function commands are routed to command stations.
+///     Defines how drive and function commands are routed to command stations.
 /// </summary>
 public enum RoutingMode
 {
     /// <summary>Commands are sent to the primary command station only.</summary>
     PrimaryOnly,
+
     /// <summary>Commands are mirrored to both primary and secondary command stations simultaneously.</summary>
     MirrorBoth,
+
     /// <summary>Commands are sent to the secondary command station only.</summary>
     SecondaryOnly
 }
 
 /// <summary>
-/// Identifies the type of a dispatched train command.
+///     Identifies the type of a dispatched train command.
 /// </summary>
 public enum TrainCommandKind
 {
     /// <summary>A drive command (speed step and direction).</summary>
     Drive,
+
     /// <summary>A decoder function command.</summary>
     Function,
+
     /// <summary>An emergency stop command.</summary>
     EmergencyStop
 }
 
 /// <summary>
-/// Event arguments raised after a train command was successfully dispatched to a command station.
+///     Event arguments raised after a train command was successfully dispatched to a command station.
 /// </summary>
 public sealed class TrainCommandDispatchedEventArgs : EventArgs
 {
     /// <summary>
-    /// Creates a new instance with the given dispatch context.
+    ///     Creates a new instance with the given dispatch context.
     /// </summary>
     public TrainCommandDispatchedEventArgs(
         TrainCommandKind kind,
@@ -79,27 +84,33 @@ public sealed class TrainCommandDispatchedEventArgs : EventArgs
 
     /// <summary>Kind of command that was dispatched.</summary>
     public TrainCommandKind Kind { get; }
+
     /// <summary>Identifier of the train that originated the command.</summary>
     public Guid TrainId { get; }
+
     /// <summary>Identifier of the locomotive, if applicable.</summary>
     public Guid? LocoId { get; }
+
     /// <summary>LocoDecoder address the command was sent to.</summary>
     public int Address { get; }
+
     /// <summary>Name of the command station that received the command.</summary>
     public string StationName { get; }
+
     /// <summary>Routing mode that was active when the command was sent.</summary>
     public RoutingMode Mode { get; }
+
     /// <summary>UTC timestamp at which the command was dispatched.</summary>
     public DateTime TimestampUtc { get; }
 }
 
 /// <summary>
-/// Event arguments raised when dispatching a train command to a command station fails.
+///     Event arguments raised when dispatching a train command to a command station fails.
 /// </summary>
 public sealed class TrainCommandFailedEventArgs : EventArgs
 {
     /// <summary>
-    /// Creates a new instance with the given failure context.
+    ///     Creates a new instance with the given failure context.
     /// </summary>
     public TrainCommandFailedEventArgs(
         TrainCommandKind kind,
@@ -122,24 +133,31 @@ public sealed class TrainCommandFailedEventArgs : EventArgs
 
     /// <summary>Kind of command that failed.</summary>
     public TrainCommandKind Kind { get; }
+
     /// <summary>Identifier of the train that originated the command.</summary>
     public Guid TrainId { get; }
+
     /// <summary>Identifier of the locomotive, if applicable.</summary>
     public Guid? LocoId { get; }
+
     /// <summary>LocoDecoder address the command was sent to.</summary>
     public int Address { get; }
+
     /// <summary>Name of the command station that was targeted.</summary>
     public string StationName { get; }
+
     /// <summary>Routing mode that was active when the command failed.</summary>
     public RoutingMode Mode { get; }
+
     /// <summary>Exception that caused the failure.</summary>
     public Exception Exception { get; }
+
     /// <summary>UTC timestamp at which the failure occurred.</summary>
     public DateTime TimestampUtc { get; }
 }
 
 /// <summary>
-/// Contract for routing train commands to one or more command stations.
+///     Contract for routing train commands to one or more command stations.
 /// </summary>
 public interface ITrainCommandRouter
 {
@@ -156,7 +174,7 @@ public interface ITrainCommandRouter
     void SetMode(RoutingMode mode);
 
     /// <summary>
-    /// Sends a drive command (speed step and direction) to the specified decoder address.
+    ///     Sends a drive command (speed step and direction) to the specified decoder address.
     /// </summary>
     Task SendDriveAsync(
         Guid trainId,
@@ -167,7 +185,7 @@ public interface ITrainCommandRouter
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sends a function state command to the specified decoder address.
+    ///     Sends a function state command to the specified decoder address.
     /// </summary>
     Task SendFunctionAsync(
         Guid trainId,
@@ -178,7 +196,7 @@ public interface ITrainCommandRouter
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sends an emergency stop command to the specified decoder address.
+    ///     Sends an emergency stop command to the specified decoder address.
     /// </summary>
     Task EmergencyStopLocoAsync(
         Guid trainId,
@@ -186,7 +204,7 @@ public interface ITrainCommandRouter
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sends an emergency stop command to all given decoder addresses.
+    ///     Sends an emergency stop command to all given decoder addresses.
     /// </summary>
     Task EmergencyStopTrainAsync(
         Guid trainId,
@@ -195,9 +213,9 @@ public interface ITrainCommandRouter
 }
 
 /// <summary>
-/// Routes train commands to a primary and an optional secondary command station.
-/// The active <see cref="RoutingMode"/> determines whether commands are sent to the
-/// primary only, mirrored to both, or forwarded to the secondary only.
+///     Routes train commands to a primary and an optional secondary command station.
+///     The active <see cref="RoutingMode" /> determines whether commands are sent to the
+///     primary only, mirrored to both, or forwarded to the secondary only.
 /// </summary>
 public sealed class TrainCommandRouter : ITrainCommandRouter
 {
@@ -205,7 +223,7 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
     private readonly CommandStation? _secondary;
 
     /// <summary>
-    /// Creates a new router with a mandatory primary and an optional secondary command station.
+    ///     Creates a new router with a mandatory primary and an optional secondary command station.
     /// </summary>
     /// <param name="primary">Primary command station. Must not be null.</param>
     /// <param name="secondary">Optional secondary command station for mirroring.</param>
@@ -216,17 +234,18 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
         _secondary = secondary;
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public RoutingMode Mode { get; private set; } = RoutingMode.PrimaryOnly;
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public event EventHandler<TrainCommandDispatchedEventArgs>? CommandDispatched;
-    /// <inheritdoc/>
+
+    /// <inheritdoc />
     public event EventHandler<TrainCommandFailedEventArgs>? CommandFailed;
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     /// <exception cref="InvalidOperationException">
-    /// Thrown when <see cref="RoutingMode.SecondaryOnly"/> is requested but no secondary station is configured.
+    ///     Thrown when <see cref="RoutingMode.SecondaryOnly" /> is requested but no secondary station is configured.
     /// </exception>
     public void SetMode(RoutingMode mode)
     {
@@ -236,7 +255,7 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
         Mode = mode;
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public Task SendDriveAsync(
         Guid trainId,
         Guid locoId,
@@ -244,15 +263,17 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
         int speedStep,
         VehicleDirection direction,
         CancellationToken cancellationToken = default)
-        => DispatchAsync(
+    {
+        return DispatchAsync(
             TrainCommandKind.Drive,
             trainId,
             locoId,
             address,
             station => station.SetLocoSpeedAsync(address, speedStep, direction, cancellationToken),
             cancellationToken);
+    }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public Task SendFunctionAsync(
         Guid trainId,
         Guid locoId,
@@ -261,7 +282,7 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
         LocoDecoderFunctionState state,
         CancellationToken cancellationToken = default)
     {
-        bool isOn = state == LocoDecoderFunctionState.On;
+        var isOn = state == LocoDecoderFunctionState.On;
         return DispatchAsync(
             TrainCommandKind.Function,
             trainId,
@@ -271,20 +292,22 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
             cancellationToken);
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public Task EmergencyStopLocoAsync(
         Guid trainId,
         int address,
         CancellationToken cancellationToken = default)
-        => DispatchAsync(
+    {
+        return DispatchAsync(
             TrainCommandKind.EmergencyStop,
             trainId,
-            locoId: null,
+            null,
             address,
             station => station.EmergencyStopAsync(address, cancellationToken),
             cancellationToken);
+    }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public async Task EmergencyStopTrainAsync(
         Guid trainId,
         IReadOnlyCollection<int> addresses,
@@ -294,9 +317,7 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
             return;
 
         foreach (var address in addresses.Where(a => a > 0).Distinct())
-        {
             await EmergencyStopLocoAsync(trainId, address, cancellationToken).ConfigureAwait(false);
-        }
     }
 
     private async Task DispatchAsync(
@@ -318,13 +339,15 @@ public sealed class TrainCommandRouter : ITrainCommandRouter
 
         if (Mode == RoutingMode.MirrorBoth && targets.Count > 1)
         {
-            var tasks = targets.Select(t => SendToOneAsync(kind, trainId, locoId, address, t.Name, t.Station, sendAction));
+            var tasks = targets.Select(t =>
+                SendToOneAsync(kind, trainId, locoId, address, t.Name, t.Station, sendAction));
             await Task.WhenAll(tasks).ConfigureAwait(false);
             return;
         }
 
         var target = targets[0];
-        await SendToOneAsync(kind, trainId, locoId, address, target.Name, target.Station, sendAction).ConfigureAwait(false);
+        await SendToOneAsync(kind, trainId, locoId, address, target.Name, target.Station, sendAction)
+            .ConfigureAwait(false);
     }
 
     private async Task SendToOneAsync(

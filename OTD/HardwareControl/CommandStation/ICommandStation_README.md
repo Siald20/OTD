@@ -2,7 +2,9 @@
 
 ## Überblick
 
-Das `ICommandStation`-Interface definiert eine abstrakte Schnittstelle zur Ansteuerung von DCC-Kommandozentralen, unabhängig vom Hersteller. Dies ermöglicht es, verschiedene Kommandozentralen (LoDi-Rektor, Märklin Central, Roco z21, usw.) auszutauschen, ohne die Lok-Steuerungslogik zu ändern.
+Das `ICommandStation`-Interface definiert eine abstrakte Schnittstelle zur Ansteuerung von DCC-Kommandozentralen,
+unabhängig vom Hersteller. Dies ermöglicht es, verschiedene Kommandozentralen (LoDi-Rektor, Märklin Central, Roco z21,
+usw.) auszutauschen, ohne die Lok-Steuerungslogik zu ändern.
 
 ## Interface-Definition
 
@@ -31,9 +33,11 @@ public interface ICommandStation : IDisposable
 ## Aktuelle Implementierungen
 
 ### LoDiRektor
+
 Vollständige Implementierung für das LoDi-Rektor DCC-Steuergerät von Lokstor Digital.
 
 **Besonderheiten:**
+
 - UDP-basierte Netzwerk-Kommunikation
 - DCC126-Protokoll mit bis zu 126 Fahrstufen
 - Echtzeitquittierungen (ACK/NACK) für Befehle
@@ -148,6 +152,7 @@ public sealed class MaerklinCentral : ICommandStation
 ## Fehlerbehandlung
 
 Alle async-Methoden werfen folgende Exceptions:
+
 - `ArgumentNullException`: Ungültige Parameter
 - `TimeoutException`: Keine Antwort vom Gerät
 - `InvalidOperationException`: Gerät nicht verbunden oder in ungültigem Zustand

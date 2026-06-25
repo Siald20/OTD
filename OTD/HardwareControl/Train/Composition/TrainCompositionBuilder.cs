@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,18 +28,18 @@ using System.Threading.Tasks;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Mutable builder that is used to assemble a train composition before it is bound to a train.
+///     Mutable builder that is used to assemble a train composition before it is bound to a train.
 /// </summary>
 public sealed class TrainCompositionBuilder
 {
-    private readonly List<TrainVehicle> _vehicles;
+    private readonly IReadOnlyList<ICommandStation> _commandStations;
     private readonly bool _preserveRuntimeState;
     private readonly Guid? _trainId;
     private readonly Func<TrainVehicle, IVehicle>? _vehicleFactory;
-    private readonly IReadOnlyList<ICommandStation> _commandStations;
+    private readonly List<TrainVehicle> _vehicles;
 
     /// <summary>
-    /// Creates a new empty builder.
+    ///     Creates a new empty builder.
     /// </summary>
     public TrainCompositionBuilder()
         : this(Array.Empty<TrainVehicle>())
@@ -46,15 +47,15 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Creates a new builder from an existing set of composition entries.
-    /// Runtime instances are stripped so that the resulting composition can be rebound.
+    ///     Creates a new builder from an existing set of composition entries.
+    ///     Runtime instances are stripped so that the resulting composition can be rebound.
     /// </summary>
     public TrainCompositionBuilder(
         IEnumerable<TrainVehicle> vehicles,
         bool preserveRuntimeState = false,
         Guid? trainId = null,
         Func<TrainVehicle, IVehicle>? vehicleFactory = null)
-        : this(vehicles, preserveRuntimeState, trainId, vehicleFactory, commandStations: null)
+        : this(vehicles, preserveRuntimeState, trainId, vehicleFactory, null)
     {
     }
 
@@ -78,17 +79,17 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Number of entries currently held by the builder.
+    ///     Number of entries currently held by the builder.
     /// </summary>
     public int Count => _vehicles.Count;
 
     /// <summary>
-    /// Exposes the current entries as a read-only view.
+    ///     Exposes the current entries as a read-only view.
     /// </summary>
     public IReadOnlyList<TrainVehicle> Vehicles => _vehicles.AsReadOnly();
 
     /// <summary>
-    /// Adds a vehicle entry to the end of the composition.
+    ///     Adds a vehicle entry to the end of the composition.
     /// </summary>
     public TrainCompositionBuilder AddVehicle(TrainVehicle vehicle)
     {
@@ -98,7 +99,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Adds a range of vehicle entries.
+    ///     Adds a range of vehicle entries.
     /// </summary>
     public TrainCompositionBuilder AddVehicles(IEnumerable<TrainVehicle> vehicles)
     {
@@ -114,7 +115,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Inserts a vehicle entry at the specified index.
+    ///     Inserts a vehicle entry at the specified index.
     /// </summary>
     public TrainCompositionBuilder InsertVehicle(int index, TrainVehicle vehicle)
     {
@@ -124,7 +125,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Removes the first entry with the given vehicle identifier.
+    ///     Removes the first entry with the given vehicle identifier.
     /// </summary>
     public bool RemoveVehicle(Guid vehicleId)
     {
@@ -139,7 +140,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Replaces the first matching entry with a new one.
+    ///     Replaces the first matching entry with a new one.
     /// </summary>
     public bool ReplaceVehicle(Guid vehicleId, TrainVehicle replacement)
     {
@@ -154,7 +155,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Returns the orientation setting for the specified vehicle.
+    ///     Returns the orientation setting for the specified vehicle.
     /// </summary>
     /// <exception cref="KeyNotFoundException">Thrown when the vehicle is not part of this builder.</exception>
     public VehicleOrientation GetOrientation(Guid vehicleId)
@@ -164,7 +165,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Updates the orientation setting for the specified vehicle.
+    ///     Updates the orientation setting for the specified vehicle.
     /// </summary>
     /// <exception cref="KeyNotFoundException">Thrown when the vehicle is not part of this builder.</exception>
     public TrainCompositionBuilder SetOrientation(Guid vehicleId, VehicleOrientation orientation)
@@ -177,7 +178,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Returns the configured headlight pattern for decoder direction A (<c>headlight_forward</c>).
+    ///     Returns the configured headlight pattern for decoder direction A (<c>headlight_forward</c>).
     /// </summary>
     /// <exception cref="KeyNotFoundException">Thrown when the vehicle is not part of this builder.</exception>
     public string GetHeadlightForward(Guid vehicleId)
@@ -187,7 +188,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Updates the headlight pattern for decoder direction A (<c>headlight_forward</c>).
+    ///     Updates the headlight pattern for decoder direction A (<c>headlight_forward</c>).
     /// </summary>
     /// <exception cref="KeyNotFoundException">Thrown when the vehicle is not part of this builder.</exception>
     public TrainCompositionBuilder SetHeadlightForward(Guid vehicleId, string? pattern)
@@ -200,7 +201,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Returns the configured headlight pattern for decoder direction B (<c>headlight_backward</c>).
+    ///     Returns the configured headlight pattern for decoder direction B (<c>headlight_backward</c>).
     /// </summary>
     /// <exception cref="KeyNotFoundException">Thrown when the vehicle is not part of this builder.</exception>
     public string GetHeadlightBackward(Guid vehicleId)
@@ -210,7 +211,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Updates the headlight pattern for decoder direction B (<c>headlight_backward</c>).
+    ///     Updates the headlight pattern for decoder direction B (<c>headlight_backward</c>).
     /// </summary>
     /// <exception cref="KeyNotFoundException">Thrown when the vehicle is not part of this builder.</exception>
     public TrainCompositionBuilder SetHeadlightBackward(Guid vehicleId, string? pattern)
@@ -223,7 +224,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Moves a vehicle entry from one position to another.
+    ///     Moves a vehicle entry from one position to another.
     /// </summary>
     public TrainCompositionBuilder MoveVehicle(int fromIndex, int toIndex)
     {
@@ -245,20 +246,22 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Splits the composition between two adjacent vehicles by triggering the required uncoupling action.
+    ///     Splits the composition between two adjacent vehicles by triggering the required uncoupling action.
     /// </summary>
     /// <returns>
-    /// Train IDs after split: the existing source train first, and the newly created train second.
+    ///     Train IDs after split: the existing source train first, and the newly created train second.
     /// </returns>
     public (Guid SourceTrainId, Guid NewTrainId) SplitComposition(Guid vehicle1, Guid vehicle2)
-        => SplitCompositionAsync(vehicle1, vehicle2).GetAwaiter().GetResult();
+    {
+        return SplitCompositionAsync(vehicle1, vehicle2).GetAwaiter().GetResult();
+    }
 
     /// <summary>
-    /// Splits the composition between two adjacent vehicles by triggering the required uncoupling action.
-    /// The selected vehicle and direction are derived from current decoder direction and available auto couplings.
+    ///     Splits the composition between two adjacent vehicles by triggering the required uncoupling action.
+    ///     The selected vehicle and direction are derived from current decoder direction and available auto couplings.
     /// </summary>
     /// <returns>
-    /// Train IDs after split: the existing source train first, and the newly created train second.
+    ///     Train IDs after split: the existing source train first, and the newly created train second.
     /// </returns>
     public async Task<(Guid SourceTrainId, Guid NewTrainId)> SplitCompositionAsync(
         Guid vehicle1,
@@ -296,8 +299,10 @@ public sealed class TrainCompositionBuilder
             : Math.Max(index1, index2);
 
         var selected = candidate1.HasAutoCoupling && candidate2.HasAutoCoupling
-            ? (candidate1.Index == leadingIndex ? candidate1 : candidate2)
-            : (candidate1.HasAutoCoupling ? candidate1 : candidate2);
+            ? candidate1.Index == leadingIndex ? candidate1 : candidate2
+            : candidate1.HasAutoCoupling
+                ? candidate1
+                : candidate2;
 
         var uncouplingDirection = selected.Index == leadingIndex
             ? currentDirection
@@ -311,7 +316,8 @@ public sealed class TrainCompositionBuilder
         await ExecuteUncouplingAsync(selected, uncouplingDirection, cancellationToken).ConfigureAwait(false);
 
         var (remainingVehicles, detachedVehicles) = BuildSplitParts(index1, index2);
-        var newTrainId = TrainCompositionUtils.SplitTrainConfiguration(sourceTrainId, remainingVehicles, detachedVehicles);
+        var newTrainId =
+            TrainCompositionUtils.SplitTrainConfiguration(sourceTrainId, remainingVehicles, detachedVehicles);
 
         _vehicles.Clear();
         foreach (var vehicle in remainingVehicles)
@@ -324,9 +330,9 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Joins two train configurations by appending vehicles from <paramref name="train2"/>
-    /// after vehicles from <paramref name="train1"/>.
-    /// Train attributes are preserved from train1 and train2 is removed.
+    ///     Joins two train configurations by appending vehicles from <paramref name="train2" />
+    ///     after vehicles from <paramref name="train1" />.
+    ///     Train attributes are preserved from train1 and train2 is removed.
     /// </summary>
     public void JoinComposition(Guid train1, Guid train2)
     {
@@ -335,7 +341,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Clears all vehicle entries.
+    ///     Clears all vehicle entries.
     /// </summary>
     public TrainCompositionBuilder Clear()
     {
@@ -345,8 +351,8 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Persists the current builder state to the <c>&lt;composition&gt;</c> element in <c>trains.xml</c>
-    /// for the specified train UID.
+    ///     Persists the current builder state to the <c>&lt;composition&gt;</c> element in <c>trains.xml</c>
+    ///     for the specified train UID.
     /// </summary>
     public void SaveToTrainConfiguration(Guid trainId)
     {
@@ -355,7 +361,7 @@ public sealed class TrainCompositionBuilder
     }
 
     /// <summary>
-    /// Builds the immutable train composition and creates the runtime vehicle instances.
+    ///     Builds the immutable train composition and creates the runtime vehicle instances.
     /// </summary>
     /// <param name="vehicleFactory">Factory that creates the runtime vehicle controller for each entry.</param>
     /// <param name="configureVehicle">Optional callback that can configure each controller before binding.</param>
@@ -375,9 +381,9 @@ public sealed class TrainCompositionBuilder
         {
             var vehicle = _vehicles[index];
             var controller = vehicleFactory(vehicle)
-                ?? throw new InvalidOperationException(
-                    $"Vehicle factory returned null for vehicle UID {vehicle.VehicleId}.");
-            
+                             ?? throw new InvalidOperationException(
+                                 $"Vehicle factory returned null for vehicle UID {vehicle.VehicleId}.");
+
             configureVehicle?.Invoke(controller, vehicle, index, _vehicles.Count);
 
             boundVehicles.Add(vehicle with { VehicleInstance = controller });
@@ -387,9 +393,11 @@ public sealed class TrainCompositionBuilder
     }
 
     private static TrainVehicle Normalize(TrainVehicle vehicle, bool preserveRuntimeState)
-        => preserveRuntimeState
+    {
+        return preserveRuntimeState
             ? vehicle
             : vehicle with { VehicleInstance = null, Position = 0 };
+    }
 
     private SplitCandidate CreateSplitCandidate(int index)
     {
@@ -419,9 +427,11 @@ public sealed class TrainCompositionBuilder
     }
 
     private static VehicleDirection? SelectValidDirection(IVehicle? controller)
-        => controller?.Direction is VehicleDirection.Forward or VehicleDirection.Backward
+    {
+        return controller?.Direction is VehicleDirection.Forward or VehicleDirection.Backward
             ? controller.Direction
             : null;
+    }
 
     private async Task ExecuteUncouplingAsync(
         SplitCandidate selected,
@@ -470,19 +480,19 @@ public sealed class TrainCompositionBuilder
             return null;
 
         var controller = _vehicleFactory(entry)
-            ?? throw new InvalidOperationException($"Vehicle factory returned null for UID {entry.VehicleId}.");
+                         ?? throw new InvalidOperationException(
+                             $"Vehicle factory returned null for UID {entry.VehicleId}.");
 
         if (_commandStations.Count > 0 && controller.HasDecoder)
-        {
             foreach (var commandStation in _commandStations)
                 controller.LocoDecoder.SubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
-        }
 
         _vehicles[index] = entry with { VehicleInstance = controller };
         return controller;
     }
 
-    private static TrainDirection ResolveTrainDirection(VehicleDirection decoderDirection, VehicleOrientation orientation)
+    private static TrainDirection ResolveTrainDirection(VehicleDirection decoderDirection,
+        VehicleOrientation orientation)
     {
         return orientation switch
         {
@@ -498,15 +508,18 @@ public sealed class TrainCompositionBuilder
     }
 
     private static VehicleDirection OppositeDirection(VehicleDirection direction)
-        => direction switch
+    {
+        return direction switch
         {
             VehicleDirection.Forward => VehicleDirection.Backward,
             VehicleDirection.Backward => VehicleDirection.Forward,
             _ => throw new ArgumentOutOfRangeException(nameof(direction), direction,
                 "Direction must be Forward or Backward.")
         };
+    }
 
-    private (List<TrainVehicle> RemainingVehicles, List<TrainVehicle> DetachedVehicles) BuildSplitParts(int index1, int index2)
+    private (List<TrainVehicle> RemainingVehicles, List<TrainVehicle> DetachedVehicles) BuildSplitParts(int index1,
+        int index2)
     {
         var remainingVehicles = new List<TrainVehicle>();
         var detachedVehicles = new List<TrainVehicle>();
@@ -529,7 +542,8 @@ public sealed class TrainCompositionBuilder
         }
 
         if (remainingVehicles.Count == 0 || detachedVehicles.Count == 0)
-            throw new InvalidOperationException("SplitComposition produced an empty composition part, which is not allowed.");
+            throw new InvalidOperationException(
+                "SplitComposition produced an empty composition part, which is not allowed.");
 
         return (remainingVehicles, detachedVehicles);
     }
@@ -546,11 +560,9 @@ public sealed class TrainCompositionBuilder
     private void EnsureNotBoundToActiveTrain(string operationName)
     {
         if (_vehicles.Any(vehicle => vehicle.VehicleInstance is not null))
-        {
             throw new InvalidOperationException(
                 $"{operationName} is only allowed for detached compositions. " +
                 "Detach the composition from an active Train instance first (only allowed in OperatingMode.ShutDown).");
-        }
     }
 
     private readonly record struct SplitCandidate(

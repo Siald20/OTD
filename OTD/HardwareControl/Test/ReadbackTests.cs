@@ -18,17 +18,17 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using OTD.HardwareControl.Drivers;
 
 namespace OTD.HardwareControl;
 
 internal static class ReadbackTests
 {
     /// <summary>
-    /// Führt einen Live-Readback-Test für Zubehördecoder-Events der Zentrale aus.
+    ///     Führt einen Live-Readback-Test für Zubehördecoder-Events der Zentrale aus.
     /// </summary>
     public static async Task ReadBackTestAccessoryAsync(
         CommandStation commandStation,
@@ -42,7 +42,7 @@ internal static class ReadbackTests
         commandStation.AccessoryStateChanged += OnAccessoryChanged;
         try
         {
-            var keyTask = Task.Run(() => Console.ReadKey(intercept: true), cancellationToken);
+            var keyTask = Task.Run(() => Console.ReadKey(true), cancellationToken);
             var cancelTask = Task.Delay(Timeout.Infinite, cancellationToken);
             await Task.WhenAny(keyTask, cancelTask).ConfigureAwait(false);
         }
@@ -62,7 +62,7 @@ internal static class ReadbackTests
     }
 
     /// <summary>
-    /// Führt den Live-Readback-Test für Lokdecoder aus und zeigt Zentrale- sowie Decoder-Events.
+    ///     Führt den Live-Readback-Test für Lokdecoder aus und zeigt Zentrale- sowie Decoder-Events.
     /// </summary>
     public static async Task ReadBackTestLocoAsync(CommandStation commandStation)
     {
@@ -83,18 +83,14 @@ internal static class ReadbackTests
             var threadId = Thread.CurrentThread.ManagedThreadId;
 
             if (args.HasSpeedUpdate)
-            {
                 Console.WriteLine(
                     $"[CS ReadBack #{eventNumber}] Thread={threadId} Addr={args.Address}: " +
                     $"Speed={args.SpeedStep}, Richtung={args.Direction}, EVT={args.IsEventPacket}");
-            }
 
             if (args.HasFunctionUpdate)
-            {
                 Console.WriteLine(
                     $"[CS ReadBack #{eventNumber}] Thread={threadId} Addr={args.Address}: " +
                     $"F{args.FunctionNumber}={args.FunctionStateValue}, EVT={args.IsEventPacket}");
-            }
         };
 
         ShowLocoStateChangedResultsContinuously(train);
@@ -105,13 +101,13 @@ internal static class ReadbackTests
         Console.WriteLine("-> Beliebige Taste drücken zum Beenden.");
         Console.WriteLine();
 
-        await Task.Run(() => Console.ReadKey(intercept: true)).ConfigureAwait(false);
+        await Task.Run(() => Console.ReadKey(true)).ConfigureAwait(false);
 
         Console.WriteLine("=== ReadBack Live-Test beendet ===");
     }
 
     /// <summary>
-    /// Abonniert Decoder-StateChanged-Events aller Fahrzeuge im Zug und protokolliert Änderungen.
+    ///     Abonniert Decoder-StateChanged-Events aller Fahrzeuge im Zug und protokolliert Änderungen.
     /// </summary>
     public static void ShowLocoStateChangedResultsContinuously(Train train)
     {
@@ -146,7 +142,7 @@ internal static class ReadbackTests
     }
 
     /// <summary>
-    /// Abonniert Accessory-Decoder-Readback und schreibt jede Zustandsänderung auf die Konsole.
+    ///     Abonniert Accessory-Decoder-Readback und schreibt jede Zustandsänderung auf die Konsole.
     /// </summary>
     public static void ShowAccessoryStateChangedResultsContinuously(IAccessoryDecoder accessoryDecoder)
     {
@@ -166,7 +162,7 @@ internal static class ReadbackTests
     }
 
     /// <summary>
-    /// Gibt den aktuellen Funktions- und Geschwindigkeitsstatus aller Decoder im Zug aus.
+    ///     Gibt den aktuellen Funktions- und Geschwindigkeitsstatus aller Decoder im Zug aus.
     /// </summary>
     public static void CheckFunctionStates(Train train)
     {

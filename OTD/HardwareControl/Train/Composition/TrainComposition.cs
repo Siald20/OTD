@@ -18,6 +18,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -26,52 +27,11 @@ using System.Linq;
 namespace OTD.HardwareControl;
 
 /// <summary>
-/// Immutable train composition that contains the ordered vehicle entries and their runtime instances.
+///     Immutable train composition that contains the ordered vehicle entries and their runtime instances.
 /// </summary>
 public sealed class TrainComposition : IReadOnlyList<TrainVehicle>
 {
     private readonly TrainVehicle[] _vehicles;
-
-    /// <summary>
-    /// Empty composition instance.
-    /// </summary>
-    public static TrainComposition Empty { get; } = new(Array.Empty<TrainVehicle>());
-
-    /// <summary>
-    /// Total train length of the composition.
-    /// </summary>
-    public int Length { get; }
-
-    /// <summary>
-    /// Minimum speed of the composition.
-    /// </summary>
-    public int VMin { get; }
-
-    /// <summary>
-    /// Maximum speed of the composition.
-    /// </summary>
-    public int VMax { get; }
-
-    /// <summary>
-    /// Total weight of the composition.
-    /// Returns 0 if one or more vehicle weights are unknown.
-    /// </summary>
-    public int Weight { get; }
-
-    /// <summary>
-    /// Number of vehicles in the composition.
-    /// </summary>
-    public int Count => _vehicles.Length;
-
-    /// <summary>
-    /// Returns the vehicle entry at the given train position.
-    /// </summary>
-    public TrainVehicle this[int index] => _vehicles[index];
-
-    /// <summary>
-    /// Exposes the ordered vehicle entries as read-only list.
-    /// </summary>
-    public IReadOnlyList<TrainVehicle> Vehicles => Array.AsReadOnly(_vehicles);
 
     internal TrainComposition(IEnumerable<TrainVehicle> vehicles)
     {
@@ -90,51 +50,94 @@ public sealed class TrainComposition : IReadOnlyList<TrainVehicle>
     }
 
     /// <summary>
-    /// Returns a builder pre-populated with the current composition entries.
-    /// Runtime vehicle instances are intentionally not preserved.
+    ///     Empty composition instance.
     /// </summary>
-    public TrainCompositionBuilder ToBuilder()
-        => new(_vehicles);
+    public static TrainComposition Empty { get; } = new(Array.Empty<TrainVehicle>());
 
     /// <summary>
-    /// Finds a vehicle entry by its unique identifier.
+    ///     Total train length of the composition.
+    /// </summary>
+    public int Length { get; }
+
+    /// <summary>
+    ///     Minimum speed of the composition.
+    /// </summary>
+    public int VMin { get; }
+
+    /// <summary>
+    ///     Maximum speed of the composition.
+    /// </summary>
+    public int VMax { get; }
+
+    /// <summary>
+    ///     Total weight of the composition.
+    ///     Returns 0 if one or more vehicle weights are unknown.
+    /// </summary>
+    public int Weight { get; }
+
+    /// <summary>
+    ///     Exposes the ordered vehicle entries as read-only list.
+    /// </summary>
+    public IReadOnlyList<TrainVehicle> Vehicles => Array.AsReadOnly(_vehicles);
+
+    /// <summary>
+    ///     Number of vehicles in the composition.
+    /// </summary>
+    public int Count => _vehicles.Length;
+
+    /// <summary>
+    ///     Returns the vehicle entry at the given train position.
+    /// </summary>
+    public TrainVehicle this[int index] => _vehicles[index];
+
+    public IEnumerator<TrainVehicle> GetEnumerator()
+    {
+        return ((IEnumerable<TrainVehicle>)_vehicles).GetEnumerator();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
+
+    /// <summary>
+    ///     Returns a builder pre-populated with the current composition entries.
+    ///     Runtime vehicle instances are intentionally not preserved.
+    /// </summary>
+    public TrainCompositionBuilder ToBuilder()
+    {
+        return new TrainCompositionBuilder(_vehicles);
+    }
+
+    /// <summary>
+    ///     Finds a vehicle entry by its unique identifier.
     /// </summary>
     public TrainVehicle? FindByVehicleId(Guid vehicleId)
     {
         foreach (var vehicle in _vehicles)
-        {
             if (vehicle.VehicleId.Equals(vehicleId))
                 return vehicle;
-        }
 
         return null;
     }
 
     /// <summary>
-    /// Returns the index of a vehicle entry or -1 if it is not part of the composition.
+    ///     Returns the index of a vehicle entry or -1 if it is not part of the composition.
     /// </summary>
     public int IndexOfVehicleId(Guid vehicleId)
     {
         for (var index = 0; index < _vehicles.Length; index++)
-        {
             if (_vehicles[index].VehicleId.Equals(vehicleId))
                 return index;
-        }
 
         return -1;
     }
 
     /// <summary>
-    /// Returns whether the composition contains the specified vehicle.
+    ///     Returns whether the composition contains the specified vehicle.
     /// </summary>
     public bool ContainsVehicle(Guid vehicleId)
-        => IndexOfVehicleId(vehicleId) >= 0;
-
-    public IEnumerator<TrainVehicle> GetEnumerator()
-        => ((IEnumerable<TrainVehicle>)_vehicles).GetEnumerator();
-
-    IEnumerator IEnumerable.GetEnumerator()
-        => GetEnumerator();
+    {
+        return IndexOfVehicleId(vehicleId) >= 0;
+    }
 }
-
-
