@@ -1,8 +1,7 @@
 using System;
 
 /// <summary>
-/// TMN814_VSR: Vollständige 1:1 Übersetzung des Vorsignal-Relaissatzes.
-/// Basierend auf der gelieferten TMN814_VSR.cpp und .h Logik.
+/// Vereinfachter Vorsignal-Relaissatz.
 /// </summary>
 public class TMN814_VSR : RelaisSatz
 {
@@ -30,9 +29,9 @@ public class TMN814_VSR : RelaisSatz
     public Lampe l_SR = new Lampe();
 
     // --- Interne Pointer/Referenzen ---
-    private Input m_bli_ptr;
-    private Input m_aa_ptr;
-    private VorsignalSZRS m_vs;
+    private Input? m_bli_ptr;
+    private Input? m_aa_ptr;
+    private VorsignalSZRS? m_vs;
 
     public TMN814_VSR()
     {
@@ -69,34 +68,40 @@ public class TMN814_VSR : RelaisSatz
 
     public override void Update()
     {
-        bool ac;
-        bool pl;
-        bool mi;
-        bool f13;
-
         if (m_aa_ptr != null)
             sl_AA.Value = m_aa_ptr.Value;
 
+        UpdateFahrbegriffe();
+        UpdateAutomatik();
+        UpdateRueckmeldung();
+    }
+
+    private void UpdateFahrbegriffe()
+    {
         VS1_1.Value = (i_VS12 != 0) && (VS1_1.Value || !VS2.Value);
         VS2.Value = (i_VS12 > 0) && VS1_1.Value;
         VS3.Value = (i_VS34 != 0) && (VS3.Value || !VS4.Value);
         VS4.Value = (i_VS34 > 0) && VS3.Value;
         VS5.Value = i_VS5.Value;
-
         VS1_2.Value = VS1_1.Value;
+    }
+
+    private void UpdateAutomatik()
+    {
         VA_a.Value = (sl_AA.Value || VA_a.Value) && !V_RM2.Value && !VS5.Value;
         V_RM2.Value = V_RM1.Value;
-
-        ac = !VS5.Value && !VS1_1.Value && !VS1_2.Value && !VS3.Value;
-        pl = VS1_1.Value && VS1_2.Value && VS3.Value && VS4.Value;
-        mi = VS1_1.Value && VS1_2.Value && VS3.Value && !VS4.Value;
-        f13 = VS2.Value;
-
         AV.Value = !VS3.Value;
-        
+    }
+
+    private void UpdateRueckmeldung()
+    {
         if (m_vs != null) 
         {
-            m_vs.Update(ac, pl, mi, f13);
+            var halt = !VS5.Value && !VS1_1.Value && !VS1_2.Value && !VS3.Value;
+            var freieFahrt = VS1_1.Value && VS1_2.Value && VS3.Value && VS4.Value;
+            var warnung = VS1_1.Value && VS1_2.Value && VS3.Value && !VS4.Value;
+            var fahrt13 = VS2.Value;
+            m_vs.Update(halt, freieFahrt, warnung, fahrt13);
             V_RM1.Value = m_vs.GetRM();
         }
     }
@@ -110,5 +115,19 @@ public class TMN814_VSR : RelaisSatz
             sl_ML_BLI.Value = m_bli_ptr.Value;
             
         l_SR.Value = sl_ML_BLI.Value && !V_RM2.Value && !VS5.Value;
+    }
+
+    public void CommitRelais()
+    {
+        VS1_1.Commit();
+        VS1_2.Commit();
+        VS2.Commit();
+        VS3.Commit();
+        VS4.Commit();
+        VS5.Commit();
+        AV.Commit();
+        V_RM1.Commit();
+        V_RM2.Commit();
+        VA_a.Commit();
     }
 }

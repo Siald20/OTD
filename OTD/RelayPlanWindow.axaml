@@ -14,9 +14,9 @@
                 <Button Content="+ HSR" Click="AddHsr" Margin="0,0,6,0" />
                 <Button Content="+ ZGR" Click="AddZgr" Margin="0,0,6,0" />
                 <Button Content="+ ZSR" Click="AddZsr" Margin="0,0,6,0" />
-                <Button Content="+ VSR" Click="AddVsr" Margin="0,0,6,0" />
                 <Button Content="+ Prüfkabel" Click="AddTestSource" Margin="0,0,18,0" />
                 <Button Content="Zentrale testen" Click="SelectCentralControl" Margin="0,0,18,0" />
+                <Button Content="Block/Sperre testen" Click="OpenBlockTest" Margin="0,0,18,0" />
                 <Button Content="Simulationsschritt" Click="RunSimulation" Margin="0,0,6,0" />
                 <Button Content="10 Schritte" Click="RunTenSimulations" Margin="0,0,6,0" />
                 <Button Content="Auswahl trennen" Click="DisconnectSelected" Margin="0,0,6,0" />
@@ -26,7 +26,7 @@
         <Grid Grid.Row="1" ColumnDefinitions="*,390">
             <ScrollViewer HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto" Background="#0D1319">
-                <Canvas x:Name="PlanCanvas" Width="2200" Height="1300" />
+                <Canvas x:Name="PlanCanvas" Width="2600" Height="1500" />
             </ScrollViewer>
             <Border Grid.Column="1" Background="#111B23" BorderBrush="#405463"
                     BorderThickness="1,0,0,0" Padding="12">
@@ -42,7 +42,7 @@
         </Grid>
         <Border Grid.Row="2" Background="#17212B" Padding="10,7">
             <TextBlock x:Name="StatusText" Foreground="#D7E4EE"
-                       Text="Stecker anklicken: erster Klick wählt, zweiter Klick verbindet." />
+                       Text="Domino-67 Situationsplan: Stecker anklicken, um Spurkabel zu verbinden." />
         </Border>
     </Grid>
 </Window>

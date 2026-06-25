@@ -41,49 +41,6 @@ public class Kontakt
     public bool O() => _timer.Value;
 }
 
-public class Schleife
-{
-    public enum Spannung
-    {
-        Minus_Niederohmig = -2,
-        Minus_Hochohmig = -1,
-        Aus = 0,
-        Plus_Hochohmig = 1,
-        Plus_Niederohmig = 2
-    }
-
-    public enum Leitwert
-    {
-        Unterbruch,
-        Hochohmig,
-        Niederohmig
-    }
-
-    private Schleife? _other;
-    private Spannung _spannung;
-    private Leitwert _minus;
-    private Leitwert _plus;
-
-    public static void Connect(Schleife first, Schleife second)
-    {
-        first._other = second;
-        second._other = first;
-    }
-
-    public void SetSpannung(Spannung value) => _spannung = value;
-
-    public Spannung GetSpannung() => _other?._spannung ?? _spannung;
-
-    public void SetLeitwert(Leitwert minus, Leitwert plus)
-    {
-        _minus = minus;
-        _plus = plus;
-    }
-
-    public Leitwert GetLeitwertMinus() => _other?._minus ?? _minus;
-
-    public Leitwert GetLeitwertPlus() => _other?._plus ?? _plus;
-}
 
 public class TMN825_AS_AE
 {

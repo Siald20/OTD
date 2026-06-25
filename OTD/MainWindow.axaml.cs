@@ -26,6 +26,11 @@ public partial class MainWindow : Window
         new WsrTestWindow().Show(this);
     }
 
+    private void OpenBlockTest(object? sender, RoutedEventArgs e)
+    {
+        new BlockTestWindow().Show(this);
+    }
+
     private void OpenRelayPlan(object? sender, RoutedEventArgs e)
     {
         new RelayPlanWindow().Show(this);

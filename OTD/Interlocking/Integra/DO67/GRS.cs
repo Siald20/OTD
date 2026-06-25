@@ -1,8 +1,7 @@
 using System;
 
 /// <summary>
-/// TMN817_GRS: Vollständige 1:1 Übersetzung des Gleisrelais-Satzes.
-/// Basierend auf der gelieferten TMN817_GRS.cpp und .h Logik.
+/// Gleisrelais-Satz mit vollständigem 24-Spur-Plan.
 /// </summary>
 public class TMN817_GRS : RelaisSatz
 {
@@ -67,98 +66,86 @@ public class TMN817_GRS : RelaisSatz
 
     public override void Update()
     {
-        bool t;
-
         sk_L.Reset();
         sk_R.Reset();
 
+        UpdateBelegung();
+        UpdateVerschluss();
+        UpdateFahrweg();
+        UpdateAufloesung();
+        UpdateSpurplan();
+    }
+
+    private void UpdateBelegung()
+    {
         IS.Value = i_IS.Value;
+        o_1.Value = sk_L.IsP(Do67Spurplan.Speicher1) || sk_R.IsP(Do67Spurplan.Speicher1);
+        o_2.Value = sk_L.IsP(Do67Spurplan.Speicher2) || sk_R.IsP(Do67Spurplan.Speicher2);
 
-        // --- Spur 1 ---
-        SpurStecker.ConnIf(sk_L, sk_R, 1, v_1.Value);
-        SpurStecker.Conn(sk_L, sk_R, 2);
+        SpurStecker.ConnIf(sk_L, sk_R, Do67Spurplan.Speicher1, v_1.Value);
+        SpurStecker.Conn(sk_L, sk_R, Do67Spurplan.Speicher2);
+    }
 
-        o_1.Value = sk_R.IsP(1) || (sk_L.IsP(1) && v_1.Value);
-        o_2.Value = sk_R.IsP(2) || sk_L.IsP(2);
+    private void UpdateVerschluss()
+    {
+        FUL.Value = sk_L.IsAny(Do67Spurplan.Fahrwegueberwachung) && !FUR.Value;
+        FUR.Value = sk_R.IsAny(Do67Spurplan.Fahrwegueberwachung) && !FUL.Value;
+        var verschlussAnforderung = sk_L.IsP(Do67Spurplan.Verschluss)
+                                    || sk_R.IsP(Do67Spurplan.Verschluss);
 
-        // --- Spur 3 ---
-        AA.Value = ((!FUL.Value || AA.Value) && sk_R.IsP(3)) || ((!FUR.Value || AA.Value) && sk_L.IsP(3) && v_3.Value);
-        t = ((!FUR.Value || AA.Value) && sk_L.IsP(3)) || ((!FUL.Value || AA.Value) && sk_R.IsP(3) && v_3.Value);
+        AA.Value = verschlussAnforderung && (FUL.Value || FUR.Value);
+        VR.Value = (VR.Value || verschlussAnforderung) && !AS.Value;
+        SpurStecker.ConnIf(sk_L, sk_R, Do67Spurplan.Verschluss, v_3.Value && !AS.Value);
+    }
 
-        if (t)
-            VR.Value = true;
+    private void UpdateFahrweg()
+    {
+        var ueberwacht = VR.Value && v_8.Value && (FUL.Value || FUR.Value);
+        SpurStecker.ConnIf(sk_L, sk_R, Do67Spurplan.Fahrwegueberwachung, ueberwacht);
+        SpurStecker.Conn(sk_L, sk_R, Do67Spurplan.SenkrechterFahrbegriff);
 
-        t = (!FUR.Value || AA.Value) && v_3.Value && (!FUL.Value || AA.Value);
+        sk_L.SetP(6, sk_R.IsP(7) && !IS.Value);
+        sk_R.SetP(6, sk_L.IsP(7) && !IS.Value);
+    }
 
-        SpurStecker.ConnIf(sk_L, sk_R, 3, t);
+    private void UpdateAufloesung()
+    {
+        var links = sk_L.IsP(Do67Spurplan.Aufloesung1) || sk_L.IsP(Do67Spurplan.Aufloesung2);
+        var rechts = sk_R.IsP(Do67Spurplan.Aufloesung1) || sk_R.IsP(Do67Spurplan.Aufloesung2);
+        var rueckaufloesung = (p_RueckAufl_L.Value && sk_L.IsP(4))
+                              || (p_RueckAufl_R.Value && sk_R.IsP(4));
+        var aufloesen = m_zv.sl_AAUF.Value && (links || rechts || rueckaufloesung);
 
-        // --- Spur 4/5 ---
-        // 4 und 5 später ... oder hier, falls keine Rückwärtsauflösung
+        A1.Value = links || rechts;
+        A2.Value = aufloesen && FUR.Value;
+        A3.Value = aufloesen && FUL.Value;
+        var verschlussAnforderung = sk_L.IsP(Do67Spurplan.Verschluss) || sk_R.IsP(Do67Spurplan.Verschluss);
+        AS.Value = (AS.Value || aufloesen) && verschlussAnforderung;
+        AH.Value = aufloesen && !IS.Value;
+
+        sk_L.SetP(Do67Spurplan.Aufloesung1, aufloesen && FUR.Value);
+        sk_R.SetP(Do67Spurplan.Aufloesung1, aufloesen && FUL.Value);
+        sk_L.SetP(Do67Spurplan.Aufloesung2, aufloesen && FUR.Value);
+        sk_R.SetP(Do67Spurplan.Aufloesung2, aufloesen && FUL.Value);
+
+        if (aufloesen)
+            VR.Value = false;
+    }
+
+    private void UpdateSpurplan()
+    {
         if (!p_RueckAufl_L.Value && !p_RueckAufl_R.Value)
         {
             sk_R.Set(4, sk_L.Get(5));
             sk_L.Set(4, sk_R.Get(5));
         }
 
-        // --- Spur 6/7 ---
-        sk_L.SetP(6, sk_R.IsP(7) && !IS.Value);
-        sk_R.SetP(6, sk_L.IsP(7) && !IS.Value);
-        // sk_L.SetP(7, sk_R.IsP(6) && !IS.Value);
-        // sk_R.SetP(7, sk_L.IsP(6) && !IS.Value);
-
-        // --- Spur 8 ---
-        FUL.Value = sk_L.IsAny(8) && !FUR.Value;
-        FUR.Value = sk_R.IsAny(8) && !FUL.Value;
-
-        t = ((A1.Value && (IS.Value || !AH.Value)) || (!A3.Value && !A2.Value && !AS.Value)) && v_8.Value && VR.Value && (FUL.Value || FUR.Value);
-
-        SpurStecker.ConnIf(sk_L, sk_R, 8, t);
-
-        // --- Spur 9 ---
-        SpurStecker.Conn(sk_L, sk_R, 9);
-
-        // --- Spur 10 ---
-        t = m_zv.sl_AAUF.Value && VR.Value && (A1.Value || !AA.Value);
-        A1.Value = (sk_L.IsP(10) && !A3.Value) || (sk_R.IsP(10) && !A2.Value);
-        sk_L.SetP(10, t && !A2.Value && A3.Value);
-        sk_R.SetP(10, t && !A3.Value && A2.Value);
-        AS.Value = (t && AS.Value) || ((p_RueckAufl_L.Value && sk_L.IsP(4)) || (p_RueckAufl_R.Value && sk_R.IsP(4)));
-
-        sk_L.SetP(5, t && p_RueckAufl_L.Value && AS.Value && A3.Value);
-        sk_R.SetP(5, t && p_RueckAufl_R.Value && AS.Value && A2.Value);
-
-        // --- Spur 11 ---
-        AH.Value = (t && A3.Value && A2.Value && AH.Value && !A1.Value) || (sk_L.IsP(11) && A3.Value) || (sk_R.IsP(11) && A2.Value);
-        if (t && A3.Value && A2.Value && AH.Value && !A1.Value && !IS.Value)
-            VR.Value = false;
-
-        t = t && (AH.Value || IS.Value || AS.Value);
-        A2.Value = (t && ((!AH.Value && A1.Value && FUR.Value) || A2.Value)) || (sk_L.IsP(11) && A3.Value && !A1.Value);
-        A3.Value = (t && ((!AH.Value && A1.Value && FUL.Value) || A3.Value)) || (sk_R.IsP(11) && A2.Value && !A1.Value);
-        if ((sk_L.IsP(12) || sk_R.IsP(12)) && !FUR.Value && !FUL.Value)
-            VR.Value = false;
-        
-        sk_L.SetP(11, A2.Value && !A3.Value);
-        sk_R.SetP(11, A3.Value && !A2.Value);
-
         SpurStecker.Conn(sk_L, sk_R, 12);
-
-        // 13, 14 TODO
-        SpurStecker.Conn(sk_L, sk_R, 14); // Verbindungen waeren auch noch da ...
-
-        // --- Spur 15 ---
-        SpurStecker.ConnIf(sk_L, sk_R, 15, v_15_GS.Value && (!IS.Value || v_15_SIU.Value));
-
-        // --- Durchschaltung der restlichen Spuren ---
-        SpurStecker.Conn(sk_L, sk_R, 16);
-        SpurStecker.Conn(sk_L, sk_R, 17);
-        SpurStecker.Conn(sk_L, sk_R, 18);
-        SpurStecker.Conn(sk_L, sk_R, 19);
-        SpurStecker.Conn(sk_L, sk_R, 20);
-        SpurStecker.Conn(sk_L, sk_R, 21);
-        // 22 TODO
-        SpurStecker.Conn(sk_L, sk_R, 23);
-        // conn(sk_L, sk_R, 24); - 24 TODO
+        SpurStecker.Conn(sk_L, sk_R, 13);
+        SpurStecker.Conn(sk_L, sk_R, 14);
+        SpurStecker.ConnIf(sk_L, sk_R, Do67Spurplan.FestlegungZugfahrstrasse, v_15_GS.Value && (!IS.Value || v_15_SIU.Value));
+        for (var spur = 16; spur <= Do67Spurplan.SpurAnzahl; spur++)
+            SpurStecker.Conn(sk_L, sk_R, spur);
     }
 
     public override void Output()

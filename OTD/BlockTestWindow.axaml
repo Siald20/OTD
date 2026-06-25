@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:blockTiles="using:OTD.Controlls.InterlockingEnlements.BlockTiles"
+        x:Class="OTD.BlockTestWindow"
+        Title="Modellbahn-Blocksimulation"
+        Width="1250"
+        Height="760"
+        MinWidth="900"
+        MinHeight="600"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="16" RowDefinitions="Auto,*,Auto">
+        <StackPanel>
+            <TextBlock Text="Modellbahn-Blocksimulation"
+                       FontSize="24"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="Aktion wählen und danach die Blocktaste drücken. Block und integrierter Sperrsatz kommunizieren über getrennte Schleifen."
+                       Margin="0,4,0,14" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="16">
+            <Border BorderBrush="#808080" BorderThickness="1" Padding="14">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Block links" FontSize="20" FontWeight="SemiBold" />
+                    <blockTiles:BlockTile x:Name="LeftBlockTile"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,4,0,8" />
+                    <StackPanel x:Name="LeftControls" Spacing="6" />
+                    <Separator Margin="0,6" />
+                    <ScrollViewer Height="150">
+                        <TextBlock x:Name="LeftState" FontFamily="Consolas" TextWrapping="Wrap" />
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" BorderBrush="#808080" BorderThickness="1" Padding="14">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Block rechts" FontSize="20" FontWeight="SemiBold" />
+                    <blockTiles:BlockTile x:Name="RightBlockTile"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,4,0,8" />
+                    <StackPanel x:Name="RightControls" Spacing="6" />
+                    <Separator Margin="0,6" />
+                    <ScrollViewer Height="150">
+                        <TextBlock x:Name="RightState" FontFamily="Consolas" TextWrapping="Wrap" />
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,14,0,0">
+            <Button Content="12 Zyklen" MinWidth="110" Click="RunOneStep" />
+            <Button Grid.Column="1" Content="Zurücksetzen" MinWidth="120" Margin="8,0,0,0" Click="ResetSimulation" />
+            <TextBlock x:Name="ConnectionState" Grid.Column="3" VerticalAlignment="Center" />
+        </Grid>
+    </Grid>
+</Window>

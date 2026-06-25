@@ -12,9 +12,9 @@ namespace OTD;
 
 public partial class RelayPlanWindow : Window
 {
-    private const double NodeWidth = 220;
-    private const double HeaderHeight = 43;
-    private const double PortHeight = 34;
+    private const double NodeWidth = 150;
+    private const double NodeHeight = 100;
+    private const double PortSize = 34;
     private readonly Do67 _do67 = new();
     private readonly List<RelayNode> _nodes = [];
     private readonly List<Cable> _cables = [];
@@ -41,11 +41,17 @@ public partial class RelayPlanWindow : Window
     private void CreateExamplePlan()
     {
         EnableTestPermissions();
-        var wsr = AddNode("WSR 1", new TMN500_WSR(_do67, false), 80, 100);
-        var grs = AddNode("GRS 1", new TMN817_GRS(_do67), 410, 100);
-        var hsr = AddNode("HSR 1", new TMN501_HSR(_do67, false, false, false), 740, 100);
-        Connect(FindPort(wsr, "sk_R"), FindPort(grs, "sk_L"));
-        Connect(FindPort(grs, "sk_R"), FindPort(hsr, "sk_A"));
+        var hsr = AddNode("HSR A", new TMN501_HSR(_do67, false, false, false), 80, 180);
+        var zgrA = AddNode("ZGR 1A", new TMN502_ZGR(_do67, false), 310, 180);
+        var wsr = AddNode("WSR 1", new TMN500_WSR(_do67, false), 550, 180);
+        var zgrB = AddNode("ZGR 1C", new TMN502_ZGR(_do67, false), 790, 180);
+        var grs = AddNode("GRS G3b", new TMN817_GRS(_do67), 1030, 180);
+        var zgrC = AddNode("ZGR 8A", new TMN502_ZGR(_do67, false), 1270, 180);
+        Connect(FindPort(hsr, "sk_A"), FindPort(zgrA, "sk_AH"));
+        Connect(FindPort(zgrA, "sk_A"), FindPort(wsr, "sk_S"));
+        Connect(FindPort(wsr, "sk_R"), FindPort(zgrB, "sk_A"));
+        Connect(FindPort(zgrB, "sk_E"), FindPort(grs, "sk_L"));
+        Connect(FindPort(grs, "sk_R"), FindPort(zgrC, "sk_E"));
         Redraw();
     }
 
@@ -128,71 +134,210 @@ public partial class RelayPlanWindow : Window
     private void Redraw()
     {
         _canvas.Children.Clear();
+        DrawLegend();
         foreach (var cable in _cables)
         {
             _canvas.Children.Add(new Line
             {
                 StartPoint = GetPortPoint(cable.First),
                 EndPoint = GetPortPoint(cable.Second),
-                Stroke = Brushes.DeepSkyBlue,
-                StrokeThickness = 5
+                Stroke = Brushes.White,
+                StrokeThickness = 3
             });
         }
 
         foreach (var node in _nodes)
         {
-            var panel = new StackPanel();
-            var headerButton = new Button
-            {
-                Content = $"{node.Name} · {node.RelaySet.GetType().Name}",
-                Foreground = Brushes.White, FontWeight = FontWeight.SemiBold,
-                Background = Brushes.Transparent, BorderThickness = new Avalonia.Thickness(0),
-                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Left
-            };
-            headerButton.Click += (_, _) => ShowInspector(node.Name, node.RelaySet);
-            panel.Children.Add(new Border
-            {
-                Height = HeaderHeight, Background = new SolidColorBrush(Color.Parse("#24394A")),
-                Padding = new Avalonia.Thickness(12, 9),
-                Child = headerButton
-            });
-            foreach (var port in node.Ports)
-            {
-                var button = new Button
-                {
-                    Height = PortHeight,
-                    HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
-                    Content = $"{port.Name}   {(port.Connector.IsConnected ? "● verbunden" : "○ frei")}",
-                    Background = new SolidColorBrush(Color.Parse(port == _selectedPort ? "#D88918" : "#18242E")),
-                    Foreground = Brushes.White,
-                    BorderBrush = new SolidColorBrush(Color.Parse(port.Connector.IsConnected ? "#2AA9E0" : "#526675")),
-                    BorderThickness = new Avalonia.Thickness(1)
-                };
-                button.Click += (_, _) => PortClicked(port);
-                panel.Children.Add(button);
-            }
-
-            var border = new Border
-            {
-                Width = NodeWidth, Background = new SolidColorBrush(Color.Parse("#101A22")),
-                BorderBrush = new SolidColorBrush(Color.Parse("#587080")),
-                BorderThickness = new Avalonia.Thickness(1), CornerRadius = new Avalonia.CornerRadius(5), Child = panel
-            };
-            Canvas.SetLeft(border, node.X);
-            Canvas.SetTop(border, node.Y);
-            _canvas.Children.Add(border);
+            DrawNode(node);
         }
     }
 
+    private void DrawLegend()
+    {
+        var text = new TextBlock
+        {
+            Text = "Fahrtrichtung X  →                         ←  Fahrtrichtung Y\n"
+                   + "Spuren 4/5: Flankenschutz X     Spuren 6/7: Flankenschutz Y     VSR ist fest dem HSR zugeordnet",
+            Foreground = new SolidColorBrush(Color.Parse("#AFC0CC")),
+            FontSize = 14
+        };
+        Canvas.SetLeft(text, 70);
+        Canvas.SetTop(text, 35);
+        _canvas.Children.Add(text);
+    }
+
+    private void DrawNode(RelayNode node)
+    {
+        Control body;
+        if (node.RelaySet is TMN500_WSR)
+        {
+            body = new Ellipse
+            {
+                Width = NodeWidth,
+                Height = NodeHeight,
+                Fill = new SolidColorBrush(Color.Parse("#F2F2F2")),
+                Stroke = Brushes.Black,
+                StrokeThickness = 2
+            };
+        }
+        else
+        {
+            body = new Border
+            {
+                Width = NodeWidth,
+                Height = NodeHeight,
+                Background = new SolidColorBrush(Color.Parse("#F2F2F2")),
+                BorderBrush = Brushes.Black,
+                BorderThickness = new Avalonia.Thickness(node.RelaySet is TMN817_GRS ? 2 : 5, 2, 2, 2)
+            };
+        }
+
+        Canvas.SetLeft(body, node.X);
+        Canvas.SetTop(body, node.Y);
+        _canvas.Children.Add(body);
+
+        var headerButton = new Button
+        {
+            Content = node.Name,
+            Width = NodeWidth - 35,
+            Height = 48,
+            Foreground = Brushes.Black,
+            FontWeight = FontWeight.Bold,
+            FontSize = 16,
+            Background = Brushes.Transparent,
+            BorderThickness = new Avalonia.Thickness(0)
+        };
+        headerButton.Click += (_, _) => ShowInspector(node.Name, node.RelaySet);
+        Canvas.SetLeft(headerButton, node.X + 18);
+        Canvas.SetTop(headerButton, node.Y + 25);
+        _canvas.Children.Add(headerButton);
+
+        if (node.RelaySet is TMN501_HSR)
+            DrawFixedVsr(node);
+
+        foreach (var port in node.Ports)
+        {
+            var point = GetPortPoint(port);
+            var button = new Button
+            {
+                Width = PortSize,
+                Height = PortSize,
+                Padding = new Avalonia.Thickness(0),
+                Content = PortLabel(port.Name),
+                FontSize = 11,
+                FontWeight = FontWeight.Bold,
+                Foreground = Brushes.White,
+                Background = new SolidColorBrush(Color.Parse(port == _selectedPort ? "#D88918" : port.Connector.IsConnected ? "#216F96" : "#405463")),
+                BorderBrush = Brushes.White,
+                BorderThickness = new Avalonia.Thickness(1)
+            };
+            button.Click += (_, _) => PortClicked(port);
+            Canvas.SetLeft(button, point.X - PortSize / 2);
+            Canvas.SetTop(button, point.Y - PortSize / 2);
+            _canvas.Children.Add(button);
+        }
+    }
+
+    private void DrawFixedVsr(RelayNode hsr)
+    {
+        var hsrSet = (TMN501_HSR)hsr.RelaySet;
+        var vsr = new Button
+        {
+            Width = 95,
+            Height = 48,
+            Background = new SolidColorBrush(Color.Parse("#E4E4E4")),
+            BorderBrush = Brushes.Black,
+            BorderThickness = new Avalonia.Thickness(2),
+            Content = "VSR\nfest zu HSR",
+            Foreground = Brushes.Black,
+            FontSize = 11
+        };
+        vsr.Click += (_, _) => ShowInspector($"{hsr.Name} · VSR", hsrSet.VSR);
+        Canvas.SetLeft(vsr, hsr.X + 28);
+        Canvas.SetTop(vsr, hsr.Y - 85);
+        _canvas.Children.Add(vsr);
+        _canvas.Children.Add(new Line
+        {
+            StartPoint = new Avalonia.Point(hsr.X + NodeWidth / 2, hsr.Y - 37),
+            EndPoint = new Avalonia.Point(hsr.X + NodeWidth / 2, hsr.Y),
+            Stroke = Brushes.White,
+            StrokeThickness = 2
+        });
+    }
+
+    private static string PortLabel(string name) => name switch
+    {
+        "sk_A" => "A",
+        "sk_E" => "E",
+        "sk_AH" => "AH",
+        "sk_EH" => "EH",
+        "sk_S" => "S",
+        "sk_R" => "R",
+        "sk_L" => "L",
+        _ => name.Replace("sk_", "")
+    };
+
     private static Avalonia.Point GetPortPoint(Port port)
     {
-        var index = port.Node.Ports.IndexOf(port);
-        return new Avalonia.Point(port.Node.X + NodeWidth, port.Node.Y + HeaderHeight + index * PortHeight + PortHeight / 2);
+        var x = port.Node.X;
+        var y = port.Node.Y;
+        if (port.Node.RelaySet is TMN501_HSR)
+        {
+            return port.Name == "sk_A"
+                ? new Avalonia.Point(x + NodeWidth, y + NodeHeight / 2)
+                : new Avalonia.Point(x, y + NodeHeight / 2);
+        }
+
+        if (port.Node.RelaySet is TMN503_ZSR)
+        {
+            return port.Name switch
+            {
+                "sk_A" => new Avalonia.Point(x + NodeWidth, y + NodeHeight / 2),
+                "sk_AH" => new Avalonia.Point(x + NodeWidth * 0.65, y + NodeHeight),
+                "sk_EH" => new Avalonia.Point(x + NodeWidth * 0.35, y + NodeHeight),
+                _ => new Avalonia.Point(x, y + NodeHeight / 2)
+            };
+        }
+
+        if (port.Node.RelaySet is TMN500_WSR)
+        {
+            return port.Name switch
+            {
+                "sk_S" => new Avalonia.Point(x, y + NodeHeight / 2),
+                "sk_R" => new Avalonia.Point(x + NodeWidth, y + NodeHeight * 0.35),
+                "sk_L" => new Avalonia.Point(x + NodeWidth / 2, y + NodeHeight),
+                _ => new Avalonia.Point(x + NodeWidth, y + NodeHeight / 2)
+            };
+        }
+
+        if (port.Node.RelaySet is TMN817_GRS)
+        {
+            return port.Name == "sk_L"
+                ? new Avalonia.Point(x, y + NodeHeight / 2)
+                : new Avalonia.Point(x + NodeWidth, y + NodeHeight / 2);
+        }
+
+        return port.Name switch
+        {
+            "sk_A" => new Avalonia.Point(x, y + NodeHeight / 2),
+            "sk_E" => new Avalonia.Point(x + NodeWidth, y + NodeHeight / 2),
+            "sk_AH" => new Avalonia.Point(x + NodeWidth * 0.35, y + NodeHeight),
+            "sk_EH" => new Avalonia.Point(x + NodeWidth * 0.70, y + NodeHeight),
+            "sk_S" => new Avalonia.Point(x, y + NodeHeight / 2),
+            "sk_R" => new Avalonia.Point(x + NodeWidth, y + NodeHeight * 0.35),
+            "sk_L" => new Avalonia.Point(x + NodeWidth, y + NodeHeight * 0.72),
+            _ => new Avalonia.Point(x + NodeWidth, y + NodeHeight / 2)
+        };
     }
 
     private void RunSimulation(object? sender, RoutedEventArgs e)
     {
         RunSimulationSteps(1);
+    }
+
+    private void OpenBlockTest(object? sender, RoutedEventArgs e)
+    {
+        new BlockTestWindow().Show(this);
     }
 
     private void RunTenSimulations(object? sender, RoutedEventArgs e)
@@ -261,7 +406,6 @@ public partial class RelayPlanWindow : Window
     private void AddHsr(object? sender, RoutedEventArgs e) => AddNew("HSR", new TMN501_HSR(_do67, false, false, false));
     private void AddZgr(object? sender, RoutedEventArgs e) => AddNew("ZGR", new TMN502_ZGR(_do67, false));
     private void AddZsr(object? sender, RoutedEventArgs e) => AddNew("ZSR", new TMN503_ZSR(_do67, false));
-    private void AddVsr(object? sender, RoutedEventArgs e) => AddNew("VSR", new TMN814_VSR());
     private void AddTestSource(object? sender, RoutedEventArgs e) => AddNew("Prüfkabel", new SpurTestQuelle());
     private void SelectCentralControl(object? sender, RoutedEventArgs e) => ShowInspector("DO67 Zentrale", _do67);
     private void SetStatus(string text) => _status.Text = text;
@@ -407,7 +551,7 @@ public partial class RelayPlanWindow : Window
     {
         _inspector.Children.Add(Heading($"{name}: Eingang / Ausgang"));
         for (var pin = 1; pin <= 24; pin++)
-            _inspector.Children.Add(StateRow($"Pin {pin:00}", connector.Get(pin) != 0,
+            _inspector.Children.Add(StateRow($"{pin:00} {Do67Spurplan.Beschreibung(pin)}", connector.Get(pin) != 0,
                 $"{FormatPin(connector.Get(pin))} / {FormatPin(connector.GetOutput(pin))}"));
     }
 

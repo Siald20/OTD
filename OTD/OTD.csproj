@@ -53,6 +53,9 @@
     <Compile Update="RelayPlanWindow.axaml.cs">
       <DependentUpon>RelayPlanWindow.axaml</DependentUpon>
     </Compile>
+    <Compile Update="BlockTestWindow.axaml.cs">
+      <DependentUpon>BlockTestWindow.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>
