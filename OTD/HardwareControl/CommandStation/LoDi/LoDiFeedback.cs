@@ -134,13 +134,13 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         if (_diagnosticLogging)
-            Console.WriteLine($"[LoDiFeedback Diag] Verbinde Modúl {UniqueId}...");
+            LoDiLog.FeedbackDebug($"Verbinde Modúl {UniqueId}...");
 
         await _commander.ConnectAsync(_ipAddress, _port, _subscribeOnStartup, cancellationToken)
             .ConfigureAwait(false);
 
         if (_diagnosticLogging)
-            Console.WriteLine($"[LoDiFeedback Diag] Modúl {UniqueId} verbunden: {IsConnected}");
+            LoDiLog.FeedbackDebug($"Modúl {UniqueId} verbunden: {IsConnected}");
 
         // Abfrage Device-Info vor allen anderen Operationen
         var deviceInfo = await _commander.QueryDeviceInfoAsync(cancellationToken).ConfigureAwait(false);
@@ -157,15 +157,15 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
         }
 
         if (_diagnosticLogging)
-            Console.WriteLine(
-                $"[LoDiFeedback Diag] Device-Info abgerufen: Bus1={_bus1SensorCount} Sensoren, Bus2={_bus2SensorCount} Sensoren, Summe={SensorCount}");
+            LoDiLog.FeedbackDebug(
+                $"Device-Info abgerufen: Bus1={_bus1SensorCount} Sensoren, Bus2={_bus2SensorCount} Sensoren, Summe={SensorCount}");
 
         // Initialzustand via globale Modulabfrage (0x20/0x30)
         if (_queryOnStartup) await QueryModulesAndAwaitStateAsync(cancellationToken).ConfigureAwait(false);
 
 
         if (_diagnosticLogging)
-            Console.WriteLine($"[LoDiFeedback Diag] Modúl {UniqueId} vollständig initialisiert");
+            LoDiLog.FeedbackDebug($"Modúl {UniqueId} vollständig initialisiert");
     }
 
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
@@ -255,7 +255,7 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
         }
 
         if (_diagnosticLogging)
-            Console.WriteLine($"[LoDiFeedback Diag] Sensor {sensorNumber:D4} ({sensorName}) => {state}");
+            LoDiLog.FeedbackDebug($"Sensor {sensorNumber:D4} ({sensorName}) => {state}");
 
         SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(
             UniqueId,
@@ -281,7 +281,7 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
                     _pendingInvalidModulesSeen.Add(e.ModuleAddress);
                     if (_diagnosticLogging)
                         invalidModuleDiagnostic =
-                            $"[LoDiFeedback Diag] Ignoriere ungueltige Moduladresse {e.ModuleAddress:D3} waehrend Snapshot-Warmup";
+                            $"Ignoriere ungueltige Moduladresse {e.ModuleAddress:D3} waehrend Snapshot-Warmup";
                 }
                 else
                 {
@@ -305,15 +305,15 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
         }
 
         if (_diagnosticLogging && invalidModuleDiagnostic is not null)
-            Console.WriteLine(invalidModuleDiagnostic);
+            LoDiLog.FeedbackDebug(invalidModuleDiagnostic);
 
         if (_diagnosticLogging && moduleSnapshotDiagnostic is not null)
-            Console.WriteLine(moduleSnapshotDiagnostic);
+            LoDiLog.FeedbackDebug(moduleSnapshotDiagnostic);
 
         foreach (var (sensorNumber, sensorName, state) in changed)
         {
             if (_diagnosticLogging)
-                Console.WriteLine($"[LoDiFeedback Diag] Sensor {sensorNumber:D4} ({sensorName}) => {state}");
+                LoDiLog.FeedbackDebug($"Sensor {sensorNumber:D4} ({sensorName}) => {state}");
 
             SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(
                 UniqueId,
@@ -329,7 +329,7 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
     {
         var activeContacts = snapshot.GetActiveContacts();
         return
-            $"[LoDiFeedback Diag] Modul {snapshot.ModuleAddress:D3} Snapshot: High=0x{snapshot.StatusHigh:X2}, Low=0x{snapshot.StatusLow:X2}, Active=[{FormatContacts(activeContacts)}]";
+            $"Modul {snapshot.ModuleAddress:D3} Snapshot: High=0x{snapshot.StatusHigh:X2}, Low=0x{snapshot.StatusLow:X2}, Active=[{FormatContacts(activeContacts)}]";
     }
 
     private static string FormatContacts(IEnumerable<int> contacts)

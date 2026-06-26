@@ -25,6 +25,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using OTD.Common;
 
 namespace OTD.HardwareControl;
 
@@ -90,7 +91,8 @@ public class Accessory : IDisposable
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
         {
-            Console.WriteLine($"Fehler beim Laden der Zubehör-Konfiguration '{accessoryId}': {ex.Message}");
+            Logging.Error(LogCategory.Accessory,
+                $"Fehler beim Laden der Zubehör-Konfiguration '{accessoryId}': {ex.Message}", ex);
             throw new InvalidOperationException($"Accessory configuration could not be loaded for '{accessoryId}'.",
                 ex);
         }
@@ -194,7 +196,7 @@ public class Accessory : IDisposable
         foreach (var decoder in _decoders)
             decoder.UnsubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
 
-        Console.WriteLine(
+        Logging.Debug(LogCategory.Accessory,
             $"Zubehör {Type} {Name}: Zentrale '{commandStation.GetType().Name}' beim Dispose abgemeldet.");
         GC.SuppressFinalize(this);
     }
@@ -219,7 +221,7 @@ public class Accessory : IDisposable
         if (string.Equals(CurrentState, state.State, StringComparison.OrdinalIgnoreCase))
             return;
 
-        Console.WriteLine(
+        Logging.Info(LogCategory.Accessory,
             $"Zubehör {Type} {Name}: Setze Zustand '{state.State}'{(string.IsNullOrWhiteSpace(state.Description) ? string.Empty : $" ({state.Description})")}");
 
         var validatedCommands = state.Commands
@@ -285,7 +287,7 @@ public class Accessory : IDisposable
         CurrentState = state.State;
 
         if (ActivationTime > 0)
-            Console.WriteLine(Protocol == AccessoryDecoderProtocol.DccExtended
+            Logging.Debug(LogCategory.Accessory, Protocol == AccessoryDecoderProtocol.DccExtended
                 ? $"Zubehör {Type} {Name}: Schaltzeit {ActivationTime} ms als Decoder-Daten übermittelt."
                 : $"Zubehör {Type} {Name}: Auto-Off nach {ActivationTime} ms ausgeführt.");
     }
@@ -346,8 +348,9 @@ public class Accessory : IDisposable
         foreach (var decoder in _decoders)
             decoder.SubscribeCommandStationAsync(commandStation).GetAwaiter().GetResult();
 
-        Console.WriteLine($"Zubehör {Type} {Name}: Zentrale '{commandStation.GetType().Name}' gebunden " +
-                          $"({_decoders.Count} AccessoryDecoder, genau eine Zentrale erlaubt).");
+        Logging.Info(LogCategory.Accessory,
+            $"Zubehör {Type} {Name}: Zentrale '{commandStation.GetType().Name}' gebunden " +
+            $"({_decoders.Count} AccessoryDecoder, genau eine Zentrale erlaubt).");
     }
 
     // Wird aufgerufen, wenn sich der Zustand des Decoders ändert (Readback von Zentrale)
@@ -436,12 +439,12 @@ public class Accessory : IDisposable
         if (delayedEvaluation)
         {
             // Verzögerte Zustandszuordnung protokollieren.
-            Console.WriteLine(
+            Logging.Debug(LogCategory.Accessory,
                 $"Zubehör {Type} {Name}: ReadBack-State-ID nach Sammelwartezeit ({delayMilliseconds} ms) = '{CurrentState}'.");
             return;
         }
 
-        Console.WriteLine($"Zubehör {Type} {Name}: ReadBack-State-ID = '{CurrentState}'.");
+        Logging.Debug(LogCategory.Accessory, $"Zubehör {Type} {Name}: ReadBack-State-ID = '{CurrentState}'.");
     }
 }
 

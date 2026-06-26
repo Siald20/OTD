@@ -372,7 +372,8 @@ internal sealed class LoDiConnection : IDisposable
 
     private static void LogPacketProcessingError(string transportName, Exception ex)
     {
-        Console.WriteLine($"[LoDiConnection] Error in {transportName} packet processing: {ex.Message}");
+        LoDiLog.CommandError(
+            $"Operation=PacketProcessing Transport={transportName} Reason={ex.Message}", ex);
     }
 
     // -------------------------------------------------------------------------

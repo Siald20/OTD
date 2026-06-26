@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using OTD.Common;
 
 namespace OTD.HardwareControl;
 
@@ -71,7 +72,7 @@ public class Loco : IVehicle
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
         {
-            Console.WriteLine($"Fehler beim Laden der Lok-Konfiguration '{vehicleId}': {ex.Message}");
+            Logging.Error(LogCategory.Train, $"Fehler beim Laden der Lok-Konfiguration '{vehicleId}': {ex.Message}", ex);
             throw new InvalidOperationException($"Locomotive configuration could not be loaded for '{vehicleId}'.", ex);
         }
     }
@@ -144,7 +145,7 @@ public class Loco : IVehicle
         if (!forceSend && _locoDecoder.Direction != VehicleDirection.Undefined && Speed == 0 &&
             _locoDecoder.Direction == decoderDirection)
         {
-            Console.WriteLine(
+            Logging.Debug(LogCategory.Train, 
                 $"Richtungsbefehl unterdrückt (Duplikat): Richtung {decoderDirection} (Lokadresse {_locoDecoder.Address}).");
             return;
         }
@@ -176,7 +177,7 @@ public class Loco : IVehicle
 //        if (!forceSend && _locoDecoder.Direction != VehicleDirection.Undefined && Speed == speed)
         if (!forceSend && _locoDecoder.Direction != VehicleDirection.Undefined && Speed == speed)
         {
-            Console.WriteLine(
+            Logging.Debug(LogCategory.Train, 
                 $"Fahrbefehl unterdrückt (Duplikat): {speed} km/h, Richtung {_locoDecoder.Direction} (Lokadresse {_locoDecoder.Address}).");
             return;
         }
@@ -194,7 +195,7 @@ public class Loco : IVehicle
         await _locoDecoder.SetSpeedStepAsync(_locoDecoder.Direction, speedStep, forceSend, cancellationToken)
             .ConfigureAwait(false);
 
-        Console.WriteLine(
+        Logging.Debug(LogCategory.Train, 
             $"Fahrbefehl: {speed} km/h (SpeedStep {speedStep}), Richtung {_locoDecoder.Direction} (Lokadresse {_locoDecoder.Address}).");
         Speed = speed;
     }
@@ -220,7 +221,7 @@ public class Loco : IVehicle
             return;
 
         Speed = LocoUtils.ResolveSpeedVForSpeedStep(_speedTable, args.SpeedStep!.Value);
-        Console.WriteLine(
+        Logging.Debug(LogCategory.Train,
             $"Decoder-Update: Gemeldete Geschwindigkeit {Speed} km/h (SpeedStep {args.SpeedStep}), Richtung {_locoDecoder.Direction} (Lokadresse {_locoDecoder.Address}).");
     }
 }

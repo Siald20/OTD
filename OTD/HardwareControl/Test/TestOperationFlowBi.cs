@@ -79,20 +79,16 @@ internal static class TestOperationFlowBi
             // Züge initialisieren
             _trainDt612 = new Train(Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6c"), commandStation) ??
                           throw new InvalidOperationException("Train VT612 is not initialized.");
-            Console.WriteLine("[Train] VT 612 initialisiert");
             _trainBR193 = new Train(Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6e"), commandStation) ??
                           throw new InvalidOperationException("Train BR193 is not initialized.");
-            Console.WriteLine("[Train] BR 192 initialisiert");
 
             // DT612 in Travelling-Modus mit Fahrtrichtung A
             _trainDt612.OperatingMode = TrainOperatingMode.Travelling;
             _trainDt612.TrainDirection = TrainDirection.A;
-            Console.WriteLine("[Train] OperatingMode=Travelling, TrainDirection=A");
 
             // BR193 in Parking-Modus mit Fahrtrichtung A
             _trainBR193.OperatingMode = TrainOperatingMode.Parking;
             _trainBR193.TrainDirection = TrainDirection.A;
-            Console.WriteLine("[Train] OperatingMode=Parking, TrainDirection=A");
 
             // Beide Abläufe parallel starten (nicht blockierend) und gemeinsam abwarten.
             var dt612Task = Dt612Async(emergencyHotkeyCts.Token);
@@ -141,9 +137,7 @@ internal static class TestOperationFlowBi
     private static async Task Dt612Async(CancellationToken cancellationToken)
     {
         // Ausfahrt Bi2 -> Bi13 stellen
-        Console.WriteLine("W2 -> crossing-straight");
         await _dkwW2.SetStateAsync("crossing-straight");
-        Console.WriteLine("W1 -> diverging");
         await _turnoutW1.SetStateAsync("diverging");
 
         // Nach 10 Sekunden Ausfahrt mit 40 km/h
@@ -168,7 +162,6 @@ internal static class TestOperationFlowBi
         Console.WriteLine("[Feedback] Sensor 56 aktiv - VT612 in Bi91 eingetroffen!");
 
         // Einfahrt Bi91 -> Bi2 stellen (VT612)
-        Console.WriteLine("W5/6 -> straight");
         await _threeWayW5W6.SetStateAsync("straight");
 
         // Warten auf Sensor 29 (Bestztmeldung W5/6)
@@ -194,9 +187,7 @@ internal static class TestOperationFlowBi
         await WaitForSensorStateAsync(_feedbackModule, 30, RailSensorState.Inactive, CancellationToken.None);
 
         // Ausfahrt Bi1 -> Bi13 stellen
-        Console.WriteLine("W3 -> diverging");
         await _turnoutW3.SetStateAsync("diverging");
-        Console.WriteLine("W2 -> crossing");
         await _dkwW2.SetStateAsync("crossing");
 
         // Rangiermodus einstellen
@@ -232,9 +223,7 @@ internal static class TestOperationFlowBi
         Console.WriteLine("[Feedback] Sensor 31 inaktiv - BR193 hat W1 verlassen!");
 
         // Durchfahrt Bi13 -> Bi3 -> B91 stellen
-        Console.WriteLine("W1 -> straight");
         await _turnoutW1.SetStateAsync("straight");
-        Console.WriteLine("W5/6 -> left");
         await _threeWayW5W6.SetStateAsync("left");
 
         // Fahrtrichtung wechseln
@@ -262,9 +251,7 @@ internal static class TestOperationFlowBi
         await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
 
         // Einfahrt Bi91 -> Bi1 stellen
-        Console.WriteLine("[Flow] 8) W5/6 -> right");
         await _threeWayW5W6.SetStateAsync("right");
-        Console.WriteLine("[Flow] 9 W4 -> straight");
         await _turnoutW4.SetStateAsync("straight");
 
         // Fahrtrichtung wechseln, 5 Sekunden warten

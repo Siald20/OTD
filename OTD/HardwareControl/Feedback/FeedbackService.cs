@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using OTD.Common;
 using OTD.HardwareControl.Drivers;
 
 namespace OTD.HardwareControl.FeedbackConfiguration;
@@ -64,11 +65,11 @@ internal sealed class FeedbackService : IDisposable
                     .ConfigureAwait(false);
             }
 
-            Console.WriteLine($"Feedback service initialized with {_commanders.Count} provider(s).");
+            Logging.Info(LogCategory.Feedback, $"Feedback-Service initialisiert mit {_commanders.Count} Provider(n).");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error initializing feedback service: {ex.Message}");
+            Logging.Error(LogCategory.Feedback, $"Fehler beim Initialisieren des Feedback-Service: {ex.Message}", ex);
             throw;
         }
     }
@@ -86,11 +87,11 @@ internal sealed class FeedbackService : IDisposable
             await FeedbackInitializer.InitializeLoDiS88Async(commander, provider, cancellationToken)
                 .ConfigureAwait(false);
 
-            Console.WriteLine($"Feedback provider '{provider.Uid}' initialized @ {provider.Connection.IpAddress}:{provider.Connection.Port}");
+            Logging.Info(LogCategory.Feedback, $"Feedback-Provider '{provider.Uid}' initialisiert @ {provider.Connection.IpAddress}:{provider.Connection.Port}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error initializing provider '{provider.Uid}': {ex.Message}");
+            Logging.Error(LogCategory.Feedback, $"Fehler beim Initialisieren von Provider '{provider.Uid}': {ex.Message}", ex);
             throw;
         }
     }
@@ -109,12 +110,12 @@ internal sealed class FeedbackService : IDisposable
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error disconnecting feedback provider: {ex.Message}");
+                Logging.Warning(LogCategory.Feedback, $"Fehler beim Trennen des Feedback-Provider: {ex.Message}");
             }
         }
 
         _commanders.Clear();
-        Console.WriteLine("Feedback service shut down.");
+        Logging.Info(LogCategory.Feedback, "Feedback-Service heruntergefahren.");
     }
 
     public void Dispose()
@@ -131,4 +132,3 @@ internal sealed class FeedbackService : IDisposable
         _manager.Dispose();
     }
 }
-

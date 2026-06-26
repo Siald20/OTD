@@ -25,6 +25,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using OTD.Common;
 
 namespace OTD.HardwareControl.Drivers;
 
@@ -255,9 +256,7 @@ internal sealed class LoDiRektor : ICommandStation
         };
 
         if (DiagnosticLogging)
-            Console.WriteLine(
-                $"[LoDi TX] {DateTimeOffset.Now:HH:mm:ss.fff} Cmd=DecoderLocoSpeed " +
-                $"Addr={address} SpeedStep={clampedSpeed} Dir={direction}");
+            LoDiLog.CommandDebug("TX", $"Cmd=DecoderLocoSpeed Addr={address} SpeedStep={clampedSpeed} Dir={direction}");
 
         await _connection.SendAsync(LoDiProtocol.Commands.Decoder.LocoSpeed, payload, cancellationToken);
     }
@@ -287,9 +286,7 @@ internal sealed class LoDiRektor : ICommandStation
         };
 
         if (DiagnosticLogging)
-            Console.WriteLine(
-                $"[LoDi TX] {DateTimeOffset.Now:HH:mm:ss.fff} Cmd=DecoderLocoFunction " +
-                $"Addr={address} Func={functionNumber} State={isOn}");
+            LoDiLog.CommandDebug("TX", $"Cmd=DecoderLocoFunction Addr={address} Func={functionNumber} State={isOn}");
 
         await _connection.SendAsync(LoDiProtocol.Commands.Decoder.LocoFunction, payload, cancellationToken);
     }
@@ -391,9 +388,8 @@ internal sealed class LoDiRektor : ICommandStation
                             };
 
                             if (DiagnosticLogging)
-                                Console.WriteLine(
-                                    $"[LoDi TX] {DateTimeOffset.Now:HH:mm:ss.fff} QueryDecoderState " +
-                                    $"Addr={address} Cmd=DecoderLocoFunction Index={functionIndex} Payload=[Protocol,AddrL,AddrH,Index]");
+                                LoDiLog.CommandDebug("TX",
+                                    $"QueryDecoderState Addr={address} Cmd=DecoderLocoFunction Index={functionIndex} Payload=[Protocol,AddrL,AddrH,Index]");
 
                             await _connection.SendAsync(LoDiProtocol.Commands.Decoder.LocoFunction, queryPayload, ct);
 
@@ -412,9 +408,8 @@ internal sealed class LoDiRektor : ICommandStation
                         };
 
                         if (DiagnosticLogging)
-                            Console.WriteLine(
-                                $"[LoDi TX] {DateTimeOffset.Now:HH:mm:ss.fff} QueryDecoderState " +
-                                $"Addr={address} Cmd=DecoderLocoFunction Payload=[Protocol,AddrL,AddrH]");
+                            LoDiLog.CommandDebug("TX",
+                                $"QueryDecoderState Addr={address} Cmd=DecoderLocoFunction Payload=[Protocol,AddrL,AddrH]");
 
                         await _connection.SendAsync(LoDiProtocol.Commands.Decoder.LocoFunction, queryPayload, ct);
                     }
@@ -463,9 +458,8 @@ internal sealed class LoDiRektor : ICommandStation
                 if (DiagnosticLogging)
                 {
                     var packetType = packet.PacketType == LoDiProtocol.PacketTypeEvent ? "EVT" : "ACK";
-                    Console.WriteLine(
-                        $"[LoDi RX] {DateTimeOffset.Now:HH:mm:ss.fff} QueryDecoderState " +
-                        $"Addr={responseAddress} Type={packetType} Func={functionNumber} State={functionStateValue}");
+                    LoDiLog.CommandDebug("RX",
+                        $"QueryDecoderState Addr={responseAddress} Type={packetType} Func={functionNumber} State={functionStateValue}");
                 }
 
                 LocoStateChanged?.Invoke(this, new LocoStateChangedEventArgs(
@@ -481,23 +475,22 @@ internal sealed class LoDiRektor : ICommandStation
 
             if (DiagnosticLogging)
             {
-                Console.WriteLine(
-                    $"[LoDi INFO] {DateTimeOffset.Now:HH:mm:ss.fff} QueryDecoderState " +
-                    $"Addr={address}: received={snapshot.Count}, parsed={parsedPackets}, forwarded={forwardedUpdates}.");
+                LoDiLog.CommandDebug("INFO",
+                    $"QueryDecoderState Addr={address}: received={snapshot.Count}, parsed={parsedPackets}, forwarded={forwardedUpdates}.");
 
                 if (perFunctionResponseCount is not null)
                     foreach (var entry in perFunctionResponseCount.OrderBy(x => x.Key))
                     {
                         var status = entry.Value > 0 ? $"Responses={entry.Value}" : "no response in time window";
-                        Console.WriteLine(
-                            $"[LoDi INFO] {DateTimeOffset.Now:HH:mm:ss.fff} QueryDecoderState " +
-                            $"Addr={address} Func={entry.Key}: {status}");
+                        LoDiLog.CommandDebug("INFO",
+                            $"QueryDecoderState Addr={address} Func={entry.Key}: {status}");
                     }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in QueryDecoderStateAsync for address {address}: {ex.Message}");
+            LoDiLog.CommandError(
+                $"Operation=QueryDecoderState Address={address} Reason={ex.Message}", ex);
         }
     }
 
@@ -542,9 +535,8 @@ internal sealed class LoDiRektor : ICommandStation
                     };
 
                     if (DiagnosticLogging)
-                        Console.WriteLine(
-                            $"[LoDi TX] {DateTimeOffset.Now:HH:mm:ss.fff} QueryLocoSpeed " +
-                            $"Addr={address} Cmd=DecoderLocoSpeed Payload=[Protocol,AddrL,AddrH]");
+                        LoDiLog.CommandDebug("TX",
+                            $"QueryLocoSpeed Addr={address} Cmd=DecoderLocoSpeed Payload=[Protocol,AddrL,AddrH]");
 
                     await _connection.SendAsync(LoDiProtocol.Commands.Decoder.LocoSpeed, queryPayload, ct);
                 },
@@ -574,9 +566,8 @@ internal sealed class LoDiRektor : ICommandStation
                 if (DiagnosticLogging)
                 {
                     var packetType = packet.PacketType == LoDiProtocol.PacketTypeEvent ? "EVT" : "ACK";
-                    Console.WriteLine(
-                        $"[LoDi RX] {DateTimeOffset.Now:HH:mm:ss.fff} QueryLocoSpeed " +
-                        $"Addr={responseAddress} Type={packetType} SpeedStep={speedStep} Direction={direction}");
+                    LoDiLog.CommandDebug("RX",
+                        $"QueryLocoSpeed Addr={responseAddress} Type={packetType} SpeedStep={speedStep} Direction={direction}");
                 }
 
                 LocoStateChanged?.Invoke(this, new LocoStateChangedEventArgs(
@@ -591,13 +582,13 @@ internal sealed class LoDiRektor : ICommandStation
             }
 
             if (DiagnosticLogging)
-                Console.WriteLine(
-                    $"[LoDi INFO] {DateTimeOffset.Now:HH:mm:ss.fff} QueryLocoSpeed " +
-                    $"Addr={address}: received={snapshot.Count}, parsed={parsedPackets}, forwarded={forwardedUpdates}.");
+                LoDiLog.CommandDebug("INFO",
+                    $"QueryLocoSpeed Addr={address}: received={snapshot.Count}, parsed={parsedPackets}, forwarded={forwardedUpdates}.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in QueryLocoSpeedAsync for address {address}: {ex.Message}");
+            LoDiLog.CommandError(
+                $"Operation=QueryLocoSpeed Address={address} Reason={ex.Message}", ex);
         }
     }
 
@@ -690,9 +681,7 @@ internal sealed class LoDiRektor : ICommandStation
             var currentPowerState = await GetPowerStateAsync(cancellationToken);
 
             if (LogConnectWarmup)
-                Console.WriteLine(
-                    $"[LoDi INFO] {DateTimeOffset.Now:HH:mm:ss.fff} ConnectWarmup completed, track voltage={(currentPowerState ? "on" : "off")}."
-                );
+                LoDiLog.CommandInfo($"ConnectWarmup completed, track voltage={(currentPowerState ? "on" : "off")}.");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -700,7 +689,7 @@ internal sealed class LoDiRektor : ICommandStation
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Warning: LoDi connect warm-up failed: {ex.Message}");
+            LoDiLog.CommandWarning($"Operation=ConnectWarmup Reason={ex.Message}");
         }
     }
 
@@ -876,9 +865,8 @@ internal sealed class LoDiRektor : ICommandStation
         if (!DiagnosticLogging) return;
         var payload = BitConverter.ToString(packet.Payload);
         var extraStr = extra is not null ? $" | {extra}" : "";
-        Console.WriteLine(
-            $"[LoDi {direction}] {DateTimeOffset.Now:HH:mm:ss.fff} " +
-            $"Seq=0x{packet.PacketNumber:X2} " +
+        Logging.Debug(LogCategory.CommandStation,
+            $"[{direction}] Seq=0x{packet.PacketNumber:X2} " +
             $"Type={LoDiProtocol.GetPacketTypeName(packet.PacketType)} " +
             $"Cmd={LoDiProtocol.GetCommandName(packet.Command)} " +
             $"Payload=[{payload}]{extraStr}");
@@ -919,7 +907,8 @@ internal sealed class LoDiRektor : ICommandStation
         if (e.Packet.PacketType != LoDiProtocol.PacketTypeEvent)
         {
             if (e.Packet.PacketType == LoDiProtocol.PacketTypeNack)
-                Console.WriteLine($"LoDi NACK (Seq 0x{e.Packet.PacketNumber:X2}, Cmd 0x{e.Packet.Command:X2})");
+                LoDiLog.CommandWarning(
+                    $"Operation=PacketReceived Type=NACK Seq=0x{e.Packet.PacketNumber:X2} Cmd=0x{e.Packet.Command:X2}");
             return;
         }
 

@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using OTD.Common;
 using OTD.HardwareControl.Drivers;
 
 namespace OTD.HardwareControl;
@@ -210,7 +211,7 @@ public sealed class Feedback : IFeedback, IDisposable
         if (IsConnected)
             return true;
 
-        Console.WriteLine("Keine Verbindung zum Rueckmeldemodul. Verbinde...");
+        Logging.Info(LogCategory.Feedback, "Keine Verbindung zum Rückmeldemodul. Verbinde...");
 
         try
         {
@@ -219,7 +220,7 @@ public sealed class Feedback : IFeedback, IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Fehler beim Verbinden des Rueckmeldemoduls: {ex.Message}");
+            Logging.Error(LogCategory.Feedback, $"Fehler beim Verbinden des Rückmeldemoduls: {ex.Message}", ex);
             return false;
         }
     }
@@ -244,7 +245,7 @@ public sealed class Feedback : IFeedback, IDisposable
         if (IsMonitoringReady)
             return true;
 
-        Console.WriteLine("Rueckmeldemodul ist verbunden, initialisiere Sensor-Snapshot...");
+        Logging.Info(LogCategory.Feedback, "Rückmeldemodul ist verbunden, initialisiere Sensor-Snapshot...");
 
         try
         {
@@ -253,7 +254,7 @@ public sealed class Feedback : IFeedback, IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Fehler beim Initialisieren des Rueckmeldemoduls: {ex.Message}");
+            Logging.Error(LogCategory.Feedback, $"Fehler beim Initialisieren des Rückmeldemoduls: {ex.Message}", ex);
             return false;
         }
     }

@@ -136,7 +136,7 @@ internal static class RunTests
                 new SelectableEntry("TRAINDRIVING_BRAKE_SENSOR56", "test", "TrainDriving: Sensor56 -> Bremsen 40->0 auf 200cm", null, 0),
                 (cs, fb) =>
                 {
-                    Test1.Run(cs, fb);
+                    TrayectoryTestSingleSensor.Run(cs, fb);
                     return Task.CompletedTask;
                 },
                 true,

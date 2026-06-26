@@ -23,6 +23,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using OTD.Common;
 
 namespace OTD.HardwareControl.Drivers;
 
@@ -145,14 +146,14 @@ internal sealed class LoDiS88Commander : IDisposable
     public async Task ConnectAsync(string ipAddress, int port, bool enableFeedbackUpdatesOnConnect,
         CancellationToken cancellationToken = default)
     {
-        LogDiagnostic($"Connecting to {ipAddress}:{port}");
+        Logging.Debug(LogCategory.Feedback, $"Connecting to {ipAddress}:{port}");
 
         await _connection.ConnectAsync(ipAddress, port, cancellationToken);
 
         if (enableFeedbackUpdatesOnConnect)
             await SetFeedbackUpdatesActiveAsync(true, cancellationToken);
 
-        LogDiagnostic($"Connection established: {IsConnected}");
+        Logging.Debug(LogCategory.Feedback, $"Connection established: {IsConnected}");
     }
 
     /// <summary>
@@ -208,7 +209,7 @@ internal sealed class LoDiS88Commander : IDisposable
     /// <returns>Device info with module and sensor count for Bus 1 and Bus 2.</returns>
     public async Task<S88DeviceInfo> QueryDeviceInfoAsync(CancellationToken cancellationToken = default)
     {
-        LogDiagnostic($"Sending device info query (Cmd 0x{LoDiProtocol.Commands.S88.DeviceConfigGet:X2})");
+        Logging.Debug(LogCategory.Feedback, $"Sending device info query (Cmd 0x{LoDiProtocol.Commands.S88.DeviceConfigGet:X2})");
 
         await _deviceInfoRequestLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -244,7 +245,7 @@ internal sealed class LoDiS88Commander : IDisposable
     /// <param name="cancellationToken">Cancellation token</param>
     public async Task QueryModulesAsync(CancellationToken cancellationToken = default)
     {
-        LogDiagnostic($"Sending S88MelderGet query (Cmd 0x{LoDiProtocol.Commands.S88.QueryModules:X2}): all modules");
+        Logging.Debug(LogCategory.Feedback, $"Sending S88MelderGet query (Cmd 0x{LoDiProtocol.Commands.S88.QueryModules:X2}): all modules");
         await _connection.SendAsync(LoDiProtocol.Commands.S88.QueryModules, [], cancellationToken);
     }
 
@@ -259,7 +260,7 @@ internal sealed class LoDiS88Commander : IDisposable
               "Use SubscribeEventsAsync().", false)]
     public async Task SubscribeModuleAsync(int moduleAddress, CancellationToken cancellationToken = default)
     {
-        LogDiagnostic($"SubscribeModuleAsync({moduleAddress:D3}) is obsolete; activating global events.");
+        Logging.Debug(LogCategory.Feedback, $"SubscribeModuleAsync({moduleAddress:D3}) is obsolete; activating global events.");
         await SubscribeEventsAsync(cancellationToken);
     }
 
@@ -272,7 +273,7 @@ internal sealed class LoDiS88Commander : IDisposable
               "Use UnsubscribeEventsAsync().", false)]
     public async Task UnsubscribeModuleAsync(int moduleAddress, CancellationToken cancellationToken = default)
     {
-        LogDiagnostic($"UnsubscribeModuleAsync({moduleAddress:D3}) is obsolete; deactivating global events.");
+        Logging.Debug(LogCategory.Feedback, $"UnsubscribeModuleAsync({moduleAddress:D3}) is obsolete; deactivating global events.");
         await UnsubscribeEventsAsync(cancellationToken);
     }
 
@@ -312,10 +313,10 @@ internal sealed class LoDiS88Commander : IDisposable
             switch (packet.Command)
             {
                 case LoDiProtocol.Commands.S88.SetFeedbackUpdatesActive:
-                    LogDiagnostic($"  -> ACK/NACK to S88 activation, Payload=[{ToHex(packet.Payload)}]");
+                    Logging.Debug(LogCategory.Feedback, $"  -> ACK/NACK to S88 activation, Payload=[{ToHex(packet.Payload)}]");
                     return;
                 case LoDiProtocol.Commands.S88.DeviceConfigGet:
-                    LogDiagnostic($"  -> ACK to device info query, Payload=[{ToHex(packet.Payload)}]");
+                    Logging.Debug(LogCategory.Feedback, $"  -> ACK to device info query, Payload=[{ToHex(packet.Payload)}]");
                     HandleDeviceInfoPacket(packet);
                     return;
                 default:
@@ -327,7 +328,7 @@ internal sealed class LoDiS88Commander : IDisposable
                             HandleS88StatePacket(packet);
                             return;
                         case LoDiProtocol.PacketTypeEvent:
-                            LogDiagnostic("  -> EVT: State changes");
+                            Logging.Debug(LogCategory.Feedback, "  -> EVT: State changes");
                             HandleS88StateChangedPacket(packet);
                             return;
                         default:
@@ -342,7 +343,7 @@ internal sealed class LoDiS88Commander : IDisposable
         }
         catch (Exception ex)
         {
-            LogDiagnostic($"ERROR processing packet: {ex.Message}");
+            Logging.Debug(LogCategory.Feedback, $"ERROR processing packet: {ex.Message}");
         }
     }
 
@@ -359,7 +360,7 @@ internal sealed class LoDiS88Commander : IDisposable
 
         if (packet.Payload.Length < 1)
         {
-            LogDiagnostic($"    Query response invalid: Payload empty, Raw=[{ToHex(packet.Payload)}]");
+            Logging.Debug(LogCategory.Feedback, $"    Query response invalid: Payload empty, Raw=[{ToHex(packet.Payload)}]");
             return;
         }
 
@@ -373,7 +374,7 @@ internal sealed class LoDiS88Commander : IDisposable
         }
 
         LogS88StatePacketRawDump(packet.Payload, moduleCount);
-        LogDiagnostic($"    Query response: Count={moduleCount}");
+        Logging.Debug(LogCategory.Feedback, $"    Query response: Count={moduleCount}");
 
         var offset = 1;
         for (var i = 0; i < moduleCount; i++)
@@ -398,7 +399,7 @@ internal sealed class LoDiS88Commander : IDisposable
         if (!DiagnosticLogging)
             return;
 
-        LogDiagnostic($"    Query raw payload: [{ToHex(payload)}]");
+        Logging.Debug(LogCategory.Feedback, $"    Query raw payload: [{ToHex(payload)}]");
 
         var tupleCount = Math.Max(0, (payload.Length - 1) / 3);
         if (tupleCount != moduleCount)
@@ -438,19 +439,19 @@ internal sealed class LoDiS88Commander : IDisposable
     {
         if (!S88EventPayloadParser.TryParse(packet.Payload, out var parsed, out var error))
         {
-            LogDiagnostic($"    Invalid EVT format: {error} Raw=[{ToHex(packet.Payload)}]");
+            Logging.Debug(LogCategory.Feedback, $"    Invalid EVT format: {error} Raw=[{ToHex(packet.Payload)}]");
             return;
         }
 
         if (parsed == null)
         {
-            LogDiagnostic($"    Invalid EVT format: Parser result missing. Raw=[{ToHex(packet.Payload)}]");
+            Logging.Debug(LogCategory.Feedback, $"    Invalid EVT format: Parser result missing. Raw=[{ToHex(packet.Payload)}]");
             return;
         }
 
         if (parsed.IsHeartbeat)
         {
-            LogDiagnostic("    Heartbeat detected: Count=0, no state changes.");
+            Logging.Debug(LogCategory.Feedback, "    Heartbeat detected: Count=0, no state changes.");
             return;
         }
 
@@ -497,7 +498,7 @@ internal sealed class LoDiS88Commander : IDisposable
     {
         if (packet.Payload.Length < 2)
         {
-            LogDiagnostic($"    Device info: Payload too short, expected >=2 bytes, received {packet.Payload.Length}");
+            Logging.Debug(LogCategory.Feedback, $"    Device info: Payload too short, expected >=2 bytes, received {packet.Payload.Length}");
             _pendingDeviceInfoRequest?.TrySetException(new InvalidOperationException("Device info payload too short."));
             return;
         }
@@ -546,7 +547,7 @@ internal sealed class LoDiS88Commander : IDisposable
     private void LogDiagnostic(string message)
     {
         if (DiagnosticLogging)
-            Console.WriteLine($"[S88 Diag] {DateTimeOffset.Now:HH:mm:ss.fff} {message}");
+            LoDiLog.FeedbackDebug(message);
     }
 
     private static string ToHex(byte[] payload)

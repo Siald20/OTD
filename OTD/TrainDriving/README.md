@@ -93,4 +93,11 @@ await driving.DriveAsync(
 
 ## TODO
 
+- **Unit-System-Abstraction (Metric/Imperial)**: Trajectory und DrivingTrajectoryRequest entkoppeln von hardcodierten Einheiten (km/h, cm). Dies soll zusammen mit der RoutingModel-Finalisierung durchgeführt werden:
+  - `IUnitSystem`-Interface mit Implementierungen `MetricUnitSystem` (km/h → cm) und `ImperialUnitSystem` (mph → inch)
+  - Konversionsfaktor: Metric `1 km/h = 100000/3600 cm/s`, Imperial `1 mph = 63360/3600 inch/s`
+  - `DrivingTrajectoryRequest` um `UnitSystem`-Parameter erweitern
+  - `ISpeedTrajectory` generalisieren: `TotalDistanceCmModel` → `TotalDistanceModel`, `GetSpeedKmhAtModelDistanceCm()` → `GetSpeedPrototypeAtModelDistance()`
+  - `ModelCmPerSecondFromPrototypeKmh()` durch generalisierte Methode ersetzen
+  - `SpeedCurveFidelityPercent` bereits vorbereitet (nicht mehr nur auf Bremsen begrenzt)
 - Verfallene `RouteEntry`-Eintraege und ihre `SensorMarker` aus der aktiven `RouteTable` entfernen, sobald die Folgeroute erreicht wurde.

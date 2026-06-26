@@ -29,7 +29,7 @@ using OTD.TrainDriving.RouteModel;
 
 namespace OTD.TrainDriving.Examples;
 
-public class Test2_full
+public class RouteTestRoundTripBi
 {
     private sealed record SensorSpec(int SensorId, int OffsetCm);
 
@@ -256,7 +256,7 @@ public class Test2_full
             AddStopPlaceholder("B2");
             RebuildRuntime();
 
-            // 2) 10 Sekunden warten.
+            // 2) 5 Sekunden warten.
             Console.WriteLine("[Test2] 5 warten...");
             await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
 
@@ -266,7 +266,6 @@ public class Test2_full
             await _turnoutW1.SetStateAsync("diverging", cts.Token);
 
             // 4) Route B2 -> K102 ergänzen (223cm, 40 km/h).
-            // TODO: Echte Feedback-Sensornummern der Anlage einsetzen.
             var b2ToK102 = AddRoute("B2", "K102", 223, 40,
                 new SensorSpec(28, 3),
                 new SensorSpec(31, 43),
