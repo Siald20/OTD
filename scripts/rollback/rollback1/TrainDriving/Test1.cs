@@ -23,47 +23,28 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using OTD.Common;
 using OTD.HardwareControl;
-using OTD.TrainDriving.Presets;
-using OTD.TrainDriving.RouteModel;
+using OTD.TrainDriving.Profiles;
 
 namespace OTD.TrainDriving.Examples;
 
-public class TrayectoryTestSingleSensor
+public class Test1
 {
-    private static void LogTimed(string channel, string message)
-    {
-        if (string.Equals(channel, "TrainDriving", StringComparison.OrdinalIgnoreCase))
-        {
-            Logging.Info(LogCategory.TrainDriving, message);
-            return;
-        }
-
-        Console.WriteLine($"[{channel}] {DateTimeOffset.Now:HH:mm:ss.fff} {message}");
-    }
-
+    private const int _vTest = 40; // Test-Geschwindigkeit in km/h
+    
     // verwendete Weichen
     private static Accessory? _turnoutW1; // Bi3 -> Bi13
-    private static Accessory? _threeWayW5W6; // Bi3 -> Bi91
-    private static Accessory? _turnoutW101; // Abzweigung -> Bi91
+    private static Accessory? _threeWayW5W6;  // Bi3 -> Bi91
+    private static Accessory? _turnoutW101; // Abzweigung -> Bi91    
     private static Accessory? _turnoutW102; // Gleiswechsel
     private static Accessory? _turnoutW103; // Gleiswechsel
     private static Accessory? _turnoutW104; // Bi41 - Bi13 (Abzweigung Tiefengrund)
-
+    
     // verwendeter Rückmelder
     private static Feedback? _feedbackModule;
 
-    // verwendete Züge
-    private static Train? _testTrain;
-
-    private static RouteRuntime? _activeRouteRuntime;
-
-    // Prototypische Zuordnung Hardware-Sensornummer -> RouteModel SensorId.
-    private static readonly Dictionary<int, int> RouteSensorIdMap = new()
-    {
-        { 56, 4 }
-    };
+    // verwendete Züge 
+    private static Train? _trainBR193;
 
     private static readonly SemaphoreSlim EmergencyStopGate = new(1, 1);
 
@@ -82,34 +63,16 @@ public class TrayectoryTestSingleSensor
         using var emergencyHotkeyCts = new CancellationTokenSource();
         var emergencyHotkeyTask = StartEmergencyStopHotkeyListenerAsync(emergencyHotkeyCts.Token);
         EventHandler<SensorStateChangedEventArgs>? feedbackEventLogger = null;
-        _activeRouteRuntime = null;
-        //Logging.EnableDebugForCategory(LogCategory.TrainDriving);
 
         try
         {
             _feedbackModule = feedbackModule;
-            //
-            // feedbackEventLogger = (_, args) =>
-            // {
-            //     Console.WriteLine($"[Feedback] {DateTime.Now:HH:mm:ss.fff} Sensor {args.SensorNumber} => {args.State}");
-            //
-            //     // Sensor-Trigger als Positionsabgleich in RouteRuntime (nur bei aktivem Kontakt).
-            //     if (args.State != RailSensorState.Active || _activeRouteRuntime is null)
-            //         return;
-            //
-            //     if (!RouteSensorIdMap.TryGetValue(args.SensorNumber, out var routeSensorId))
-            //         return;
-            //
-            //     var tick = _activeRouteRuntime.ApplyStep(
-            //         deltaCm: 0,
-            //         trajectorySpeedKmh: VTest,
-            //         activatedSensorId: routeSensorId);
-            //
-            //     Console.WriteLine(
-            //         $"[RouteRuntime] Sensorabgleich {routeSensorId}: " +
-            //         $"recal={tick.PositionRecalibrated}, pos={tick.EstimatedPositionCm:F1}cm, err={tick.CorrectionErrorCm:F1}cm");
-            // };
-            // _feedbackModule.SensorStateChanged += feedbackEventLogger;
+
+            feedbackEventLogger = (_, args) =>
+            {
+                Console.WriteLine($"[Feedback] {DateTime.Now:HH:mm:ss.fff} Sensor {args.SensorNumber} => {args.State}");
+            };
+            _feedbackModule.SensorStateChanged += feedbackEventLogger;
 
             // Weichen initialisieren
             _turnoutW1 = new Accessory(Guid.Parse("3f8a1b2c-4d5e-4f7a-8b9c-0d1e2f3a4b5c"), commandStation) ??
@@ -117,7 +80,7 @@ public class TrayectoryTestSingleSensor
             _threeWayW5W6 = new Accessory(Guid.Parse("5b0c3d4e-6f7a-4b8c-9d0e-2f3a4b5c6d7e"), commandStation) ??
                             throw new InvalidOperationException("Turnout W5/6 not initialized.");
             _turnoutW101 = new Accessory(Guid.Parse("cb5275e6-8b00-4d7d-b090-25a6db69624e"), commandStation) ??
-                           throw new InvalidOperationException("Turnout W101 not initialized.");
+                         throw new InvalidOperationException("Turnout W101 not initialized.");
             _turnoutW102 = new Accessory(Guid.Parse("2b3c4d5e-6f70-4812-9304-0b1c2d3e4f5a"), commandStation) ??
                            throw new InvalidOperationException("Turnout W102 not initialized.");
             _turnoutW103 = new Accessory(Guid.Parse("3c4d5e6f-7081-4923-a405-1c2d3e4f5a6b"), commandStation) ??
@@ -126,77 +89,68 @@ public class TrayectoryTestSingleSensor
                            throw new InvalidOperationException("Turnout 104 not initialized.");
 
             // Züge initialisieren
-//            _testTrain = new Train(Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6c"), commandStation) ??
-//                         throw new InvalidOperationException("Train DT612 is not initialized.");
-            _testTrain = new Train(Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6e"), commandStation) ??
+            _trainBR193 = new Train(Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6e"), commandStation) ??
                           throw new InvalidOperationException("Train BR193 is not initialized.");
+            Console.WriteLine("[Train] BR 192 initialisiert");
 
             // Weichen stellen (für Rundkurs BI)
+            Console.WriteLine("W1 -> straight");
             await _turnoutW1.SetStateAsync("straight", emergencyHotkeyCts.Token);
+            Console.WriteLine("W5/6 -> right"); // zuerst rechts umstellen wegen Störung Herzstück-Relais
+            await _threeWayW5W6.SetStateAsync("right", emergencyHotkeyCts.Token);
+            Console.WriteLine("W5/6 -> left");
             await _threeWayW5W6.SetStateAsync("left", emergencyHotkeyCts.Token);
+            Console.WriteLine("W101 -> straight");
             await _turnoutW101.SetStateAsync("straight", emergencyHotkeyCts.Token);
+            Console.WriteLine("W102 -> diverging");
             await _turnoutW102.SetStateAsync("diverging", emergencyHotkeyCts.Token);
+            Console.WriteLine("W103 -> diverging");
             await _turnoutW103.SetStateAsync("diverging", emergencyHotkeyCts.Token);
+            Console.WriteLine("W104 -> diverging");
             await _turnoutW104.SetStateAsync("diverging", emergencyHotkeyCts.Token);
-
-            _testTrain.OperatingMode = TrainOperatingMode.Travelling;
-            _testTrain.TrainDirection = TrainDirection.A;
-
+            
+            // BR193 in Parking-Modus mit Fahrtrichtung A
+            _trainBR193.OperatingMode = TrainOperatingMode.Travelling;
+            _trainBR193.TrainDirection = TrainDirection.A;
             Console.WriteLine("[Train] OperatingMode=Travelling, TrainDirection=A");
 
-            // Zug abfahren lassen
-            const int vTest = 60; // Test-Geschwindigkeit in km/h
-            var trainDriving = new TrainDriving(_testTrain)
-            {
-                AccelerationPreset = AccelerationTrajectoryPreset.Linear,
-                AccelerationMs2 = 1.5,
-                BrakingPreset = BrakingTrajectoryPreset.Linear,
-                UseAdaptiveSpeedStepInterval = true,
-                MinSpeedStepInterval = TimeSpan.FromMilliseconds(250),
-                MaxSpeedStepInterval = TimeSpan.FromMilliseconds(1000),
-                DecoderAverageBias = -0.2,
-                BrakePointCorrectionPercent = 0.0, // -3.5,
-                BrakePointCorrectionPercentPerVMax = 0.0,
-                SpeedCurveFidelityPercent = 60.0
-            };
+            // Zug mit Ausgangsgeschwindigkeit fahren lassen
+            var trainDriving = new TrainDriving(_trainBR193);
+            await trainDriving.DriveAsync(
+                currentSpeed: 0,
+                targetSpeed: _vTest,
+                distance: 100,
+                // new TrajectoryDelayConfig(1,1),
+                cancellationToken: emergencyHotkeyCts.Token);
+            
+            //await _trainBR193.SetSpeedVAsync(_vTest, emergencyHotkeyCts.Token);
+            Console.WriteLine("[TrainDriving] BR193 faehrt.");
 
-
-            using var accelerationCts = CancellationTokenSource.CreateLinkedTokenSource(emergencyHotkeyCts.Token);
-            var accelerationTask = trainDriving.AccelerateAsync(
-                targetSpeed: vTest,
-                cancellationToken: accelerationCts.Token);
-
-            Logging.Info(LogCategory.TrainDriving, "Train departs and accelerates toward target speed.");
-
-            // Warten auf Sensor waehrend die Beschleunigungsrampe noch laeuft.
-            LogTimed("Feedback", "Warte auf Sensor 56/147 (Block G91) ...");
+            // Warten auf Sensor 56 (Block G91)
+            Console.WriteLine("[Feedback] Warte auf Sensor 56 (Block G91) ...");
             await WaitForSensorStateAsync(_feedbackModule, 56, RailSensorState.Active, emergencyHotkeyCts.Token);
+            Console.WriteLine("[Feedback] Sensor 56 aktiv -> starte Bremsrampe auf 0 km/h ueber 200 cm.");
 
-            accelerationCts.Cancel();
-            try
-            {
-                await accelerationTask.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (accelerationCts.IsCancellationRequested)
-            {
-                // Erwartet: Die Beschleunigungsrampe wird am Sensorsignal beendet.
-            }
+            // TrainDriving-Test: lineare Bremsrampe von x auf 0 km/h ueber 200 cm.
+            // Scale ist vorlaeufig direkt in TrainDriving als Konstante hinterlegt.
 
-            LogTimed("Feedback",
-                $"Sensor 56 aktiv -> starte Bremsrampe aus aktueller Geschwindigkeit {_testTrain!.SpeedV} km/h auf 0 km/h ueber 200 cm.");
-
-            // Fallback falls kein gueltiger Routenzyklus verfuegbar ist.
-            await trainDriving.BrakeAsync(
+            await trainDriving.DriveAsync(
+                currentSpeed: _vTest,
                 targetSpeed: 0,
-                distance: 200, // 153, 110, 200
+                distance: 200,
+                new TrajectoryDelayConfig(0.5, 0.5),
                 cancellationToken: emergencyHotkeyCts.Token);
 
+            Console.WriteLine("[TrainDriving] Bremsrampe abgeschlossen: 0 km/h nach 200 cm erreicht.");
 
             // Zug aus Ziel-Block wegfahren
+            Console.WriteLine();
+            Console.WriteLine("[TrainDriving] Bremsrampe abgeschlossen: 0 km/h nach 200 cm erreicht. Weiter mit beliebiger Taste.");
             Console.ReadKey(true);
-            await _testTrain.SetSpeedVAsync(20, emergencyHotkeyCts.Token);
+            await _trainBR193.SetSpeedVAsync(20, emergencyHotkeyCts.Token);
             await Task.Delay(TimeSpan.FromSeconds(15), emergencyHotkeyCts.Token);
-            await _testTrain.SetSpeedVAsync(0, emergencyHotkeyCts.Token);
+            await _trainBR193.SetSpeedVAsync(0, emergencyHotkeyCts.Token);
+            Console.WriteLine("[TrainDriving] Test abgeschlossen. Zug aus Ziel-Block wegfahren.");
         }
         finally
         {
@@ -217,11 +171,10 @@ public class TrayectoryTestSingleSensor
 
             DisposeAccessory(ref _turnoutW1);
             DisposeAccessory(ref _threeWayW5W6);
-            _activeRouteRuntime = null;
             _feedbackModule = null;
         }
     }
-
+ 
     private static Task StartEmergencyStopHotkeyListenerAsync(CancellationToken cancellationToken)
     {
         return Task.Run(async () =>
@@ -256,8 +209,8 @@ public class TrayectoryTestSingleSensor
             Console.WriteLine("[Safety] SPACE erkannt -> Nothalt fuer VT612 und BR193...");
 
             var tasks = new List<Task>(2);
-            if (_testTrain is not null)
-                tasks.Add(_testTrain.EmergencyStopAsync());
+            if (_trainBR193 is not null)
+                tasks.Add(_trainBR193.EmergencyStopAsync());
 
             if (tasks.Count == 0)
             {
@@ -295,17 +248,9 @@ public class TrayectoryTestSingleSensor
         RailSensorState targetState,
         CancellationToken cancellationToken)
     {
-        var waitStart = DateTimeOffset.Now;
-        LogTimed("Feedback", $"WaitForSensorState gestartet: Sensor={sensorNumber}, Ziel={targetState}");
-
         // Prüfe zunächst den aktuellen Zustand
         var currentState = feedbackModule.GetSensorState(sensorNumber);
-        if (currentState == targetState)
-        {
-            LogTimed("Feedback",
-                $"Sensor {sensorNumber} ist bereits {targetState} (ohne Event, +0 ms nach Start).");
-            return;
-        }
+        if (currentState == targetState) return; // Zielzustand bereits erreicht
 
         // Wenn nicht, registriere einen Event-Handler und warte auf die Änderung
         var tcs = new TaskCompletionSource<bool>();
@@ -315,9 +260,6 @@ public class TrayectoryTestSingleSensor
         {
             if (args.SensorNumber == sensorNumber && args.State == targetState)
             {
-                var elapsedMs = (DateTimeOffset.Now - waitStart).TotalMilliseconds;
-                LogTimed("Feedback",
-                    $"Sensor {sensorNumber} => {args.State} (Event empfangen, +{elapsedMs:F0} ms seit Wait-Start)");
                 feedbackModule.SensorStateChanged -= handler;
                 tcs.TrySetResult(true);
             }

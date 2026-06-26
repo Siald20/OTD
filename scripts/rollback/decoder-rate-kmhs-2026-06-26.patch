@@ -1,0 +1,61 @@
+diff --git a/OTD/TrainDriving/Examples/TrayectoryTestSingleSensor.cs b/OTD/TrainDriving/Examples/TrayectoryTestSingleSensor.cs
+index cfaf176..aaa5cef 100644
+--- a/OTD/TrainDriving/Examples/TrayectoryTestSingleSensor.cs
++++ b/OTD/TrainDriving/Examples/TrayectoryTestSingleSensor.cs
+@@ -83,7 +83,7 @@ public class TrayectoryTestSingleSensor
+         var emergencyHotkeyTask = StartEmergencyStopHotkeyListenerAsync(emergencyHotkeyCts.Token);
+         EventHandler<SensorStateChangedEventArgs>? feedbackEventLogger = null;
+         _activeRouteRuntime = null;
+-        Logging.EnableDebugForCategory(LogCategory.TrainDriving);
++        //Logging.EnableDebugForCategory(LogCategory.TrainDriving);
+ 
+         try
+         {
+@@ -154,6 +154,7 @@ public class TrayectoryTestSingleSensor
+                 UseAdaptiveSpeedStepInterval = true,
+                 MinSpeedStepInterval = TimeSpan.FromMilliseconds(250),
+                 MaxSpeedStepInterval = TimeSpan.FromMilliseconds(1000),
++                DecoderRateKmhPerSecond = 0.0,
+                 BrakePointCorrectionPercent = -3.5,
+                 BrakePointCorrectionPercentPerVMax = 0.0,
+                 SpeedCurveFidelityPercent = 60.0
+diff --git a/OTD/TrainDriving/TrainDriving.cs b/OTD/TrainDriving/TrainDriving.cs
+index 1d76e88..325e58d 100644
+--- a/OTD/TrainDriving/TrainDriving.cs
++++ b/OTD/TrainDriving/TrainDriving.cs
+@@ -54,6 +54,7 @@ public class TrainDriving
+     private const double DefaultBrakePointCorrectionPercent = 0.0;
+     private const double DefaultBrakePointCorrectionPercentPerVMax  = 0.0;
+     private const double DefaultSpeedCurveFidelityPercent = 60.0;
++    private const double DefaultDecoderRateKmhPerSecond = 0.0;
+ 
+     /// <summary>
+     /// Optional diagnostics event emitted once per control tick.
+@@ -123,6 +124,12 @@ public class TrainDriving
+     /// </summary>
+     public double BrakePointCorrectionPercentPerVMax { get; set; } = DefaultBrakePointCorrectionPercentPerVMax;
+ 
++    /// <summary>
++    /// Decoder response rate in km/h per second for speed integration.
++    /// 0 keeps the legacy instant decoder response.
++    /// </summary>
++    public double DecoderRateKmhPerSecond { get; set; } = DefaultDecoderRateKmhPerSecond;
++
+     /// <summary>
+     /// If enabled, emits focused diagnostics for braking runs (command drop start and per-tick progress).
+     /// </summary>
+@@ -266,11 +273,13 @@ public class TrainDriving
+             $"DriveDistance start: current={currentSpeed} km/h, target={targetSpeed} km/h, distance={distance} cm, " +
+             $"correctedDistance={correctedTargetDistanceCm:F1} cm (base={brakePointCorrectionPercent:F1}% + speed-dependent={speedDependentCorrectionPercent:F2}% @ {speedRatio*100:F0}% VMax = total {totalCorrectionPercent:F1}%), " +
+             $"adaptive={(UseAdaptiveSpeedStepInterval ? "on" : "off")}, min={MinSpeedStepInterval.TotalMilliseconds:F0} ms, " +
++            $"decoderRate={DecoderRateKmhPerSecond:F2} km/h/s, " +
+             $"max={MaxSpeedStepInterval.TotalMilliseconds:F0} ms");
+ 
+         // Modelliert die Nachlaufdynamik des Decoders zwischen Soll- und Ist-Geschwindigkeit.
+         var decoderResponse = new DecoderSpeedResponseModel(
+-            initialSpeedKmh: request.CurrentSpeedKmhPrototype);
++            initialSpeedKmh: request.CurrentSpeedKmhPrototype,
++            decoderRateKmhPerSecond: DecoderRateKmhPerSecond);
+         // Initiales Solltempo am Startpunkt der Trajektorie.
+         var commandedSpeedKmh = trajectory.GetSpeedKmhAtModelDistanceCm(0.0);
+ 

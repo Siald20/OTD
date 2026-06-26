@@ -1,0 +1,117 @@
+diff --git a/OTD/TrainDriving/DecoderSpeedResponseModel.cs b/OTD/TrainDriving/DecoderSpeedResponseModel.cs
+index e4c8041..d2dd4b0 100644
+--- a/OTD/TrainDriving/DecoderSpeedResponseModel.cs
++++ b/OTD/TrainDriving/DecoderSpeedResponseModel.cs
+@@ -9,13 +9,37 @@ namespace OTD.TrainDriving;
+ /// </summary>
+ internal sealed class DecoderSpeedResponseModel
+ {
+-    public DecoderSpeedResponseModel(double initialSpeedKmh)
++    /// <summary>
++    /// Initializes the decoder response model with the current speed and an optional response rate.
++    /// </summary>
++    /// <param name="initialSpeedKmh">Initial decoder speed in km/h.</param>
++    /// <param name="decoderAverageBias">
++    /// Bias for the step-average speed in the range -0.5..+0.5.
++    /// - Negative values move the average towards the start speed (more inertia).
++    /// - Positive values move the average towards the target speed (more aggressive response).
++    /// - 0 keeps the classic arithmetic mean between start and end speed.
++    /// </param>
++    private readonly double _decoderAverageBias;
++
++    public DecoderSpeedResponseModel(double initialSpeedKmh, double decoderAverageBias = 0.0)
+     {
+         CurrentSpeedKmh = Math.Max(0.0, initialSpeedKmh);
++        _decoderAverageBias = Math.Clamp(decoderAverageBias, -0.5, 0.5);
+     }
+ 
++    /// <summary>
++    /// Gets the current decoder-side speed state in km/h.
++    /// </summary>
+     public double CurrentSpeedKmh { get; private set; }
+ 
++    /// <summary>
++    /// Advances the decoder model towards a commanded speed for one simulation step.
++    /// </summary>
++    /// <param name="commandedSpeedKmh">Commanded target speed in km/h.</param>
++    /// <param name="deltaTimeSeconds">Elapsed simulation time for this step in seconds.</param>
++    /// <returns>
++    /// Tuple of average speed over the step and resulting end speed, both in km/h.
++    /// </returns>
+     public (double AverageSpeedKmh, double EndSpeedKmh) AdvanceTowards(double commandedSpeedKmh, double deltaTimeSeconds)
+     {
+         var targetSpeedKmh = Math.Max(0.0, commandedSpeedKmh);
+@@ -26,7 +50,9 @@ internal sealed class DecoderSpeedResponseModel
+         var endSpeedKmh = targetSpeedKmh;
+ 
+         CurrentSpeedKmh = endSpeedKmh;
+-        return ((startSpeedKmh + endSpeedKmh) / 2.0, endSpeedKmh);
++        var blend = Math.Clamp(0.5 + _decoderAverageBias, 0.0, 1.0);
++        var averageSpeedKmh = startSpeedKmh + (endSpeedKmh - startSpeedKmh) * blend;
++        return (averageSpeedKmh, endSpeedKmh);
+     }
+ 
+ 
+diff --git a/OTD/TrainDriving/Examples/TrayectoryTestSingleSensor.cs b/OTD/TrainDriving/Examples/TrayectoryTestSingleSensor.cs
+index cfaf176..d1bab03 100644
+--- a/OTD/TrainDriving/Examples/TrayectoryTestSingleSensor.cs
++++ b/OTD/TrainDriving/Examples/TrayectoryTestSingleSensor.cs
+@@ -83,7 +83,7 @@ public class TrayectoryTestSingleSensor
+         var emergencyHotkeyTask = StartEmergencyStopHotkeyListenerAsync(emergencyHotkeyCts.Token);
+         EventHandler<SensorStateChangedEventArgs>? feedbackEventLogger = null;
+         _activeRouteRuntime = null;
+-        Logging.EnableDebugForCategory(LogCategory.TrainDriving);
++        //Logging.EnableDebugForCategory(LogCategory.TrainDriving);
+ 
+         try
+         {
+@@ -154,7 +154,8 @@ public class TrayectoryTestSingleSensor
+                 UseAdaptiveSpeedStepInterval = true,
+                 MinSpeedStepInterval = TimeSpan.FromMilliseconds(250),
+                 MaxSpeedStepInterval = TimeSpan.FromMilliseconds(1000),
+-                BrakePointCorrectionPercent = -3.5,
++                DecoderAverageBias = 0.0,
++                BrakePointCorrectionPercent = 0.0, // -3.5,
+                 BrakePointCorrectionPercentPerVMax = 0.0,
+                 SpeedCurveFidelityPercent = 60.0
+             };
+diff --git a/OTD/TrainDriving/TrainDriving.cs b/OTD/TrainDriving/TrainDriving.cs
+index 1d76e88..692fc9b 100644
+--- a/OTD/TrainDriving/TrainDriving.cs
++++ b/OTD/TrainDriving/TrainDriving.cs
+@@ -54,6 +54,7 @@ public class TrainDriving
+     private const double DefaultBrakePointCorrectionPercent = 0.0;
+     private const double DefaultBrakePointCorrectionPercentPerVMax  = 0.0;
+     private const double DefaultSpeedCurveFidelityPercent = 60.0;
++    private const double DefaultDecoderAverageBias = 0.0;
+ 
+     /// <summary>
+     /// Optional diagnostics event emitted once per control tick.
+@@ -123,6 +124,12 @@ public class TrainDriving
+     /// </summary>
+     public double BrakePointCorrectionPercentPerVMax { get; set; } = DefaultBrakePointCorrectionPercentPerVMax;
+ 
++    /// <summary>
++    /// Bias for decoder average speed integration in the range -0.5..+0.5.
++    /// 0 keeps the classic mean between start and target speed.
++    /// </summary>
++    public double DecoderAverageBias { get; set; } = DefaultDecoderAverageBias;
++
+     /// <summary>
+     /// If enabled, emits focused diagnostics for braking runs (command drop start and per-tick progress).
+     /// </summary>
+@@ -266,11 +273,13 @@ public class TrainDriving
+             $"DriveDistance start: current={currentSpeed} km/h, target={targetSpeed} km/h, distance={distance} cm, " +
+             $"correctedDistance={correctedTargetDistanceCm:F1} cm (base={brakePointCorrectionPercent:F1}% + speed-dependent={speedDependentCorrectionPercent:F2}% @ {speedRatio*100:F0}% VMax = total {totalCorrectionPercent:F1}%), " +
+             $"adaptive={(UseAdaptiveSpeedStepInterval ? "on" : "off")}, min={MinSpeedStepInterval.TotalMilliseconds:F0} ms, " +
++            $"decoderAvgBias={DecoderAverageBias:F2}, " +
+             $"max={MaxSpeedStepInterval.TotalMilliseconds:F0} ms");
+ 
+         // Modelliert die Nachlaufdynamik des Decoders zwischen Soll- und Ist-Geschwindigkeit.
+         var decoderResponse = new DecoderSpeedResponseModel(
+-            initialSpeedKmh: request.CurrentSpeedKmhPrototype);
++            initialSpeedKmh: request.CurrentSpeedKmhPrototype,
++            decoderAverageBias: DecoderAverageBias);
+         // Initiales Solltempo am Startpunkt der Trajektorie.
+         var commandedSpeedKmh = trajectory.GetSpeedKmhAtModelDistanceCm(0.0);
+ 

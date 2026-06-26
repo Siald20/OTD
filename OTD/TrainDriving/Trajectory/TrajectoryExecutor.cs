@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using OTD.HardwareControl;
 using OTD.TrainDriving.Trajectory;
 
-namespace OTD.TrainDriving;
+namespace OTD.TrainDriving.Trajectory;
 
 /// <summary>
 /// Executes a trajectory on a train by:
