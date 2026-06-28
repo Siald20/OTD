@@ -108,18 +108,22 @@ public static class Logging
 
     private static readonly object LockObject = new object();
     private static readonly Dictionary<LogCategory, bool> DebugEnabledByCategory = new();
+    private static readonly Dictionary<LogCategory, bool> ExtendedDebugEnabledByCategory = new();
 
     // ========== Konfigurationsmethoden ==========
 
     /// <summary>
     /// Aktiviert Debug-Ausgabe für eine bestimmte Kategorie.
+    /// Optional kann der erweiterte Debug-Modus mitaktiviert werden.
     /// </summary>
     /// <param name="category">Die Kategorie.</param>
-    public static void EnableDebugForCategory(LogCategory category)
+    /// <param name="extended">True, um erweiterte Debug-Ausgabe zu aktivieren.</param>
+    public static void EnableDebugForCategory(LogCategory category, bool extended = false)
     {
         lock (LockObject)
         {
             DebugEnabledByCategory[category] = true;
+            ExtendedDebugEnabledByCategory[category] = extended;
         }
     }
 
@@ -132,6 +136,7 @@ public static class Logging
         lock (LockObject)
         {
             DebugEnabledByCategory[category] = false;
+            ExtendedDebugEnabledByCategory[category] = false;
         }
     }
 
@@ -145,6 +150,19 @@ public static class Logging
         lock (LockObject)
         {
             return DebugEnabledByCategory.TryGetValue(category, out var enabled) && enabled;
+        }
+    }
+
+    /// <summary>
+    /// Prüft, ob erweiterter Debug für eine Kategorie aktiviert ist.
+    /// </summary>
+    /// <param name="category">Die Kategorie.</param>
+    /// <returns>true, wenn erweiterter Debug für diese Kategorie aktiv ist.</returns>
+    public static bool IsExtendedDebugEnabled(LogCategory category)
+    {
+        lock (LockObject)
+        {
+            return ExtendedDebugEnabledByCategory.TryGetValue(category, out var enabled) && enabled;
         }
     }
 
@@ -212,14 +230,31 @@ public static class Logging
         LogInternal(category, LogLevel.Debug, message, null);
     }
 
+    /// <summary>
+    /// Protokolliert eine erweiterte Debug-Nachricht
+    /// (nur wenn Debug und Extended-Debug für die Kategorie aktiv sind).
+    /// </summary>
+    public static void DebugExtended(LogCategory category, string message)
+    {
+        if (!IsDebugEnabled(category) || !IsExtendedDebugEnabled(category))
+            return;
+
+        LogInternal(category, LogLevel.Debug, message, null, isExtendedDebug: true);
+    }
+
     // ========== Interne Implementierung ==========
 
-    private static void LogInternal(LogCategory category, LogLevel level, string message, Exception? ex)
+    private static void LogInternal(
+        LogCategory category,
+        LogLevel level,
+        string message,
+        Exception? ex,
+        bool isExtendedDebug = false)
     {
         lock (LockObject)
         {
             var timestamp = DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            var levelStr = level.ToString().ToUpperInvariant();
+            var levelStr = isExtendedDebug ? "DEBUG+" : level.ToString().ToUpperInvariant();
             var categoryStr = category.ToString();
 
             var formattedMessage = $"{timestamp} [{levelStr}] [{categoryStr}] {message}";
@@ -240,10 +275,12 @@ public static class Logging
                             Console.ForegroundColor = ConsoleColor.Red;
                             break;
                         case LogLevel.Debug:
-                            Console.ForegroundColor = ConsoleColor.Gray;
+                            Console.ForegroundColor = isExtendedDebug
+                                ? ConsoleColor.DarkCyan
+                                : ConsoleColor.Cyan;
                             break;
                         default:
-                            Console.ForegroundColor = ConsoleColor.White;
+                            Console.ForegroundColor = originalForeground;
                             break;
                     }
 
