@@ -21,6 +21,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace OTD.Common;
 
@@ -49,25 +51,9 @@ public enum LogLevel
 
     /// <summary>
     /// Zuschaltbare Entwicklerdiagnose.
-    /// Standardmäßig aus, pro Kategorie aktivierbar.
+    /// Standardmäßig aus, pro Namespace aktivierbar.
     /// </summary>
     Debug = 3
-}
-
-/// <summary>
-/// Haupt-Kategorien für modulares, selektives Logging.
-/// </summary>
-public enum LogCategory
-{
-    App = 0,
-    Ui = 1,
-    Train = 2,
-    TrainDriving = 3,
-    CommandStation = 4,
-    Feedback = 5,
-    Accessory = 6,
-    Interlocking = 7,
-    Configuration = 8
 }
 
 /// <summary>
@@ -78,10 +64,11 @@ public enum LogCategory
 /// 
 /// Nutzung:
 /// <code>
-/// Logging.Info(LogCategory.Train, "Zug gestartet");
-/// Logging.Debug(LogCategory.CommandStation, "Paket gesendet");
-/// Logging.Warning(LogCategory.Feedback, "Sensor nicht antwortet");
-/// Logging.Error(LogCategory.App, "Kritischer Fehler", ex);
+/// Logging.EnableDebugFor&lt;OTD.TrainDriving.TrainDriving&gt;(extended: true);
+/// Logging.Info("Zug gestartet");
+/// Logging.Debug("Paket gesendet");
+/// Logging.DebugExtended("Raw payload: ...");
+/// Logging.Error("Kritischer Fehler", ex);
 /// </code>
 /// </summary>
 public static class Logging
@@ -107,79 +94,125 @@ public static class Logging
     // ========== Interne State ==========
 
     private static readonly object LockObject = new object();
-    private static readonly Dictionary<LogCategory, bool> DebugEnabledByCategory = new();
-    private static readonly Dictionary<LogCategory, bool> ExtendedDebugEnabledByCategory = new();
+    private static readonly Dictionary<string, (bool Enabled, bool Extended)> DebugEnabledByNamespace = new(StringComparer.Ordinal);
 
     // ========== Konfigurationsmethoden ==========
 
     /// <summary>
-    /// Aktiviert Debug-Ausgabe für eine bestimmte Kategorie.
-    /// Optional kann der erweiterte Debug-Modus mitaktiviert werden.
+    /// Aktiviert Debug-Ausgabe fuer ein Namespace-Praefix.
+    /// Der Schalter gilt auch fuer alle Unter-Namespaces.
     /// </summary>
-    /// <param name="category">Die Kategorie.</param>
+    /// <param name="namespacePrefix">Namespace oder Namespace-Praefix (z. B. OTD.TrainDriving).</param>
     /// <param name="extended">True, um erweiterte Debug-Ausgabe zu aktivieren.</param>
-    public static void EnableDebugForCategory(LogCategory category, bool extended = false)
+    public static void EnableDebugForNamespace(string namespacePrefix, bool extended = false)
     {
         lock (LockObject)
         {
-            DebugEnabledByCategory[category] = true;
-            ExtendedDebugEnabledByCategory[category] = extended;
+            var key = NormalizeNamespace(namespacePrefix);
+            DebugEnabledByNamespace[key] = (Enabled: true, Extended: extended);
         }
     }
 
     /// <summary>
-    /// Deaktiviert Debug-Ausgabe für eine bestimmte Kategorie.
+    /// Deaktiviert Debug-Ausgabe fuer ein Namespace-Praefix.
+    /// Ein spezifischeres Praefix kann damit ein uebergeordnetes Praefix ueberschreiben.
     /// </summary>
-    /// <param name="category">Die Kategorie.</param>
-    public static void DisableDebugForCategory(LogCategory category)
+    /// <param name="namespacePrefix">Namespace oder Namespace-Praefix.</param>
+    public static void DisableDebugForNamespace(string namespacePrefix)
     {
         lock (LockObject)
         {
-            DebugEnabledByCategory[category] = false;
-            ExtendedDebugEnabledByCategory[category] = false;
+            var key = NormalizeNamespace(namespacePrefix);
+            DebugEnabledByNamespace[key] = (Enabled: false, Extended: false);
         }
     }
 
     /// <summary>
-    /// Prüft, ob Debug für eine Kategorie aktiviert ist.
+    /// Aktiviert Debug-Ausgabe fuer den Namespace eines Typs.
+    /// Der Schalter gilt auch fuer alle Unter-Namespaces.
     /// </summary>
-    /// <param name="category">Die Kategorie.</param>
-    /// <returns>true, wenn Debug für diese Kategorie aktiv ist.</returns>
-    public static bool IsDebugEnabled(LogCategory category)
+    public static void EnableDebugFor<T>(bool extended = false)
     {
-        lock (LockObject)
-        {
-            return DebugEnabledByCategory.TryGetValue(category, out var enabled) && enabled;
-        }
+        EnableDebugForNamespace(GetNamespace(typeof(T)), extended);
     }
 
     /// <summary>
-    /// Prüft, ob erweiterter Debug für eine Kategorie aktiviert ist.
+    /// Aktiviert Debug-Ausgabe fuer den Namespace eines Typs.
+    /// Der Schalter gilt auch fuer alle Unter-Namespaces.
     /// </summary>
-    /// <param name="category">Die Kategorie.</param>
-    /// <returns>true, wenn erweiterter Debug für diese Kategorie aktiv ist.</returns>
-    public static bool IsExtendedDebugEnabled(LogCategory category)
+    public static void EnableDebugFor(Type type, bool extended = false)
     {
+        ArgumentNullException.ThrowIfNull(type);
+        EnableDebugForNamespace(GetNamespace(type), extended);
+    }
+
+    /// <summary>
+    /// Deaktiviert Debug-Ausgabe fuer den Namespace eines Typs.
+    /// </summary>
+    public static void DisableDebugFor<T>()
+    {
+        DisableDebugForNamespace(GetNamespace(typeof(T)));
+    }
+
+    /// <summary>
+    /// Deaktiviert Debug-Ausgabe fuer den Namespace eines Typs.
+    /// </summary>
+    public static void DisableDebugFor(Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        DisableDebugForNamespace(GetNamespace(type));
+    }
+
+    /// <summary>
+    /// Prueft, ob Debug fuer ein Namespace-Praefix aktiviert ist.
+    /// </summary>
+    /// <param name="namespaceName">Konkreter Namespace des Aufrufers.</param>
+    /// <returns>true, wenn Debug fuer den Namespace (oder ein passendes Praefix) aktiv ist.</returns>
+    public static bool IsDebugEnabled(string namespaceName)
+    {
+        var normalizedNamespace = NormalizeNamespace(namespaceName);
+
         lock (LockObject)
         {
-            return ExtendedDebugEnabledByCategory.TryGetValue(category, out var enabled) && enabled;
+            if (!TryGetBestNamespaceRule(normalizedNamespace, out var rule))
+                return false;
+
+            return rule.Enabled;
         }
     }
 
     /// <summary>
-    /// Prüft, ob ein Log-Level für eine Kategorie ausgegeben werden soll.
+    /// Prueft, ob erweiterter Debug fuer ein Namespace-Praefix aktiviert ist.
+    /// </summary>
+    /// <param name="namespaceName">Konkreter Namespace des Aufrufers.</param>
+    /// <returns>true, wenn Extended-Debug fuer den Namespace (oder ein passendes Praefix) aktiv ist.</returns>
+    public static bool IsExtendedDebugEnabled(string namespaceName)
+    {
+        var normalizedNamespace = NormalizeNamespace(namespaceName);
+
+        lock (LockObject)
+        {
+            if (!TryGetBestNamespaceRule(normalizedNamespace, out var rule))
+                return false;
+
+            return rule.Enabled && rule.Extended;
+        }
+    }
+
+    /// <summary>
+    /// Prueft, ob ein Log-Level fuer einen Namespace ausgegeben werden soll.
     /// Info, Warning, Error sind immer aktiviert.
-    /// Debug muss explizit pro Kategorie aktiviert werden.
+    /// Debug muss explizit fuer Namespace-Praefixe aktiviert werden.
     /// </summary>
-    /// <param name="category">Die Kategorie.</param>
+    /// <param name="namespaceName">Konkreter Namespace des Aufrufers.</param>
     /// <param name="level">Die Log-Stufe.</param>
     /// <returns>true, wenn der Log ausgegeben werden soll.</returns>
-    public static bool IsEnabled(LogCategory category, LogLevel level)
+    public static bool IsEnabled(string namespaceName, LogLevel level)
     {
         if (level != LogLevel.Debug)
             return true;
 
-        return IsDebugEnabled(category);
+        return IsDebugEnabled(namespaceName);
     }
 
     // ========== Log-Methoden ==========
@@ -187,65 +220,219 @@ public static class Logging
     /// <summary>
     /// Protokolliert eine Info-Nachricht (Standard, immer aktiv).
     /// </summary>
-    public static void Info(LogCategory category, string message)
+    public static void Info(string namespaceName, string message)
     {
-        LogInternal(category, LogLevel.Info, message, null);
+        LogInternal(NormalizeNamespace(namespaceName), LogLevel.Info, message, null);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Info-Nachricht unter Verwendung des aufrufenden Namespaces.
+    /// </summary>
+    public static void Info(string message)
+    {
+        Info(ResolveCallerNamespace(), message);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Info-Nachricht mit Namespace aus einem Typ.
+    /// </summary>
+    public static void Info<T>(string message)
+    {
+        Info(GetNamespace(typeof(T)), message);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Info-Nachricht mit Namespace aus einem Typ.
+    /// </summary>
+    public static void Info(Type sourceType, string message)
+    {
+        ArgumentNullException.ThrowIfNull(sourceType);
+        Info(GetNamespace(sourceType), message);
     }
 
     /// <summary>
     /// Protokolliert eine Warning-Nachricht.
     /// </summary>
-    public static void Warning(LogCategory category, string message)
+    public static void Warning(string namespaceName, string message)
     {
-        LogInternal(category, LogLevel.Warning, message, null);
+        LogInternal(NormalizeNamespace(namespaceName), LogLevel.Warning, message, null);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Warning-Nachricht unter Verwendung des aufrufenden Namespaces.
+    /// </summary>
+    public static void Warning(string message)
+    {
+        Warning(ResolveCallerNamespace(), message);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Warning-Nachricht mit Namespace aus einem Typ.
+    /// </summary>
+    public static void Warning<T>(string message)
+    {
+        Warning(GetNamespace(typeof(T)), message);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Warning-Nachricht mit Namespace aus einem Typ.
+    /// </summary>
+    public static void Warning(Type sourceType, string message)
+    {
+        ArgumentNullException.ThrowIfNull(sourceType);
+        Warning(GetNamespace(sourceType), message);
     }
 
     /// <summary>
     /// Protokolliert eine Error-Nachricht.
     /// </summary>
-    public static void Error(LogCategory category, string message)
+    public static void Error(string namespaceName, string message)
     {
-        LogInternal(category, LogLevel.Error, message, null);
+        LogInternal(NormalizeNamespace(namespaceName), LogLevel.Error, message, null);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Error-Nachricht unter Verwendung des aufrufenden Namespaces.
+    /// </summary>
+    public static void Error(string message)
+    {
+        Error(ResolveCallerNamespace(), message);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Error-Nachricht mit Namespace aus einem Typ.
+    /// </summary>
+    public static void Error<T>(string message)
+    {
+        Error(GetNamespace(typeof(T)), message);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Error-Nachricht mit Namespace aus einem Typ.
+    /// </summary>
+    public static void Error(Type sourceType, string message)
+    {
+        ArgumentNullException.ThrowIfNull(sourceType);
+        Error(GetNamespace(sourceType), message);
     }
 
     /// <summary>
     /// Protokolliert eine Error-Nachricht mit Exception-Details.
     /// </summary>
-    public static void Error(LogCategory category, string message, Exception? ex)
+    public static void Error(string namespaceName, string message, Exception? ex)
     {
         var fullMessage = ex is not null
             ? $"{message} | Exception: {ex.GetType().Name}: {ex.Message}"
             : message;
-        LogInternal(category, LogLevel.Error, fullMessage, ex);
+        LogInternal(NormalizeNamespace(namespaceName), LogLevel.Error, fullMessage, ex);
     }
 
     /// <summary>
-    /// Protokolliert eine Debug-Nachricht (nur wenn Debug für die Kategorie aktiv ist).
+    /// Protokolliert eine Error-Nachricht mit Exception-Details unter Verwendung des aufrufenden Namespaces.
     /// </summary>
-    public static void Debug(LogCategory category, string message)
+    public static void Error(string message, Exception? ex)
     {
-        if (!IsEnabled(category, LogLevel.Debug))
+        Error(ResolveCallerNamespace(), message, ex);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Error-Nachricht mit Exception-Details mit Namespace aus einem Typ.
+    /// </summary>
+    public static void Error<T>(string message, Exception? ex)
+    {
+        Error(GetNamespace(typeof(T)), message, ex);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Error-Nachricht mit Exception-Details mit Namespace aus einem Typ.
+    /// </summary>
+    public static void Error(Type sourceType, string message, Exception? ex)
+    {
+        ArgumentNullException.ThrowIfNull(sourceType);
+        Error(GetNamespace(sourceType), message, ex);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Debug-Nachricht (nur wenn Debug für den Namespace aktiv ist).
+    /// </summary>
+    public static void Debug(string namespaceName, string message)
+    {
+        var normalizedNamespace = NormalizeNamespace(namespaceName);
+
+        if (!IsEnabled(normalizedNamespace, LogLevel.Debug))
             return;
 
-        LogInternal(category, LogLevel.Debug, message, null);
+        LogInternal(normalizedNamespace, LogLevel.Debug, message, null);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Debug-Nachricht unter Verwendung des aufrufenden Namespaces.
+    /// </summary>
+    public static void Debug(string message)
+    {
+        Debug(ResolveCallerNamespace(), message);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Debug-Nachricht mit Namespace aus einem Typ.
+    /// </summary>
+    public static void Debug<T>(string message)
+    {
+        Debug(GetNamespace(typeof(T)), message);
+    }
+
+    /// <summary>
+    /// Protokolliert eine Debug-Nachricht mit Namespace aus einem Typ.
+    /// </summary>
+    public static void Debug(Type sourceType, string message)
+    {
+        ArgumentNullException.ThrowIfNull(sourceType);
+        Debug(GetNamespace(sourceType), message);
     }
 
     /// <summary>
     /// Protokolliert eine erweiterte Debug-Nachricht
-    /// (nur wenn Debug und Extended-Debug für die Kategorie aktiv sind).
+    /// (nur wenn Debug und Extended-Debug fuer den Namespace aktiv sind).
     /// </summary>
-    public static void DebugExtended(LogCategory category, string message)
+    public static void DebugExtended(string namespaceName, string message)
     {
-        if (!IsDebugEnabled(category) || !IsExtendedDebugEnabled(category))
+        var normalizedNamespace = NormalizeNamespace(namespaceName);
+
+        if (!IsDebugEnabled(normalizedNamespace) || !IsExtendedDebugEnabled(normalizedNamespace))
             return;
 
-        LogInternal(category, LogLevel.Debug, message, null, isExtendedDebug: true);
+        LogInternal(normalizedNamespace, LogLevel.Debug, message, null, isExtendedDebug: true);
+    }
+
+    /// <summary>
+    /// Protokolliert eine erweiterte Debug-Nachricht unter Verwendung des aufrufenden Namespaces.
+    /// </summary>
+    public static void DebugExtended(string message)
+    {
+        DebugExtended(ResolveCallerNamespace(), message);
+    }
+
+    /// <summary>
+    /// Protokolliert eine erweiterte Debug-Nachricht mit Namespace aus einem Typ.
+    /// </summary>
+    public static void DebugExtended<T>(string message)
+    {
+        DebugExtended(GetNamespace(typeof(T)), message);
+    }
+
+    /// <summary>
+    /// Protokolliert eine erweiterte Debug-Nachricht mit Namespace aus einem Typ.
+    /// </summary>
+    public static void DebugExtended(Type sourceType, string message)
+    {
+        ArgumentNullException.ThrowIfNull(sourceType);
+        DebugExtended(GetNamespace(sourceType), message);
     }
 
     // ========== Interne Implementierung ==========
 
     private static void LogInternal(
-        LogCategory category,
+        string namespaceName,
         LogLevel level,
         string message,
         Exception? ex,
@@ -254,8 +441,8 @@ public static class Logging
         lock (LockObject)
         {
             var timestamp = DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            var levelStr = isExtendedDebug ? "DEBUG+" : level.ToString().ToUpperInvariant();
-            var categoryStr = category.ToString();
+            var levelStr = isExtendedDebug ? "Debug+" : level.ToString().ToUpperInvariant();
+            var categoryStr = namespaceName;
 
             var formattedMessage = $"{timestamp} [{levelStr}] [{categoryStr}] {message}";
 
@@ -276,7 +463,7 @@ public static class Logging
                             break;
                         case LogLevel.Debug:
                             Console.ForegroundColor = isExtendedDebug
-                                ? ConsoleColor.DarkCyan
+                                ? ConsoleColor.Blue
                                 : ConsoleColor.Cyan;
                             break;
                         default:
@@ -315,5 +502,67 @@ public static class Logging
                 }
             }
         }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string ResolveCallerNamespace()
+    {
+        var stackTrace = new StackTrace();
+
+        for (var i = 1; i < stackTrace.FrameCount; i++)
+        {
+            var declaringType = stackTrace.GetFrame(i)?.GetMethod()?.DeclaringType;
+            if (declaringType is null)
+                continue;
+
+            if (declaringType == typeof(Logging))
+                continue;
+
+            return NormalizeNamespace(declaringType.Namespace ?? declaringType.FullName ?? "GLOBAL");
+        }
+
+        return "GLOBAL";
+    }
+
+    private static bool TryGetBestNamespaceRule(string namespaceName, out (bool Enabled, bool Extended) rule)
+    {
+        var bestPrefixLength = -1;
+        var bestRule = (Enabled: false, Extended: false);
+
+        foreach (var entry in DebugEnabledByNamespace)
+        {
+            if (!IsNamespaceMatch(entry.Key, namespaceName))
+                continue;
+
+            if (entry.Key.Length <= bestPrefixLength)
+                continue;
+
+            bestPrefixLength = entry.Key.Length;
+            bestRule = entry.Value;
+        }
+
+        rule = bestRule;
+        return bestPrefixLength >= 0;
+    }
+
+    private static bool IsNamespaceMatch(string prefix, string namespaceName)
+    {
+        if (string.Equals(prefix, namespaceName, StringComparison.Ordinal))
+            return true;
+
+        return namespaceName.StartsWith(prefix + ".", StringComparison.Ordinal);
+    }
+
+    private static string NormalizeNamespace(string namespaceName)
+    {
+        if (string.IsNullOrWhiteSpace(namespaceName))
+            return "GLOBAL";
+
+        return namespaceName.Trim().TrimEnd('.');
+    }
+
+    private static string GetNamespace(Type type)
+    {
+        return NormalizeNamespace(type.Namespace ?? type.FullName ?? "GLOBAL");
     }
 }
