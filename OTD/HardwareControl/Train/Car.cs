@@ -25,6 +25,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using OTD.Common;
 
 namespace OTD.HardwareControl;
 
@@ -70,7 +71,7 @@ public class Car : IVehicle
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
         {
-            Console.WriteLine($"Fehler beim Laden der Wagen-Konfiguration '{vehicleId}': {ex.Message}");
+            Logging.Warning<Car>($"Fehler beim Laden der Wagen-Konfiguration '{vehicleId}': {ex.Message}");
             throw new InvalidOperationException($"Car configuration could not be loaded for '{vehicleId}'.", ex);
         }
     }

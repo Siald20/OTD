@@ -201,7 +201,7 @@ public class Train
 
         TrainConfig = trainConfig;
 
-        Logging.Info(LogCategory.Train,
+        Logging.Info<Train>(
             $"Loading of train composition {Id} completed. {TrainComposition.Count} vehicle(s) initialized. Length: {Length} mm, VMin: {VMin} km/h, VMax: {VMax} km/h, Weight: {Weight} t.");
     }
 
@@ -261,11 +261,11 @@ public class Train
             // Stirnlichter entsprechend Betriebsmodus aktualisieren.
             await UpdateHeadlightFunctionsAsync(_headlightMode, mode, cancellationToken).ConfigureAwait(false);
 
-            Logging.Info(LogCategory.Train, $"Zug {TrainId}: Betriebszustand auf {_operatingMode} gesetzt.");
+            Logging.Info<Train>($"Zug {TrainId}: Betriebszustand auf {_operatingMode} gesetzt.");
         }
         catch (Exception ex)
         {
-            Logging.Error(LogCategory.Train,
+            Logging.Error<Train>(
                 $"Fehler beim Setzen des Betriebsmodus {mode} für Zug {TrainId}: {ex.Message}", ex);
             throw;
         }
@@ -293,7 +293,7 @@ public class Train
             await UpdateHeadlightFunctionsAsync(_headlightMode, _operatingMode, cancellationToken)
                 .ConfigureAwait(false);
 
-            Logging.Info(LogCategory.Train, $"Zug {TrainId}: Fahrtrichtung auf {_trainDirection} gesetzt.");
+            Logging.Debug<Train>($"Zug {TrainId}: Fahrtrichtung auf {_trainDirection} gesetzt.");
         }
         finally
         {
@@ -332,7 +332,7 @@ public class Train
         }
         catch (Exception ex)
         {
-            Logging.Error(LogCategory.Train,
+            Logging.Error<Train>(
                 $"Fehler beim Senden des Fahrbefehls {speed} km/h für Zug {TrainId}: {ex.Message}", ex);
             throw;
         }
@@ -369,7 +369,7 @@ public class Train
             await SubscribeCommandStationAsync(TrainComposition, commandStation, cancellationToken)
                 .ConfigureAwait(false);
 
-            Logging.Info(LogCategory.Train,
+            Logging.Info<Train>(
                 $"Zug {TrainId}: Zentrale '{commandStation.GetType().Name}' abonniert. Insgesamt {_subscribedCommandStations.Count} Zentrale(n) gebunden.");
         }
         finally
@@ -405,7 +405,7 @@ public class Train
             await UnsubscribeStationAsync(TrainComposition, commandStation, cancellationToken)
                 .ConfigureAwait(false);
 
-            Logging.Info(LogCategory.Train,
+            Logging.Info<Train>(
                 $"Zug {TrainId}: Zentrale '{commandStation.GetType().Name}' abgemeldet. Noch {_subscribedCommandStations.Count} Zentrale(n) gebunden.");
         }
         finally
@@ -435,12 +435,12 @@ public class Train
 
             await Task.WhenAll(tasks).ConfigureAwait(false);
 
-            Logging.Info(LogCategory.Train,
+            Logging.Debug<Train>(
                 $"Zug {TrainId}: Fahrbefehl {speed} km/h an {tasks.Count} angetriebene Fahrzeug(e) gesendet.");
         }
         catch (Exception ex)
         {
-            Logging.Error(LogCategory.Train,
+            Logging.Error<Train>(
                 $"Fehler beim Senden des Fahrbefehls {speed} km/h für Zug {TrainId}: {ex.Message}", ex);
             throw;
         }
@@ -453,7 +453,7 @@ public class Train
     {
         if (TrainComposition.Count == 0)
         {
-            Logging.Warning(LogCategory.Train, $"Zug {TrainId} enthält keine Fahrzeuge.");
+            Logging.Warning<Train>($"Zug {TrainId} enthält keine Fahrzeuge.");
             return;
         }
 
@@ -463,11 +463,11 @@ public class Train
             if (vehicleEntry.VehicleInstance is Loco locoController)
                 tasks.Add(locoController.EmergencyStopAsync(cancellationToken));
             else
-                Logging.Warning(LogCategory.Train,
+                Logging.Warning<Train>(
                     $"Fahrzeug {vehicleEntry.VehicleId} ist kein Loco-Controller.");
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
-        Logging.Info(LogCategory.Train,
+        Logging.Debug<Train>(
             $"Zug {TrainId}: Notbremsung an {tasks.Count} angetriebene Fahrzeug(e) gesendet.");
     }
 
@@ -504,7 +504,7 @@ public class Train
             .ToList();
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
-        Logging.Info(LogCategory.Train,
+        Logging.Debug<Train>(
             $"Zug {TrainId}: Funktion {function} auf {tasks.Count} Fahrzeugdecoder gesetzt ({state}).");
     }
 
@@ -544,7 +544,7 @@ public class Train
             _headlightMode = headlightMode;
             await UpdateHeadlightFunctionsAsync(headlightMode, _operatingMode, cancellationToken).ConfigureAwait(false);
 
-            Logging.Info(LogCategory.Train, $"Zug {TrainId}: Stirnlichter auf {headlightMode} gesetzt.");
+            Logging.Debug<Train>($"Zug {TrainId}: Stirnlichter auf {headlightMode} gesetzt.");
         }
         finally
         {
@@ -619,7 +619,7 @@ public class Train
             .ToList();
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
-        Logging.Info(LogCategory.Train,
+        Logging.Debug<Train>(
             $"Zug {TrainId}: Funktion {function} fuer {timeout} ms auf {tasks.Count} Fahrzeugdecoder aktiviert.");
     }
 
@@ -658,7 +658,7 @@ public class Train
     {
         if (!TrainComposition.Any())
         {
-            Logging.Warning(LogCategory.Train, $"Zug {TrainId} enthält keine Fahrzeuge.");
+            Logging.Warning<Train>($"Zug {TrainId} enthält keine Fahrzeuge.");
             return new List<IVehicle>();
         }
 
@@ -682,11 +682,11 @@ public class Train
             if (vehicleEntry.VehicleInstance is { } controller)
                 selectedControllers.Add(controller);
             else
-                Logging.Warning(LogCategory.Train, $"Fahrzeug-Instanz für UID {vehicleEntry.VehicleId} fehlt.");
+                Logging.Warning<Train>($"Fahrzeug-Instanz für UID {vehicleEntry.VehicleId} fehlt.");
         }
 
         if (selectedControllers.Count == 0)
-            Logging.Warning(LogCategory.Train, "Keine passenden Fahrzeuge für die ausgewählte Funktionssteuerung gefunden.");
+            Logging.Warning<Train>("Keine passenden Fahrzeuge für die ausgewählte Funktionssteuerung gefunden.");
 
         return selectedControllers;
     }
@@ -760,7 +760,7 @@ public class Train
 
         if (TrainComposition.Count == 0)
         {
-            Logging.Warning(LogCategory.Train, $"Zug {TrainId} enthält keine Fahrzeuge.");
+            Logging.Warning<Train>($"Zug {TrainId} enthält keine Fahrzeuge.");
             return;
         }
 
@@ -781,7 +781,7 @@ public class Train
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
 
-        Logging.Debug(LogCategory.Train,
+        Logging.Debug<Train>(
             $"Zug {TrainId}: Fahrtrichtung {trainDirection} an {tasks.Count} Fahrzeugdecoder gesendet.");
     }
 
@@ -804,7 +804,7 @@ public class Train
         var mainHeadlightState = HeadlightUtils.DetermineMainHeadlightState(headlightsMode, operatingMode);
         if (mainHeadlightState is LocoDecoderFunctionState.Undefined)
         {
-            Logging.Warning(LogCategory.Train,
+            Logging.Warning<Train>(
                 $"Warnung: Ungültiger Stirnlicht-Sollzustand für Zug {TrainId} (HeadlightMode={headlightsMode}, OperatingMode={operatingMode}). Keine Schaltung ausgeführt.");
             return;
         }

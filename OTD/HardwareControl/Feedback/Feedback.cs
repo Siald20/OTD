@@ -211,7 +211,7 @@ public sealed class Feedback : IFeedback, IDisposable
         if (IsConnected)
             return true;
 
-        Logging.Info(LogCategory.Feedback, "Keine Verbindung zum Rückmeldemodul. Verbinde...");
+        Logging.Info<Feedback>("Keine Verbindung zum Rückmeldemodul. Verbinde...");
 
         try
         {
@@ -220,7 +220,7 @@ public sealed class Feedback : IFeedback, IDisposable
         }
         catch (Exception ex)
         {
-            Logging.Error(LogCategory.Feedback, $"Fehler beim Verbinden des Rückmeldemoduls: {ex.Message}", ex);
+            Logging.Error<Feedback>($"Fehler beim Verbinden des Rückmeldemoduls: {ex.Message}", ex);
             return false;
         }
     }
@@ -245,7 +245,7 @@ public sealed class Feedback : IFeedback, IDisposable
         if (IsMonitoringReady)
             return true;
 
-        Logging.Info(LogCategory.Feedback, "Rückmeldemodul ist verbunden, initialisiere Sensor-Snapshot...");
+        Logging.Info<Feedback>("Rückmeldemodul ist verbunden, initialisiere Sensor-Snapshot...");
 
         try
         {
@@ -254,7 +254,7 @@ public sealed class Feedback : IFeedback, IDisposable
         }
         catch (Exception ex)
         {
-            Logging.Error(LogCategory.Feedback, $"Fehler beim Initialisieren des Rückmeldemoduls: {ex.Message}", ex);
+            Logging.Error<Feedback>($"Fehler beim Initialisieren des Rückmeldemoduls: {ex.Message}", ex);
             return false;
         }
     }

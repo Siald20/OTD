@@ -71,7 +71,7 @@ public class LocoDecoder : ILocoDecoder
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
         {
-            Logging.Error(LogCategory.Train, $"Fehler beim Laden der LocoDecoder-Konfiguration: {ex.Message}", ex);
+            Logging.Error<LocoDecoder>($"Fehler beim Laden der LocoDecoder-Konfiguration: {ex.Message}", ex);
             throw new InvalidOperationException("LocoDecoder configuration could not be loaded.", ex);
         }
     }
@@ -108,13 +108,13 @@ public class LocoDecoder : ILocoDecoder
             // Callback für Statusmeldungen (Fahrbefehle und Funktionen) von der Zentrale registrieren
             if (commandStation is CommandStation concreteStation)
                 concreteStation.RegisterDecoder(Address, this);
-            Logging.Info(LogCategory.Train,
+            Logging.Debug<LocoDecoder>(
                 $"Zentrale '{commandStation.GetType().Name}' abonniert. Insgesamt {_subscribedCommandStations.Count} abonniert.");
 
             try
             {
                 // // Geschwindigkeit und Fahrtrichtung abfragen (Antworten werden über Callback verarbeitet)
-                Logging.Debug(LogCategory.Train,
+                Logging.Debug<LocoDecoder>(
                     $"Frage aktuelle Geschwindigkeit von der Zentrale ab (Adresse {Address})...");
                 await commandStation.QueryLocoSpeedDirectionAsync(Address, cancellationToken).ConfigureAwait(false);
 
@@ -129,7 +129,7 @@ public class LocoDecoder : ILocoDecoder
             }
             catch (Exception ex)
             {
-                Logging.Error(LogCategory.Train,
+                Logging.Error<LocoDecoder>(
                     $"Fehler beim Abfragen des LocoDecoder-Status von der Zentrale: {ex.Message}", ex);
             }
         }
@@ -147,7 +147,7 @@ public class LocoDecoder : ILocoDecoder
             // Registrierung der Status-Callbacks beenden
             if (commandStation is CommandStation concreteStation)
                 concreteStation.UnregisterDecoder(Address);
-            Logging.Info(LogCategory.Train,
+            Logging.Debug<LocoDecoder>(
                 $"Zentrale '{commandStation.GetType().Name}' abgemeldet. Noch {_subscribedCommandStations.Count} abonniert.");
         }
 
@@ -177,7 +177,7 @@ public class LocoDecoder : ILocoDecoder
                         cancellationToken)
                     .ConfigureAwait(false);
             _functionStates[function] = state;
-            Logging.Debug(LogCategory.Train,
+            Logging.Debug<LocoDecoder>(
                 $"Funktion {function} {(state == LocoDecoderFunctionState.On ? "AN" : "AUS")} an Adresse {Address} gesendet.");
         }
         finally
@@ -227,7 +227,7 @@ public class LocoDecoder : ILocoDecoder
             // Send drive command to all subscribed command stations.
             foreach (var station in _subscribedCommandStations)
                 await station.SetLocoSpeedAsync(Address, speedStep, direction, cancellationToken).ConfigureAwait(false);
-            Logging.Debug(LogCategory.Train,
+            Logging.Debug<LocoDecoder>(
                 $"Fahrbefehl {direction} mit SpeedStep {speedStep} an Adresse {Address} gesendet.");
 
             Direction = direction;

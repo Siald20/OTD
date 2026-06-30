@@ -72,7 +72,7 @@ public class Loco : IVehicle
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
         {
-            Logging.Error(LogCategory.Train, $"Fehler beim Laden der Lok-Konfiguration '{vehicleId}': {ex.Message}", ex);
+            Logging.Error<Loco>($"Fehler beim Laden der Lok-Konfiguration '{vehicleId}': {ex.Message}", ex);
             throw new InvalidOperationException($"Locomotive configuration could not be loaded for '{vehicleId}'.", ex);
         }
     }
@@ -145,7 +145,7 @@ public class Loco : IVehicle
         if (!forceSend && _locoDecoder.Direction != VehicleDirection.Undefined && Speed == 0 &&
             _locoDecoder.Direction == decoderDirection)
         {
-            Logging.Debug(LogCategory.Train, 
+            Logging.Debug<Loco>(
                 $"Richtungsbefehl unterdrückt (Duplikat): Richtung {decoderDirection} (Lokadresse {_locoDecoder.Address}).");
             return;
         }
@@ -177,7 +177,7 @@ public class Loco : IVehicle
 //        if (!forceSend && _locoDecoder.Direction != VehicleDirection.Undefined && Speed == speed)
         if (!forceSend && _locoDecoder.Direction != VehicleDirection.Undefined && Speed == speed)
         {
-            Logging.Debug(LogCategory.Train, 
+            Logging.Debug<Loco>(
                 $"Fahrbefehl unterdrückt (Duplikat): {speed} km/h, Richtung {_locoDecoder.Direction} (Lokadresse {_locoDecoder.Address}).");
             return;
         }
@@ -195,7 +195,7 @@ public class Loco : IVehicle
         await _locoDecoder.SetSpeedStepAsync(_locoDecoder.Direction, speedStep, forceSend, cancellationToken)
             .ConfigureAwait(false);
 
-        Logging.Debug(LogCategory.Train, 
+        Logging.Debug<Loco>(
             $"Fahrbefehl: {speed} km/h (SpeedStep {speedStep}), Richtung {_locoDecoder.Direction} (Lokadresse {_locoDecoder.Address}).");
         Speed = speed;
     }
@@ -216,12 +216,12 @@ public class Loco : IVehicle
     /// </summary>
     private void OnDecoderStateChanged(object? sender, LocoStateChangedEventArgs args)
     {
-        // ToDo: Event-Kaskate endet momentan hier, Folgeevents auf Ebene Train müssen noch definiert werden.
+        // ToDo: Event-Kaskade endet momentan hier, Folgeevents auf Ebene Train müssen noch definiert werden.
         if (!args.HasSpeedUpdate)
             return;
 
         Speed = LocoUtils.ResolveSpeedVForSpeedStep(_speedTable, args.SpeedStep!.Value);
-        Logging.Debug(LogCategory.Train,
+        Logging.DebugExtended<Loco>(
             $"Decoder-Update: Gemeldete Geschwindigkeit {Speed} km/h (SpeedStep {args.SpeedStep}), Richtung {_locoDecoder.Direction} (Lokadresse {_locoDecoder.Address}).");
     }
 }

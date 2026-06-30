@@ -865,7 +865,7 @@ internal sealed class LoDiRektor : ICommandStation
         if (!DiagnosticLogging) return;
         var payload = BitConverter.ToString(packet.Payload);
         var extraStr = extra is not null ? $" | {extra}" : "";
-        Logging.Debug(LogCategory.CommandStation,
+        Logging.Debug<LoDiRektor>(
             $"[{direction}] Seq=0x{packet.PacketNumber:X2} " +
             $"Type={LoDiProtocol.GetPacketTypeName(packet.PacketType)} " +
             $"Cmd={LoDiProtocol.GetCommandName(packet.Command)} " +

@@ -65,11 +65,11 @@ internal sealed class FeedbackService : IDisposable
                     .ConfigureAwait(false);
             }
 
-            Logging.Info(LogCategory.Feedback, $"Feedback-Service initialisiert mit {_commanders.Count} Provider(n).");
+            Logging.Info<FeedbackService>($"Feedback-Service initialisiert mit {_commanders.Count} Provider(n).");
         }
         catch (Exception ex)
         {
-            Logging.Error(LogCategory.Feedback, $"Fehler beim Initialisieren des Feedback-Service: {ex.Message}", ex);
+            Logging.Error<FeedbackService>($"Fehler beim Initialisieren des Feedback-Service: {ex.Message}", ex);
             throw;
         }
     }
@@ -87,11 +87,11 @@ internal sealed class FeedbackService : IDisposable
             await FeedbackInitializer.InitializeLoDiS88Async(commander, provider, cancellationToken)
                 .ConfigureAwait(false);
 
-            Logging.Info(LogCategory.Feedback, $"Feedback-Provider '{provider.Uid}' initialisiert @ {provider.Connection.IpAddress}:{provider.Connection.Port}");
+            Logging.Info<FeedbackService>($"Feedback-Provider '{provider.Uid}' initialisiert @ {provider.Connection.IpAddress}:{provider.Connection.Port}");
         }
         catch (Exception ex)
         {
-            Logging.Error(LogCategory.Feedback, $"Fehler beim Initialisieren von Provider '{provider.Uid}': {ex.Message}", ex);
+            Logging.Error<FeedbackService>($"Fehler beim Initialisieren von Provider '{provider.Uid}': {ex.Message}", ex);
             throw;
         }
     }
@@ -110,12 +110,12 @@ internal sealed class FeedbackService : IDisposable
             }
             catch (Exception ex)
             {
-                Logging.Warning(LogCategory.Feedback, $"Fehler beim Trennen des Feedback-Provider: {ex.Message}");
+                Logging.Warning<FeedbackService>($"Fehler beim Trennen des Feedback-Provider: {ex.Message}");
             }
         }
 
         _commanders.Clear();
-        Logging.Info(LogCategory.Feedback, "Feedback-Service heruntergefahren.");
+        Logging.Info<FeedbackService>("Feedback-Service heruntergefahren.");
     }
 
     public void Dispose()

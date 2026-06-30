@@ -20,28 +20,28 @@ internal static class LoDiLog
             ? "DEBUG"
             : channel.Trim().ToUpperInvariant();
 
-        Logging.Debug(LogCategory.CommandStation,
+        Logging.Debug(typeof(LoDiLog),
             $"[LoDi {normalizedChannel}] {message}");
     }
 
     public static void CommandInfo(string message)
     {
-        Logging.Info(LogCategory.CommandStation, $"[LoDi INFO] {message}");
+        Logging.Info(typeof(LoDiLog), $"[LoDi INFO] {message}");
     }
 
     public static void CommandWarning(string message)
     {
-        Logging.Warning(LogCategory.CommandStation, $"[LoDi WARN] {message}");
+        Logging.Warning(typeof(LoDiLog), $"[LoDi WARN] {message}");
     }
 
     public static void CommandError(string message, Exception ex)
     {
-        Logging.Error(LogCategory.CommandStation, $"[LoDi ERROR] {message}", ex);
+        Logging.Error(typeof(LoDiLog), $"[LoDi ERROR] {message}", ex);
     }
 
     public static void FeedbackDebug(string message)
     {
-        Logging.Debug(LogCategory.Feedback, $"[LoDiFeedback DEBUG] {message}");
+        Logging.Debug(typeof(LoDiLog), $"[LoDiFeedback DEBUG] {message}");
     }
 }
 

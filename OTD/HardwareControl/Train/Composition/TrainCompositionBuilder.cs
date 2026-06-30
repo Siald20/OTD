@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using OTD.Common;
 
 namespace OTD.HardwareControl;
 
@@ -323,7 +324,7 @@ public sealed class TrainCompositionBuilder
         foreach (var vehicle in remainingVehicles)
             _vehicles.Add(Normalize(vehicle, _preserveRuntimeState));
 
-        Console.WriteLine(
+        Logging.Info<TrainCompositionBuilder>(
             $"SplitComposition: Train {sourceTrainId} updated with {remainingVehicles.Count} vehicle(s). New train {newTrainId} created with {detachedVehicles.Count} vehicle(s).");
 
         return (sourceTrainId, newTrainId);

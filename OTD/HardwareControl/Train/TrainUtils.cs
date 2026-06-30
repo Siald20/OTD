@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using OTD.Common;
 
 namespace OTD.HardwareControl;
 
@@ -50,7 +51,7 @@ public static class TrainUtils
             var vehicleUidText = vehicleElement.Attribute("uid")?.Value;
             if (!Guid.TryParse(vehicleUidText, out var vehicleId))
             {
-                Console.WriteLine($"Warnung: Ungültige oder fehlende Fahrzeug-UID '{vehicleUidText}' in trains.xml.");
+                Logging.Warning(typeof(TrainUtils), $"Warnung: Ungültige oder fehlende Fahrzeug-UID '{vehicleUidText}' in trains.xml.");
                 continue;
             }
 
@@ -123,7 +124,7 @@ public static class TrainUtils
         if (string.Equals(value, "normal", StringComparison.OrdinalIgnoreCase))
             return VehicleOrientation.Normal;
 
-        Console.WriteLine(
+        Logging.Warning(typeof(TrainUtils),
             $"Warnung: Ungültige Ausrichtung '{value}' für Fahrzeug {locoId}; Fallback auf 'normal'.");
         return VehicleOrientation.Normal;
     }
@@ -234,7 +235,7 @@ public static class TrainUtils
 
         if (!File.Exists(configFilePath))
         {
-            Console.WriteLine($"Fehler: Konfigurationsdatei nicht gefunden: {configFilePath}");
+            Logging.Error(typeof(TrainUtils), $"Fehler: Konfigurationsdatei nicht gefunden: {configFilePath}");
             return null;
         }
 
@@ -245,7 +246,7 @@ public static class TrainUtils
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Fehler beim Laden der Datei {GetConfigFileName(configType)}: {ex.Message}");
+            Logging.Error(typeof(TrainUtils), $"Fehler beim Laden der Datei {GetConfigFileName(configType)}: {ex.Message}");
             return null;
         }
 
@@ -254,7 +255,7 @@ public static class TrainUtils
             .FirstOrDefault(l => l.Attribute("uid")?.Value == id.ToString());
 
         if (config == null)
-            Console.WriteLine($"Fehler: Konfiguration vom Typ <{configType}> mit UID {id} nicht gefunden.");
+            Logging.Error(typeof(TrainUtils), $"Fehler: Konfiguration vom Typ <{configType}> mit UID {id} nicht gefunden.");
 
         return config;
     }

@@ -22,6 +22,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using OTD.Common;
 
 namespace OTD.HardwareControl;
 
@@ -61,7 +62,7 @@ internal static class HeadlightUtils
             if (hasMode)
             {
                 if (hasDirectionalPatterns)
-                    Console.WriteLine(
+                    Logging.Debug(typeof(HeadlightUtils),
                         $"Warnung: Headlight-Funktion {function.Number} kombiniert mode=\"{mode}\" mit forward/backward-Pattern. " +
                         "Bei mode-basierten Funktionen werden forward/backward ignoriert.");
 
@@ -74,7 +75,7 @@ internal static class HeadlightUtils
 
             if (!hasDirectionalPatterns)
             {
-                Console.WriteLine(
+                Logging.Warning(typeof(HeadlightUtils),
                     $"Warnung: Headlight-Funktion {function.Number} hat weder einen mode-Eintrag noch forward/backward-Pattern und wird ignoriert.");
                 continue;
             }
@@ -164,7 +165,7 @@ internal static class HeadlightUtils
             return null;
 
         if (masterFunctionNumbers.Count > 1)
-            Console.WriteLine(
+            Logging.Warning(typeof(HeadlightUtils),
                 $"Warnung: Mehrere Headlight-Masterfunktionen konfiguriert ({string.Join(", ", masterFunctionNumbers)}). " +
                 $"Es wird die erste verwendet: {masterFunctionNumbers[0]}.");
 

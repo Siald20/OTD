@@ -59,11 +59,11 @@ public class AccessoryDecoder : IAccessoryDecoder
 
             Protocol = AccessoryDecoderUtils.GetProtocol(protocolValue);
             Address = AccessoryDecoderUtils.GetAddress(addressValue);
-            Logging.Debug(LogCategory.Accessory, $"Zubehördecoder Adresse {Address}: Protokoll {Protocol}.");
+            Logging.Debug<AccessoryDecoder>($"Zubehördecoder Adresse {Address}: Protokoll {Protocol}.");
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
         {
-            Logging.Error(LogCategory.Accessory,
+            Logging.Error<AccessoryDecoder>(
                 $"Fehler beim Laden der Zubehördecoder-Konfiguration: {ex.Message}", ex);
             throw new InvalidOperationException("Accessory decoder configuration could not be loaded.", ex);
         }
@@ -96,7 +96,7 @@ public class AccessoryDecoder : IAccessoryDecoder
         if (commandStation is CommandStation concreteStation)
             concreteStation.RegisterAccessoryDecoder(Address, this);
 
-        Logging.Debug(LogCategory.Accessory,
+        Logging.Debug<AccessoryDecoder>(
             $"Zubehördecoder {Address}: Zentrale '{commandStation.GetType().Name}' abonniert. Genau eine Zentrale erlaubt.");
 
         await Task.CompletedTask.ConfigureAwait(false);
@@ -114,7 +114,7 @@ public class AccessoryDecoder : IAccessoryDecoder
                 concreteStation.UnregisterAccessoryDecoder(Address, this);
 
             SubscribedCommandStation = null;
-            Logging.Debug(LogCategory.Accessory,
+            Logging.Debug<AccessoryDecoder>(
                 $"Zubehördecoder {Address}: Zentrale '{commandStation.GetType().Name}' abgemeldet. Keine Zentrale abonniert.");
         }
 
@@ -140,7 +140,7 @@ public class AccessoryDecoder : IAccessoryDecoder
 
         if (SubscribedCommandStation is null)
         {
-            Logging.Warning(LogCategory.Accessory,
+            Logging.Warning<AccessoryDecoder>(
                 $"Zubehördecoder {Address}: Keine Zentrale abonniert, Befehl ignoriert.");
             return;
         }
@@ -158,7 +158,7 @@ public class AccessoryDecoder : IAccessoryDecoder
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            Logging.Debug(LogCategory.Accessory,
+            Logging.Debug<AccessoryDecoder>(
                 $"Zubehördecoder {Address}: OutputValue={(byte)outputValue} FunctionState={functionState} gesendet (Protokoll {Protocol}).");
         }
         finally
@@ -184,7 +184,7 @@ public class AccessoryDecoder : IAccessoryDecoder
 
             if (SubscribedCommandStation is null)
             {
-                Logging.Warning(LogCategory.Accessory,
+                Logging.Warning<AccessoryDecoder>(
                     $"Zubehördecoder {Address}: Keine Zentrale abonniert, Befehl ignoriert.");
                 return;
             }
@@ -202,7 +202,7 @@ public class AccessoryDecoder : IAccessoryDecoder
                         cancellationToken)
                     .ConfigureAwait(false);
 
-                Logging.Debug(LogCategory.Accessory,
+                Logging.Debug<AccessoryDecoder>(
                     $"Zubehördecoder {Address}: OutputValue={(byte)outputValue} hardware-timed mit {timeout} ms gesendet (Protokoll {Protocol}).");
             }
             finally

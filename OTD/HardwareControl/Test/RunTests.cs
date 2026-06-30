@@ -123,10 +123,10 @@ internal static class RunTests
         return
         [
             new TestEntry(
-                new SelectableEntry("TRAINDRIVING_TEST2", "test", "TrainDriving: Test2 (Rundkurs BR193 mit Sensorabgleich)", null, 0),
+                new SelectableEntry("TRAINDRIVING_RouteTestRoundTripBi", "test", "TrainDriving: RouteTestRoundTripBi (Rundkurs BR193 mit Sensorabgleich)", null, 0),
                 (cs, fb) =>
                 {
-                    Test2.Run(cs, fb);
+                    RouteTestRoundTripBi.Run(cs, fb);
                     return Task.CompletedTask;
                 },
                 true,
