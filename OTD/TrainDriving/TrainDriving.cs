@@ -25,14 +25,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using OTD.Common;
 using OTD.HardwareControl;
-using OTD.TrainDriving.Presets;
-using OTD.TrainDriving.RouteModel;
+using OTD.TrainDriving.RouteControl.Domain;
 using OTD.TrainDriving.Trajectory;
+using TrajectoryModel = OTD.TrainDriving.Trajectory.Trajectory;
 
 namespace OTD.TrainDriving;
 
 public readonly record struct TrainDrivingProgressTick(
-    int DeltaCmModel,
+    double DeltaCmModel,
     int CommandedSpeedKmhPrototype);
 
 /// <summary>
@@ -54,7 +54,6 @@ public class TrainDriving
     private const double DefaultBrakePointCorrectionPercent = 0.0;
     private const double DefaultBrakePointCorrectionPercentPerVMax  = 0.0;
     private const double DefaultSpeedCurveFidelityPercent = 60.0;
-    private const double DefaultDecoderAverageBias = 0.0;
 
     /// <summary>
     /// Optional diagnostics event emitted once per control tick.
@@ -124,20 +123,14 @@ public class TrainDriving
     /// </summary>
     public double BrakePointCorrectionPercentPerVMax { get; set; } = DefaultBrakePointCorrectionPercentPerVMax;
 
-    /// <summary>
-    /// Bias for decoder average speed integration in the range -0.5..+0.5.
-    /// 0 keeps the classic mean between start and target speed.
-    /// </summary>
-    public double DecoderAverageBias { get; set; } = DefaultDecoderAverageBias;
-
-    /// <summary>
-    /// If enabled, emits focused diagnostics for braking runs (command drop start and per-tick progress).
-    /// </summary>
-    public bool BrakeDebugLogging { get; set; }
-
     private readonly Train? _train;
 
     private int? _lastLoggedAdaptiveIntervalMs;
+
+    /// <summary>
+    /// Gets the bound train instance, if any. Returns null if this TrainDriving was created without a train.
+    /// </summary>
+    public Train? BoundTrain => _train;
 
     /// <summary>
     /// Creates an unbound instance without a train. Use factory methods to create trajectories manually.
@@ -232,7 +225,7 @@ public class TrainDriving
             return;
         }
 
-        Logging.Info(LogCategory.TrainDriving, $"Sending brake command: BrakeAsync(targetSpeed={targetSpeed}, distance={distance} cm)");
+        Logging.Debug<TrainDriving>($"Sending brake command: BrakeAsync(targetSpeed={targetSpeed}, distance={distance} cm)");
         await DriveDistanceAsync(currentSpeed, targetSpeed, distance, cancellationToken).ConfigureAwait(false);
     }
 
@@ -268,20 +261,18 @@ public class TrainDriving
         var trajectory = CreateSinglePhaseTrajectory(request);
         var executor = CreateExecutor(train, trajectory);
 
-        _lastLoggedAdaptiveIntervalMs = null;
-        Logging.Debug(LogCategory.TrainDriving,
-            $"DriveDistance start: current={currentSpeed} km/h, target={targetSpeed} km/h, distance={distance} cm, " +
-            $"correctedDistance={correctedTargetDistanceCm:F1} cm (base={brakePointCorrectionPercent:F1}% + speed-dependent={speedDependentCorrectionPercent:F2}% @ {speedRatio*100:F0}% VMax = total {totalCorrectionPercent:F1}%), " +
-            $"adaptive={(UseAdaptiveSpeedStepInterval ? "on" : "off")}, min={MinSpeedStepInterval.TotalMilliseconds:F0} ms, " +
-            $"decoderAvgBias={DecoderAverageBias:F2}, " +
-            $"max={MaxSpeedStepInterval.TotalMilliseconds:F0} ms");
+         _lastLoggedAdaptiveIntervalMs = null;
+         Logging.DebugExtended<TrainDriving>(
+             $"DriveDistance start: current={currentSpeed} km/h, target={targetSpeed} km/h, distance={distance} cm, " +
+             $"correctedDistance={correctedTargetDistanceCm:F1} cm (base={brakePointCorrectionPercent:F1}% + speed-dependent={speedDependentCorrectionPercent:F2}% @ {speedRatio*100:F0}% VMax = total {totalCorrectionPercent:F1}%), " +
+             $"adaptive={(UseAdaptiveSpeedStepInterval ? "on" : "off")}, min={MinSpeedStepInterval.TotalMilliseconds:F0} ms, " +
+             $"max={MaxSpeedStepInterval.TotalMilliseconds:F0} ms");
 
-        // Modelliert die Nachlaufdynamik des Decoders zwischen Soll- und Ist-Geschwindigkeit.
-        // var decoderResponse = new DecoderSpeedResponseModel(
-        //     initialSpeedKmh: request.CurrentSpeedKmhPrototype,
-        //     decoderAverageBias: DecoderAverageBias);
-        // Initiales Solltempo am Startpunkt der Trajektorie.
-        var commandedSpeedKmh = trajectory.GetSpeedKmhAtModelDistanceCm(0.0);
+         // Modelliert die Nachlaufdynamik des Decoders zwischen Soll- und Ist-Geschwindigkeit
+         var decoderResponse = new DecoderResponseModel(
+              initialSpeedKmh: request.CurrentSpeedKmhPrototype);
+         // Initiales Solltempo am Startpunkt der Trajektorie.
+         var commandedSpeedKmh = trajectory.GetSpeedKmhAtModelDistanceCm(0.0);
 
         var traveledCm = 0.0;
         int? lastSentCommandedSpeedRoundedKmh = null;
@@ -307,7 +298,7 @@ public class TrainDriving
                 commandedSpeedKmh = previewSpeedKmh;
                 brakeCommandDropLogged = true;
 
-                Logging.Debug(LogCategory.TrainDriving,
+                Logging.Debug<TrainDriving>(
                     $"Brake immediate command: traveled={traveledCm}/{targetDistanceCm} cm, " +
                     $"cmd={initialCommandedSpeedRoundedKmh}->{previewSpeedRoundedKmh} km/h");
             }
@@ -326,8 +317,9 @@ public class TrainDriving
                 lastIntegratedSpeedKmh,
                 lastSentCommandedSpeedRoundedKmh);
 
-                Logging.Debug(LogCategory.TrainDriving,
-                    $"Loop tick: traveled={traveledCm}/{targetDistanceCm} cm, cmd={commandedSpeedKmh:F1} km/h, " +
+                var maneuverLabel = isBrakingManeuver ? "Braking Ramp" : "Acceleration Ramp";
+                Logging.DebugExtended<TrainDriving>(
+                    $"Loop tick on {maneuverLabel}: traveled={traveledCm:F1}/{targetDistanceCm} cm, cmd={commandedSpeedKmh:F1} km/h, " +
                     $"vInt={lastIntegratedSpeedKmh:F1} km/h, delay={stepInterval.TotalMilliseconds:F0} ms");
 
             await Task.Delay(stepInterval, cancellationToken).ConfigureAwait(false);
@@ -364,7 +356,9 @@ public class TrainDriving
                 traveledCm < targetDistanceCm - 0.001)
                 deltaCm = 1.0;
 
+            var previousTraveledCm = traveledCm;
             traveledCm = Math.Min(traveledCm + deltaCm, (double)targetDistanceCm);
+            var effectiveDeltaCm = traveledCm - previousTraveledCm;
             // Neues Solltempo am aktualisierten Wegpunkt.
             var commandDistanceCm = traveledCm;
 
@@ -385,13 +379,13 @@ public class TrainDriving
                 commandedSpeedRoundedKmh < initialCommandedSpeedRoundedKmh)
             {
                 brakeCommandDropLogged = true;
-                Logging.Debug(LogCategory.TrainDriving,
+                Logging.Debug<TrainDriving>(
                     $"Brake command drop begins: traveled={traveledCm}/{targetDistanceCm} cm, " +
                     $"cmd={initialCommandedSpeedRoundedKmh}->{commandedSpeedRoundedKmh} km/h, dt={dtSeconds * 1000.0:F0} ms");
             }
 
             RaiseProgressTick(new TrainDrivingProgressTick(
-                DeltaCmModel: (int)Math.Round(deltaCm, MidpointRounding.AwayFromZero),
+                DeltaCmModel: effectiveDeltaCm,
                 CommandedSpeedKmhPrototype: Math.Max(0, commandedSpeedRoundedKmh)));
 
             // Keep processing every tick, but avoid sending duplicate speed commands.
@@ -404,18 +398,18 @@ public class TrainDriving
                 await executor.ExecuteAtDistanceAsync(executeDistanceCm, cancellationToken).ConfigureAwait(false);
                 lastSentCommandedSpeedRoundedKmh = commandedSpeedRoundedKmh;
 
-                Logging.Debug(LogCategory.TrainDriving,
-                    $"Speed command sent: speed={commandedSpeedRoundedKmh} km/h, traveled={traveledCm}/{targetDistanceCm} cm, " +
+                Logging.DebugExtended<TrainDriving>(
+                    $"Speed command sent on {maneuverLabel}: speed={commandedSpeedRoundedKmh} km/h, traveled={traveledCm:F1}/{targetDistanceCm} cm, " +
                     $"delay={stepInterval.TotalMilliseconds:F0} ms, dt={dtSeconds * 1000.0:F0} ms, vInt={speedForIntegrationKmh:F1} km/h");
             }
 
-            if (isBrakingManeuver && BrakeDebugLogging)
+            if (isBrakingManeuver)
             {
                 var remainingCm = Math.Max(0, targetDistanceCm - traveledCm);
-                Logging.Debug(LogCategory.TrainDriving,
-                    $"Brake tick: traveled={traveledCm}/{targetDistanceCm} cm, remaining={remainingCm} cm, " +
+                Logging.DebugExtended<TrainDriving>(
+                    $"Brake tick: traveled={traveledCm:F1}/{targetDistanceCm} cm, remaining={remainingCm:F1} cm, " +
                     $"cmd={commandedSpeedRoundedKmh} km/h, vInt={speedForIntegrationKmh:F1} km/h, " +
-                    $"deltaCm={deltaCm}, send={(shouldSendCommand ? "yes" : "no")}, train.SpeedV={train.SpeedV} km/h");
+                    $"deltaCm={effectiveDeltaCm:F1}, send={(shouldSendCommand ? "yes" : "no")}, train.SpeedV={train.SpeedV} km/h");
             }
         }
 
@@ -426,23 +420,23 @@ public class TrainDriving
                 await train.SetSpeedVAsync(targetSpeed, cancellationToken).ConfigureAwait(false);
                 lastSentCommandedSpeedRoundedKmh = targetSpeed;
 
-                Logging.Debug(LogCategory.TrainDriving,
+                Logging.Debug<TrainDriving>(
                     $"Brake final command sent: speed={targetSpeed} km/h, traveled={traveledCm}/{targetDistanceCm} cm");
             }
-            else if (BrakeDebugLogging)
+            else
             {
-                Logging.Debug(LogCategory.TrainDriving,
+                Logging.Debug<TrainDriving>(
                     $"Brake final command already active: speed={targetSpeed} km/h, traveled={traveledCm}/{targetDistanceCm} cm");
             }
         }
 
         if (isBrakingManeuver && targetSpeed == 0)
         {
-            Logging.Info(LogCategory.TrainDriving,
+            Logging.Info<TrainDriving>(
                 $"Braking completed: reached {targetSpeed} km/h over {traveledCm:F0}/{targetDistanceCm} cm.");
         }
 
-        Logging.Debug(LogCategory.TrainDriving,
+        Logging.Debug<TrainDriving>(
             $"DriveDistance finished: traveled={traveledCm}/{targetDistanceCm} cm, finalCommand={lastSentCommandedSpeedRoundedKmh ?? targetSpeed} km/h");
     }
 
@@ -480,15 +474,30 @@ public class TrainDriving
             return maxInterval;
 
         // Lokale Kurvensteilheit abschaetzen: |dv/ds| in km/h pro cm.
-        var sampleCm = Math.Max(1.0, targetDistanceCm * 0.01); // 1% der Strecke, min 1 cm
+        // Bei sehr kleinen Distanzen oder wenn wir nahe beim Ziel sind, minimales Fenster nutzen,
+        // um Steigungsberechnung robust gegen Positionssprünge zu machen.
+        var remainingCm = Math.Max(0.1, targetDistanceCm - traveledCm);
+        var sampleCm = Math.Min(5.0, remainingCm * 0.1); // 10% verbleibende Distanz, max 5 cm
+        sampleCm = Math.Max(0.5, sampleCm); // Mindestens 0.5 cm Fenster
+        
         var s0 = Math.Max(0.0, traveledCm - sampleCm);
         var s1 = Math.Min((double)targetDistanceCm, traveledCm + sampleCm);
+        
+        // Sicherheitsgarantie: Fenster muss mindestens 1 cm Breite haben
+        if (s1 - s0 < 1.0)
+        {
+            s0 = Math.Max(0.0, traveledCm - 0.5);
+            s1 = Math.Min((double)targetDistanceCm, traveledCm + 0.5);
+        }
+        
         var v0 = trajectory.GetSpeedKmhAtModelDistanceCm(s0);
         var v1 = trajectory.GetSpeedKmhAtModelDistanceCm(s1);
         var slopeKmhPerCm = Math.Abs(v1 - v0) / Math.Max(0.001, s1 - s0);
 
         // Normierung auf praxisnahen Referenzwert und nichtlineare Kennlinie.
-        const double referenceSlopeKmhPerCm = 0.25;
+        // Referenzsteigung basiert auf einer typischen Bremsrampe: 60 km/h über 175 cm ≈ 0.34 km/h/cm
+        // Bei adaptiven Fenster: verwenden wir eine höhere Reference für stabilere Intervalle
+        const double referenceSlopeKmhPerCm = 0.35;
         var slopeNorm = Math.Clamp(slopeKmhPerCm / referenceSlopeKmhPerCm, 0.0, 1.0);
         var curveBlend = Math.Pow(slopeNorm, 2.0); // sanft bei kleiner Steilheit, aggressiver bei steiler Kurve
 
@@ -503,10 +512,11 @@ public class TrainDriving
         if (!_lastLoggedAdaptiveIntervalMs.HasValue || _lastLoggedAdaptiveIntervalMs.Value != intervalMs)
         {
             _lastLoggedAdaptiveIntervalMs = intervalMs;
-            Logging.Debug(LogCategory.TrainDriving,
+            Logging.Debug<TrainDriving>(
                 $"Adaptive interval updated: {intervalMs} ms (fidelity={fidelity * 100.0:F0}%, " +
                 $"slope={slopeKmhPerCm:F3} km/h/cm, curveBlend={curveBlend:F2}, " +
-                $"cmd={currentCommandedSpeedKmh:F1} km/h, vInt={currentIntegratedSpeedKmh:F1} km/h)");
+                $"cmd={currentCommandedSpeedKmh:F1} km/h, vInt={currentIntegratedSpeedKmh:F1} km/h, " +
+                $"sampleWindow={s0:F1}-{s1:F1} cm)");
         }
 
         return clampedInterval;
@@ -555,10 +565,17 @@ public class TrainDriving
                     targetSpeed: targetSpeedKmh,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
-            else
+            else if (targetSpeedKmh < currentSpeedKmh)
             {
                 await BrakeAsync(
                     targetSpeed: targetSpeedKmh,
+                    distance: distanceCm,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await HoldSpeedAsync(
+                    speedKmh: targetSpeedKmh,
                     distance: distanceCm,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
@@ -597,6 +614,60 @@ public class TrainDriving
         return Math.Max(1, (int)Math.Round(distanceCmModel, MidpointRounding.AwayFromZero));
     }
 
+    private async Task HoldSpeedAsync(
+        int speedKmh,
+        int distance,
+        CancellationToken cancellationToken = default)
+    {
+        if (distance <= 0)
+            return;
+
+        // Optimierung: Wenn die Zielgeschwindigkeit 0 ist, gibt es keinen Grund,
+        // in einer Schleife zu warten. Der Zug steht bereits. Wir geben sofort zurück
+        // und lassen die Hauptschleife (Run) neu starten, wenn ein neuer Fahrbefehl kommt.
+        if (speedKmh <= 0)
+            return;
+
+        var train = GetBoundTrain();
+        var traveledCm = 0.0;
+        var stopwatch = Stopwatch.StartNew();
+        var lastTick = stopwatch.Elapsed;
+
+        Logging.Debug<TrainDriving>(
+            $"Hold speed phase: speed={speedKmh} km/h, distance={distance} cm.");
+
+        while (traveledCm < distance - 0.001)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var stepInterval = UseAdaptiveSpeedStepInterval
+                ? TimeSpan.FromMilliseconds((MinSpeedStepInterval.TotalMilliseconds + MaxSpeedStepInterval.TotalMilliseconds) / 2.0)
+                : MaxSpeedStepInterval;
+
+            await Task.Delay(stepInterval, cancellationToken).ConfigureAwait(false);
+
+            var now = stopwatch.Elapsed;
+            var dtSeconds = (now - lastTick).TotalSeconds;
+            lastTick = now;
+
+            var deltaCm = ModelCmPerSecondFromPrototypeKmh(Math.Max(0, speedKmh), DefaultScale) * dtSeconds;
+            if (Math.Abs(deltaCm) < 0.5 && speedKmh > 0)
+                deltaCm = 1.0;
+
+            var previousTraveledCm = traveledCm;
+            traveledCm = Math.Min(traveledCm + deltaCm, distance);
+            var effectiveDeltaCm = traveledCm - previousTraveledCm;
+
+            RaiseProgressTick(new TrainDrivingProgressTick(
+                DeltaCmModel: effectiveDeltaCm,
+                CommandedSpeedKmhPrototype: speedKmh));
+
+            Logging.DebugExtended<TrainDriving>(
+                $"Loop tick on Hold Speed: traveled={traveledCm:F1}/{distance} cm, cmd={speedKmh:F1} km/h, " +
+                $"vInt={speedKmh:F1} km/h, delay={stepInterval.TotalMilliseconds:F0} ms, train.SpeedV={train.SpeedV} km/h");
+        }
+    }
+
     private void RaiseProgressTick(TrainDrivingProgressTick tick)
     {
         var handlers = ProgressTick;
@@ -614,7 +685,7 @@ public class TrainDriving
             }
             catch (Exception ex)
             {
-                Logging.Error(LogCategory.TrainDriving,
+                Logging.Error<TrainDriving>(
                     $"ProgressTick handler failed: {ex.Message}");
             }
         }
@@ -634,7 +705,7 @@ public class TrainDriving
         }
 
         var brakingRequest = TrajectoryPresetFactory.Apply(request, BrakingPreset);
-        return new ParametricTrajectory(brakingRequest);
+        return new TrajectoryModel(brakingRequest);
     }
 
     /// <summary>
@@ -648,15 +719,21 @@ public class TrainDriving
             ControlPoint = null,
             CurveShapePercent = 50.0
         };
-        return new ParametricTrajectory(linearRequest);
+        return new TrajectoryModel(linearRequest);
     }
 
     /// <summary>
-    /// Creates a parametric trajectory that can be bent via curve type and optional control point.
+    /// Creates a trajectory that can be bent via curve type and optional control point.
     /// </summary>
+    public ISpeedTrajectory CreateTrajectory(DrivingTrajectoryRequest request)
+    {
+        return new TrajectoryModel(request);
+    }
+
+    [Obsolete("Use CreateTrajectory instead.")]
     public ISpeedTrajectory CreateParametricTrajectory(DrivingTrajectoryRequest request)
     {
-        return new ParametricTrajectory(request);
+        return CreateTrajectory(request);
     }
 
     /// <summary>
@@ -665,7 +742,7 @@ public class TrainDriving
     public ISpeedTrajectory CreateAggressiveBrakeTrajectory(DrivingTrajectoryRequest request)
     {
         var brakingRequest = TrajectoryPresetFactory.Apply(request, BrakingTrajectoryPreset.AggressiveBrake);
-        return new ParametricTrajectory(brakingRequest);
+        return new TrajectoryModel(brakingRequest);
     }
 
     /// <summary>
@@ -674,7 +751,7 @@ public class TrainDriving
     public ISpeedTrajectory CreateEarlyBrakeTrajectory(DrivingTrajectoryRequest request)
     {
         var brakingRequest = TrajectoryPresetFactory.Apply(request, BrakingTrajectoryPreset.EarlyBrake);
-        return new ParametricTrajectory(brakingRequest);
+        return new TrajectoryModel(brakingRequest);
     }
 
     /// <summary>
@@ -683,7 +760,7 @@ public class TrainDriving
     public ISpeedTrajectory CreateLateBrakeTrajectory(DrivingTrajectoryRequest request)
     {
         var brakingRequest = TrajectoryPresetFactory.Apply(request, BrakingTrajectoryPreset.LateBrake);
-        return new ParametricTrajectory(brakingRequest);
+        return new TrajectoryModel(brakingRequest);
     }
 
     /// <summary>
@@ -692,7 +769,7 @@ public class TrainDriving
     public ISpeedTrajectory CreateComfortCurveTrajectory(DrivingTrajectoryRequest request)
     {
         var brakingRequest = TrajectoryPresetFactory.Apply(request, BrakingTrajectoryPreset.Comfort);
-        return new ParametricTrajectory(brakingRequest);
+        return new TrajectoryModel(brakingRequest);
     }
 
     /// <summary>
@@ -715,5 +792,4 @@ public class TrainDriving
         return CreateExecutor(train, trajectory);
     }
 }
-
 

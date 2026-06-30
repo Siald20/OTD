@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using OTD.TrainDriving.Presets;
 
 namespace OTD.TrainDriving.Trajectory;
 
@@ -55,7 +54,7 @@ public sealed class StartOrientedAccelerationTrajectory : ISpeedTrajectory
         if (vTargetMs <= v0Ms)
         {
             var nonAcceleratingRequest = request with { DistanceCmModel = Math.Max(0, request.DistanceCmModel) };
-            _presetTrajectory = new ParametricTrajectory(nonAcceleratingRequest);
+            _presetTrajectory = new Trajectory(nonAcceleratingRequest);
             return;
         }
 
@@ -64,7 +63,7 @@ public sealed class StartOrientedAccelerationTrajectory : ISpeedTrajectory
 
         var accelerationRequest = request with { DistanceCmModel = accelerationDistanceCmModel };
         var presetRequest = TrajectoryPresetFactory.Apply(accelerationRequest, preset);
-        _presetTrajectory = new ParametricTrajectory(presetRequest);
+        _presetTrajectory = new Trajectory(presetRequest);
     }
 
     /// <inheritdoc />

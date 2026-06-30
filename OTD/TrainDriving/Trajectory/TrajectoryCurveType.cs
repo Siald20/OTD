@@ -7,9 +7,18 @@ namespace OTD.TrainDriving.Trajectory;
 /// </summary>
 public enum TrajectoryCurveType
 {
+    /// <summary>
+    /// Lineare Kurve: Konstante Geschwindigkeitsverteilung über die Distanz.
+    /// </summary>
     Linear,
+    
+    /// <summary>
+    /// Kontrollpunkt-Kurve: Geschwindigkeit wird durch Kontrollpunkte definiert.
+    /// </summary>
     ControlPoint,
+    
+    /// <summary>
+    /// Ease-In/Out-Kurve: Sanfte Beschleunigung am Anfang und Verzögerung am Ende.
+    /// </summary>
     EaseInOut
 }
-
-

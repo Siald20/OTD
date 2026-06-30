@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using OTD.TrainDriving.Trajectory;
 
-namespace OTD.TrainDriving.Presets;
+namespace OTD.TrainDriving.Trajectory;
 
 /// <summary>
 /// Factory for mapping named trajectory presets to concrete <see cref="DrivingTrajectoryRequest"/> configurations.

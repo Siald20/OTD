@@ -5,9 +5,9 @@ using System;
 namespace OTD.TrainDriving.Trajectory;
 
 /// <summary>
-/// Generic trajectory that supports linear, control-point and ease-in-out curve shapes.
+/// Generic speed trajectory that supports linear, control-point and ease-in-out curve shapes.
 /// </summary>
-public sealed class ParametricTrajectory : ISpeedTrajectory
+public sealed class Trajectory : ISpeedTrajectory
 {
     private readonly double _v0Ms;
     private readonly double _v1Ms;
@@ -16,7 +16,7 @@ public sealed class ParametricTrajectory : ISpeedTrajectory
     private readonly TrajectoryControlPoint? _controlPoint;
     private readonly double _shapeExponent;
 
-    public ParametricTrajectory(DrivingTrajectoryRequest request)
+    public Trajectory(DrivingTrajectoryRequest request)
     {
         request.Validate();
 
@@ -121,6 +121,7 @@ public sealed class ParametricTrajectory : ISpeedTrajectory
         return modelCm * _scale / 100.0;
     }
 }
+
 
 
 

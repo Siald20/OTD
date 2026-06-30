@@ -25,8 +25,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using OTD.Common;
 using OTD.HardwareControl;
-using OTD.TrainDriving.Presets;
-using OTD.TrainDriving.RouteModel;
+using OTD.TrainDriving.Trajectory;
 
 namespace OTD.TrainDriving.Examples;
 
@@ -36,7 +35,7 @@ public class TrayectoryTestSingleSensor
     {
         if (string.Equals(channel, "TrainDriving", StringComparison.OrdinalIgnoreCase))
         {
-            Logging.Info(LogCategory.TrainDriving, message);
+            Logging.Info<TrayectoryTestSingleSensor>(message);
             return;
         }
 
@@ -57,9 +56,9 @@ public class TrayectoryTestSingleSensor
     // verwendete Züge
     private static Train? _testTrain;
 
-    private static RouteRuntime? _activeRouteRuntime;
+    private static object? _activeRouteRuntime;
 
-    // Prototypische Zuordnung Hardware-Sensornummer -> RouteModel SensorId.
+    // Prototypische Zuordnung Hardware-Sensornummer -> RouteControl SensorId.
     private static readonly Dictionary<int, int> RouteSensorIdMap = new()
     {
         { 56, 4 }
@@ -83,7 +82,7 @@ public class TrayectoryTestSingleSensor
         var emergencyHotkeyTask = StartEmergencyStopHotkeyListenerAsync(emergencyHotkeyCts.Token);
         EventHandler<SensorStateChangedEventArgs>? feedbackEventLogger = null;
         _activeRouteRuntime = null;
-        //Logging.EnableDebugForCategory(LogCategory.TrainDriving);
+        // Logging.EnableDebugFor<TrainDriving>();
 
         try
         {
@@ -154,8 +153,7 @@ public class TrayectoryTestSingleSensor
                 UseAdaptiveSpeedStepInterval = true,
                 MinSpeedStepInterval = TimeSpan.FromMilliseconds(250),
                 MaxSpeedStepInterval = TimeSpan.FromMilliseconds(1000),
-                DecoderAverageBias = -0.2,
-                BrakePointCorrectionPercent = 0.0, // -3.5,
+                BrakePointCorrectionPercent = -3.5,
                 BrakePointCorrectionPercentPerVMax = 0.0,
                 SpeedCurveFidelityPercent = 60.0
             };
@@ -166,7 +164,7 @@ public class TrayectoryTestSingleSensor
                 targetSpeed: vTest,
                 cancellationToken: accelerationCts.Token);
 
-            Logging.Info(LogCategory.TrainDriving, "Train departs and accelerates toward target speed.");
+            Logging.Info<TrayectoryTestSingleSensor>("Train departs and accelerates toward target speed.");
 
             // Warten auf Sensor waehrend die Beschleunigungsrampe noch laeuft.
             LogTimed("Feedback", "Warte auf Sensor 56/147 (Block G91) ...");

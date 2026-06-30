@@ -1,65 +1,52 @@
 # TrainDriving
 
-Dieses Modul steuert die Geschwindigkeitsfuehrung eines Zuges entlang einer Route.
+Dieses Modul steuert die Geschwindigkeitsfuehrung eines Zuges entlang eines RouteControl-Fahrwegs.
 
 ## Leitidee
 
-- Die Fahrerlaubnis gilt am **Start-Waypoint** einer Route.
-- Jede Route ist ein Abschnitt `FromWaypointId -> ToWaypointId` mit Distanz und `StartRoutePermission`.
-- Ohne Folgeroute gilt am Ende fail-safe **Halt (`0 km/h`)**.
-- Beschleunigen ist **startorientiert**: `AccelerationTrajectoryPreset` formt die Kurve, `TrainDriving.AccelerationMs2` setzt die absolute Beschleunigung in `m/s²`.
-- Bremsen bleibt **zielorientiert**: `BrakingTrajectoryPreset` passt den Verlauf zum Zielpunkt an.
+- Die Fahrt basiert auf geordneten `RouteLeg`-Abschnitten (`FromWaypointId -> ToWaypointId`).
+- Jeder Abschnitt definiert Distanz und `MaxSpeedKmh`.
+- Ohne Folgeroute gilt am Tabellenende fail-safe Halt (`0 km/h`).
+- Beschleunigung und Bremsung werden ueber `TrainDriving`-Trajektorien gesteuert.
 
 ## Bausteine
 
 - `TrainDriving`: erzeugt Trajektorien und sendet zyklisch Sollgeschwindigkeit an `Train`.
-- `RouteModel.RouteTable`: in-memory Route mit Waypoint-Ankern, Sensorankern und Actions.
-- `RouteModel.RouteRuntime`: kombiniert Distanzintegration, optionale Sensor-Rekalibrierung und Speed-Begrenzung.
+- `RouteControl.Services.RouteTableService`: verwaltet `RouteLeg`-Tabelle + Runtime-State.
+- `RouteController`: orchestriert Fahrzyklen, Re-Planning und StopPoint-/Sensor-Logik.
 - `Trajectory.*`: parametrisierte Geschwindigkeitskurven.
 
 ## Schnellstart
 
 ```csharp
 using OTD.TrainDriving;
-using OTD.TrainDriving.RouteModel;
+using OTD.TrainDriving.RouteControl.Builder;
 
-var table = new RouteTableBuilder()
+var routeLegs = new RouteTableBuilder()
     .AddRoute(
-        id: 1,
         fromWaypointId: "S1",
         toWaypointId: "S2",
         distanceCm: 120,
-        startRoutePermission: RoutePermission.Proceed(maxSpeedKmh: 40, aspect: "Fahrt"))
+        maxSpeedKmh: 40)
     .AddRoute(
-        id: 2,
         fromWaypointId: "S2",
         toWaypointId: "S3",
         distanceCm: 180,
-        startRoutePermission: RoutePermission.Stop())
+        maxSpeedKmh: 30)
+    .AddStopPoint(fromWaypointId: "S2", offsetCm: 80, stopReason: "Bahnsteig")
     .Build();
 
-var runtime = new RouteRuntime(table);
-var driving = new TrainDriving(train)
+var controller = new RouteController(train, initialHold: true)
 {
-    AccelerationPreset = AccelerationTrajectoryPreset.Comfort,
-    AccelerationMs2 = 0.55,
-    BrakingPreset = BrakingTrajectoryPreset.LateBrake,
-    LookAheadFactor = 1.20,
-    LookAheadDistanceCm = 12.0,
-    LookAheadSpeedCompensationCmPerKmh = 0.12
+    AccelerationMs2 = 0.55
 };
 
-var tick = runtime.ApplyStep(deltaCm: 10, trajectorySpeedKmh: 60);
-if (tick.ActiveCycle is { } cycle)
-{
-    await driving.DriveRouteCycleAsync(
-        currentSpeedKmhPrototype: 60,
-        cycle: cycle,
-        cancellationToken: token);
-}
+controller.AddRoutes(routeLegs);
+controller.ReleaseGo();
+await controller.Run(token);
 ```
 
-## Direkter Fahrbefehl (ohne RouteRuntime)
+## Direkter Fahrbefehl (ohne RouteController)
 
 ```csharp
 await driving.DriveAsync(
@@ -69,35 +56,29 @@ await driving.DriveAsync(
     cancellationToken: token);
 ```
 
-## RouteRuntime-Regel fuer Effective Speed
-
-- `requested = trajectorySpeedKmh`
-- `allowed = permission.MaxSpeedKmh` (oder `0` bei Halt)
-- `effective = min(requested, allowed)`
-
 ## Hinweise
 
-- `RouteCycle.AllowedSpeedKmh` kommt aus der Permission am Start-Waypoint des Zyklus.
-- `RouteDriveProfile` traegt nur Presets (`AccelerationPreset`, `BrakingPreset`).
-- Standardwert fuer `AccelerationMs2` ist aktuell `0.55 m/s²`.
-- Standardwert fuer `LookAheadFactor` ist `1.0` (0.0 deaktiviert Look-Ahead, >1.0 sendet frueher).
-- `LookAheadDistanceCm` ist der feste Preview-Weg in Modell-cm.
-- `LookAheadSpeedCompensationCmPerKmh` vergroessert den Preview-Weg bei hoeherer Geschwindigkeit.
-- Intern wird fuer die Distanzberechnung auf den Modellmassstab umgerechnet.
-- `SensorMarker.SensorId` entspricht direkt der `SensorNumber` aus `Feedback.SensorStateChanged`.
-- Es gibt keinen `CruiseSpeedKmhPrototype`-Pfad mehr.
+- `StopPoint` erzwingt Halt; Weiterfahrt erfolgt via `ReleaseGo()`.
+- Sensorabgleich erfolgt ueber `RouteController.OnSensorActivated(int sensorId)`.
+- `AccelerationStartPolicy` steuert, wann bei schnellerem Folge-Leg beschleunigt wird.
+- `RouteControl_SPEC_v1` liegt unter `TrainDriving/RouteControl/RouteControl_SPEC_v1.md`.
 
-## Reminder
+## Architektur & Optimierung
 
-- Langfristig soll `AccelerationMs2` nicht nur manuell gesetzt werden, sondern automatisch aus Daten in `Train` bzw. `TrainComposition` abgeleitet werden, z. B. aus Betriebsmasse, Motorleistung und Anzahl angetriebener Fahrzeuge.
+**Frage: Redundanzen zwischen Trajectory und PositionTracker?**
+
+Siehe [`OPTIMIZATION_ANALYSIS.md`](./OPTIMIZATION_ANALYSIS.md) für eine detaillierte Analyse:
+- ✅ Redundanzanalyse: Keine substantielle Redundanz
+- ✅ Performance-Baseline: Beide Systeme sind CPU-effizient
+- 💡 Konkrete Optimierungspotenziale (3 Prioritäten)
+- 🎯 Architektur-Schlussfolgerung: Status quo ist optimal
+
+**TL;DR:** Trajectory und PositionTracker arbeiten auf orthogonalen Abstraktionsebenen (Low-Level Kurven vs. High-Level Route-State). Eine Konsolidierung würde Komplexität erhöhen ohne Gewinn.
 
 ## TODO
 
-- **Unit-System-Abstraction (Metric/Imperial)**: Trajectory und DrivingTrajectoryRequest entkoppeln von hardcodierten Einheiten (km/h, cm). Dies soll zusammen mit der RoutingModel-Finalisierung durchgeführt werden:
-  - `IUnitSystem`-Interface mit Implementierungen `MetricUnitSystem` (km/h → cm) und `ImperialUnitSystem` (mph → inch)
-  - Konversionsfaktor: Metric `1 km/h = 100000/3600 cm/s`, Imperial `1 mph = 63360/3600 inch/s`
+- **Unit-System-Abstraction (Metric/Imperial)**: Trajectory und DrivingTrajectoryRequest entkoppeln von hardcodierten Einheiten (km/h, cm):
+  - `IUnitSystem`-Interface mit Implementierungen `MetricUnitSystem` und `ImperialUnitSystem`
   - `DrivingTrajectoryRequest` um `UnitSystem`-Parameter erweitern
-  - `ISpeedTrajectory` generalisieren: `TotalDistanceCmModel` → `TotalDistanceModel`, `GetSpeedKmhAtModelDistanceCm()` → `GetSpeedPrototypeAtModelDistance()`
-  - `ModelCmPerSecondFromPrototypeKmh()` durch generalisierte Methode ersetzen
-  - `SpeedCurveFidelityPercent` bereits vorbereitet (nicht mehr nur auf Bremsen begrenzt)
-- Verfallene `RouteEntry`-Eintraege und ihre `SensorMarker` aus der aktiven `RouteTable` entfernen, sobald die Folgeroute erreicht wurde.
+  - `ISpeedTrajectory` auf einheitenneutrale Modellstrecke generalisieren
+  - interne Umrechnungsmethoden entsprechend abstrahieren
