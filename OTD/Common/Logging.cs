@@ -441,7 +441,7 @@ public static class Logging
         lock (LockObject)
         {
             var timestamp = DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            var levelStr = isExtendedDebug ? "Debug+" : level.ToString().ToUpperInvariant();
+            var levelStr = isExtendedDebug ? "DEBUG+" : level.ToString().ToUpperInvariant();
             var categoryStr = namespaceName;
 
             var formattedMessage = $"{timestamp} [{levelStr}] [{categoryStr}] {message}";
