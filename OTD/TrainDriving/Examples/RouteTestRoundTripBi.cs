@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using OTD.Common;
 using OTD.HardwareControl;
 using OTD.TrainDriving.RouteControl.Domain;
+using OTD.TrainDriving.RouteControl.Services;
 using OTD.TrainDriving.Trajectory;
 
 namespace OTD.TrainDriving.Examples;
@@ -39,7 +40,13 @@ public static class RouteTestRoundTripBi
     {
         ArgumentNullException.ThrowIfNull(commandStation);
         ArgumentNullException.ThrowIfNull(feedbackModule);
+        Logging.EnableConsole = true;
+        Logging.EnableDebugFor<LocoDecoder>(extended: false);
         Logging.EnableDebugFor<TrainDriving>(extended: true);
+        Logging.EnableDebugFor<RouteController>(extended: true);
+        Logging.EnableDebugFor<RouteLegResolver>(extended: true);
+        Logging.EnableDebugFor<RouteTableService>(extended: true);
+
         RunAsync(commandStation, feedbackModule).GetAwaiter().GetResult();
     }
 
@@ -60,9 +67,12 @@ public static class RouteTestRoundTripBi
             _turnoutW104 = new Accessory(Guid.Parse("4d5e6f70-8192-4a34-b506-2d3e4f5a6b7c"), commandStation);
 
             var train = new Train(Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6e"), commandStation);
-            using var controller = new RouteController(train, initialHold: true);
+            var layoutService = new XmlRailwayLayoutService(
+                topologyFilePath: XmlRailwayLayoutService.GetDefaultTopologyFilePath());
+            var routeDefinitions = new XmlRouteDefinitionService(layoutService);
+            using var controller = new RouteController(train, routeDefinitions, layoutService, initialHold: true);
 
-            controller.AccelerationMs2 = 0.55;
+            controller.AccelerationMs2 = 3;
             controller.UseAdaptiveSpeedStepInterval = true;
             controller.MinSpeedStepInterval = TimeSpan.FromMilliseconds(250);
             controller.MaxSpeedStepInterval = TimeSpan.FromMilliseconds(1000);
@@ -75,116 +85,83 @@ public static class RouteTestRoundTripBi
             feedbackModule.SensorStateChanged += feedbackHandler;
 
             Console.WriteLine("[Test] Start: Zug steht in Bitschikon Gleis 2.");
-            
+
             var driveTask = controller.Run(cts.Token);
-            
-            // Fahrstrasse (Weichen) B2 -> K102 stellen.
-            Console.WriteLine("[Fahrstrasse] B2 -> K102: W2=straight-crossing, W1=diverging");
-            await _turnoutW2.SetStateAsync("crossing-straight", cts.Token);
-            await _turnoutW1.SetStateAsync("diverging", cts.Token);
 
-            // Route B2 -> K102: Weichenbereich (40 km/h) zu RouteTable hinzufügen.
+            // Fahrstrasse (Weiche) S_C2 -> S_E104 stellen.
+            Console.WriteLine("[Fahrstrasse] S_C2 -> S_E104: W5/6=straight");
+            await _threeWayW5W6.SetStateAsync("straight", cts.Token);
+
+            // Route zu RouteTable hinzufügen.
             controller.AddRoute(new RouteLeg(
-                FromWaypointId: "B2",
-                ToWaypointId: "W1",
-                DistanceCm: 73,
-                MaxSpeedKmh: 40,
+                FromWaypointId: "S_C2",
+                ToWaypointId: "S_E104",
                 DriveProfile: new RouteDriveProfile(
                     AccelerationPreset: AccelerationTrajectoryPreset.Linear,
-                    BrakingPreset: BrakingTrajectoryPreset.Linear),
-                SensorMarkers:
-                [
-                    new SensorMarker(SensorId: 28, OffsetCm: 3),
-                    new SensorMarker(SensorId: 31, OffsetCm: 43),
-                ]));          
-            
-            // Route B2 -> K102: Streckenblock (60 km/h) zu RouteTable hinzufügen.
-            controller.AddRoute(new RouteLeg(
-                FromWaypointId: "W1",
-                ToWaypointId: "K102",
-                DistanceCm: 150,
-                MaxSpeedKmh: 60,
-                DriveProfile: new RouteDriveProfile(
-                    AccelerationPreset: AccelerationTrajectoryPreset.Linear,
-                    BrakingPreset: BrakingTrajectoryPreset.Linear),
-                SensorMarkers:
-                [
-                    new SensorMarker(SensorId: 30, OffsetCm: 73)
-                ]));
-            
-            // Fahrstrasse (Weiche) K102 -> H41 stellen.
-            Console.WriteLine("[Fahrstrasse] K102 -> H41: W104=diverging");
-            await _turnoutW104.SetStateAsync("diverging", cts.Token);            
-            
-            controller.AddRoute(
-                new RouteLeg(
-                    FromWaypointId: "K102",
-                    ToWaypointId: "H41",
-                    DistanceCm: 163,
-                    MaxSpeedKmh: 80,
-                    DriveProfile: new RouteDriveProfile(
-                        AccelerationPreset: AccelerationTrajectoryPreset.Linear,
-                        BrakingPreset: BrakingTrajectoryPreset.Linear),
-                    SensorMarkers:
-                    [
-                        new SensorMarker(SensorId: 148, OffsetCm: 10),
-                        new SensorMarker(SensorId: 147, OffsetCm: 53)
-                    ])
-                );
+                    BrakingPreset: BrakingTrajectoryPreset.Linear))
+            {
+                AccelerationStartPolicy = AccelerationStartPolicy.AfterTrainClearsWaypoint
+            });
 
-            Console.WriteLine("[Test] Route B2 -> H41 bereit. Zur Abfahrt beliebige Taste drücken.");
+            Console.WriteLine("[Test] Route S_C2 -> S_E104 bereit. Zur Abfahrt beliebige Taste drücken.");
             Console.ReadKey(true);
             controller.ReleaseGo();
 
-            // Fahrstrasse H41 -> B12 (Weichen) stellen.
-            Console.WriteLine("[Fahrweg] H41 -> B12: W103=diverging, W102=diverging, W101=straight");
-            await _turnoutW103.SetStateAsync("diverging", cts.Token);
-            await _turnoutW102.SetStateAsync("diverging", cts.Token);
+            // Fahrstrasse S_E104 -> S_I41 (Weichen) stellen.
+            Console.WriteLine("[Fahrstrasse] S_E104 -> S_I41: W101=straight, W102=diverging, W103=diverging");
             await _turnoutW101.SetStateAsync("straight", cts.Token);
+            await _turnoutW102.SetStateAsync("diverging", cts.Token);
+            await _turnoutW103.SetStateAsync("diverging", cts.Token);
 
-            // Route H41 -> B12 zu RouteTable hinzufügen (fährt autonom in B12 ein).
+            // Route S_E104 -> S_I41: Route zu RouteTable hinzufügen.
             controller.AddRoute(new RouteLeg(
-                FromWaypointId: "H41",
-                ToWaypointId: "B12",
-                DistanceCm: 290,
-                MaxSpeedKmh: 60,
+                FromWaypointId: "S_E104",
+                ToWaypointId: "S_I41",
                 DriveProfile: new RouteDriveProfile(
                     AccelerationPreset: AccelerationTrajectoryPreset.Linear,
-                    BrakingPreset: BrakingTrajectoryPreset.Linear),
-                SensorMarkers:
-                [
-                    new SensorMarker(SensorId: 146, OffsetCm: 10),
-                    new SensorMarker(SensorId: 151, OffsetCm: 45),
-                    new SensorMarker(SensorId: 150, OffsetCm: 78),
-                    new SensorMarker(SensorId: 56, OffsetCm: 139)
-                ])
-                    );
+                    BrakingPreset: BrakingTrajectoryPreset.Linear))
+            {
+                AccelerationStartPolicy = AccelerationStartPolicy.AfterTrainClearsWaypoint
+            });
 
-            Console.WriteLine("[Test] Weiterfahrt nach B2 mit beliebiger Taste.");
-            Console.ReadKey(true);
+            // Fahrstrasse S_I41 -> S_A13 stellen.
+            Console.WriteLine("[Fahrstrasse] S_I41 -> S_A13: W104=diverging");
+            await _turnoutW104.SetStateAsync("diverging", cts.Token);
 
-            // Fahrstrasse B12 -> B2 stellen und Route erneut erweitern.
-            Console.WriteLine("[Fahrweg] B12 -> B2: W5/6=straight");
-            await _threeWayW5W6.SetStateAsync("straight", cts.Token);
-
-            // Route B12 -> B2 zu RouteTable hinzufügen (fährt autonom bis B2).
             controller.AddRoute(
                 new RouteLeg(
-                    FromWaypointId: "B12",
-                    ToWaypointId: "B2",
-                    DistanceCm: 246,
-                    MaxSpeedKmh: 60,
+                    FromWaypointId: "S_I41",
+                    ToWaypointId: "S_A13",
+                    DriveProfile: new RouteDriveProfile(
+                        AccelerationPreset: AccelerationTrajectoryPreset.Linear,
+                        BrakingPreset: BrakingTrajectoryPreset.Linear))
+                {
+                    AccelerationStartPolicy = AccelerationStartPolicy.AfterTrainClearsWaypoint
+                }
+            );
+
+//            Console.WriteLine("[Test] Einfahrt S_A13 -> S_C2 mit beliebiger Taste.");
+//            Console.ReadKey(true);
+
+            // Fahrstrasse S_A13 -> S_C2 stellen und Route erneut erweitern.
+            Console.WriteLine("[Fahrweg] S_A13 -> S_C2 -> W5/6=diverging");
+            await _turnoutW1.SetStateAsync("diverging", cts.Token);
+            await _turnoutW2.SetStateAsync("crossing-straight", cts.Token);
+
+            // Route S_A13 -> S_C2 zu RouteTable hinzufügen.
+            controller.AddRoute(new RouteLeg(
+                    FromWaypointId: "S_A13",
+                    ToWaypointId: "S_C2",
+                    MaxSpeedKmh: 40,
                     DriveProfile: new RouteDriveProfile(
                         AccelerationPreset: AccelerationTrajectoryPreset.Linear,
                         BrakingPreset: BrakingTrajectoryPreset.Linear),
-                   StopPoint: new StopPoint(OffsetCm: 220, StopReason: "Zielhalt B2"),
-                    SensorMarkers:
-                    [
-                        new SensorMarker(SensorId: 55, OffsetCm: 55),
-                        new SensorMarker(SensorId: 54, OffsetCm: 66),
-                        new SensorMarker(SensorId: 52, OffsetCm: 106)
-                    ])
-                );
+                    StopPointToTargetCm: 25)
+
+                {
+                    AccelerationStartPolicy = AccelerationStartPolicy.AfterTrainClearsWaypoint
+                }
+            );
 
             Console.WriteLine("[Test] Demo laeuft. Mit beliebiger Taste beenden.");
             Console.ReadKey(true);

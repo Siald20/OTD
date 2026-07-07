@@ -20,7 +20,7 @@ Zur Ausführung von Zugbewegungen wird `Trajectory` verwendet.
 
 - **Route (Fahrweg)**: Der gesamte Ablauf — die vollständige geordnete Folge aller `RouteLeg`-Elemente in der `RouteTable` bis zum Ende der bekannten Strecke.
 - **RouteLeg (Streckenabschnitt)**: Einzelnes Teilstück des Fahrwegs von `FromWaypointId` nach `ToWaypointId`; elementarer Eintrag in der `RouteTable`.
-- **Waypoint**: Eindeutig identifizierter Fixpunkt entlang der Bahnlinie (z.B. Signalstandort oder Geschwindigkeitsänderung); bildet gleichzeitig den Anfang und das Ende eines `RouteLeg` (rahmt jeden `RouteLeg` ein).
+- **Waypoint**: Eindeutig identifizierter Fixpunkt innerhalb des topologischen Layouts (`railwaylayout.xml`), entweder auf einem Knoten oder innerhalb einer Kante; bildet gleichzeitig den Anfang und das Ende eines automatisch generierten `RouteLeg`.
 - **RouteTable**: Geordnete Liste der `RouteLeg`-Elemente der aktiven Route; sie umfasst kommende `RouteLeg`-Elemente, den aktiven `RouteLeg` sowie zurückliegende `RouteLeg`-Elemente, solange sich der Zugschluss noch darin befindet.
 - **Aktiver RouteLeg**: Der `RouteLeg`, in dem sich die Zugspitze aktuell befindet.
 - **Konsumierter RouteLeg**: Vollständig abgefahrener `RouteLeg`. Er gilt erst dann als konsumiert, wenn der Zugschluss den Streckenabschnitt verlassen hat; danach wird er aus der `RouteTable` entfernt.
@@ -52,12 +52,12 @@ Hinweis: Das Stellwerk kennt ausschließlich Wegpunkte. `ReplaceRoutes` ist dahe
 
 - `FromWaypointId: string` (nicht leer, eindeutig in der RouteTable)
 - `ToWaypointId: string` (nicht leer, ungleich `FromWaypointId`)
-- `DistanceCm: int` (`> 0`, Pflicht; Streckenabschnitte haben mindestens eine positive Ausdehnung)
+- `DistanceCm: int` (`> 0`, Pflicht; wird aus der Layout-Topologie zwischen zwei Waypoints berechnet)
 - `MaxSpeedKmh: double` (`> 0`, Pflicht; beschreibt die zulässige Höchstgeschwindigkeit auf diesem Abschnitt)
 - `DriveProfile: RouteDriveProfile?`
 - `AccelerationStartPolicy: AccelerationStartPolicy` (Default `AtWaypointCrossing`)
 - `Metadata: RouteMetadata?` (optional; kann u. a. Signalbegriffe am Anfang und/oder Ende der Route enthalten)
-- `SensorMarkers: IReadOnlyList<SensorMarker>?` (optional; positionsgebundene Sensoren relativ zum Beginn des `RouteLeg`)
+- `SensorMarkers: IReadOnlyList<SensorMarker>?` (optional; positionsgebundene Sensoren relativ zum Beginn des `RouteLeg`, automatisch aus dem Layout abgeleitet)
 
 ```csharp
 public enum AccelerationStartPolicy
@@ -77,7 +77,9 @@ Hinweis:
 
 - `SensorMarker`: positionsgebundener Realwelt-Abgleich innerhalb eines `RouteLeg`
   - `SensorId`, `OffsetCm`, optional `ActivationTimeoutMs`
-  - Zuordnung zu einem `RouteLeg` erfolgt über die enthaltene `SensorMarkers`-Liste des jeweiligen `RouteLeg`.
+  - Entsteht beim Laden aus Sensoren des Layouts entlang des topologischen Pfads zwischen `FromWaypointId` und `ToWaypointId`.
+  - `occupancy_detection` liegt an der Einfahrtsseite des Host-Tracks, `track_contact` an einem festen geometrischen Offset.
+- `FeedbackReference`: Altmodell / reserviert; wird im aktuellen Greenfield-Modell nicht mehr zur Leg-Erzeugung verwendet.
 - `RouteActionEvent`: positionsgebundene Aktion (z.B. Pfeifen vor unbewachtem Bahnübergang)
 - `RoutePositionEvent`: positionsgebundene Rückmeldung ans Stellwerk (z.B. virtuelle Blockgrenzen)
 

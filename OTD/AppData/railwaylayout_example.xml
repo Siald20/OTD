@@ -1,0 +1,27 @@
+<railwaylayout version="2">
+    <trackelements>
+        <trackelement id="seg_A13_W1" type="simpletrack" from="nA13" to="nW1" length_cm="160" description="Zufahrt zur Weiche W1"/>
+        <trackelement id="seg_B120_C1" from="nB120" to="nC1" length_cm="140" description="Gerades Anschlussgleis"/>
+        <trackelement id="SW1" type="turnout" description="Einfache Weiche W1">
+            <path id="sw1_straight" from="nW1" to="nB120" length_cm="150" description="Gerader Zweig"/>
+            <path id="sw1_branch" from="nW1" to="nB121" length_cm="175" description="Abzweig"/>
+        </trackelement>
+    </trackelements>
+
+    <sensors>
+        <section id="sec_A13" detectorId="30" host="seg_A13_W1" description="Blockeinfahrt A13→W1"/>
+        <point id="contact_145" detectorId="145" host="seg_A13_W1" offset_cm="145" description="Fester Kontakt vor W1"/>
+        <section id="sec_B120" detectorId="31" host="sw1_straight" description="Einfahrt in geraden Zweig"/>
+        <section id="sec_B121" detectorId="32" host="sw1_branch" description="Einfahrt in Abzweig"/>
+        <point id="contact_C1" detectorId="56" host="seg_B120_C1" offset_cm="40" description="Kontakt im Folgegleis"/>
+    </sensors>
+
+    <waypoints>
+        <waypoint id="A13" node="nA13" description="Startpunkt vor W1"/>
+        <waypoint id="MID_A13_W1" host="seg_A13_W1" offset_cm="60" description="Zwischenpunkt auf der Zufahrt"/>
+        <waypoint id="W1" node="nW1" description="Weichenknoten"/>
+        <waypoint id="B120" node="nB120" description="Gerader Ausgang"/>
+        <waypoint id="B121" node="nB121" description="Abzweig-Ausgang"/>
+        <waypoint id="C1" node="nC1" description="Folgeblock hinter B120"/>
+    </waypoints>
+</railwaylayout>

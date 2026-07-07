@@ -398,7 +398,7 @@ public static class Logging
     {
         var normalizedNamespace = NormalizeNamespace(namespaceName);
 
-        if (!IsDebugEnabled(normalizedNamespace) || !IsExtendedDebugEnabled(normalizedNamespace))
+        if (!IsExtendedDebugEnabled(normalizedNamespace))
             return;
 
         LogInternal(normalizedNamespace, LogLevel.Debug, message, null, isExtendedDebug: true);

@@ -12,8 +12,11 @@ public static class RouteRuntimeDemo
 {
     public static void RunDemo()
     {
+        var layout = new XmlRailwayLayoutService();
+        var definitions = new XmlRouteDefinitionService(layout);
+
         var service = new RouteTableService();
-        service.AddRoutes(RouteControlPrototype.CreateRouteTable());
+        service.AddRoutes(RouteControlPrototype.CreateRouteTable(definitions, layout));
 
         service.AdvancePosition(30);
         var s1 = service.GetRuntimeState();

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using OTD.TrainDriving.RouteControl.Domain;
 
 namespace OTD.TrainDriving.RouteControl.Services;
 
@@ -9,8 +10,9 @@ public interface IRouteDefinitionService
 {
     event Action? DefinitionsChanged;
 
-    bool TryGetLeg(string fromWaypointId, string toWaypointId, out StaticRouteLegData legData);
 
-    IReadOnlyCollection<StaticRouteLegData> GetAllLegs();
+    bool TryGetSegment(string fromWaypointId, string toWaypointId, out RouteSegment segment);
+
+    IReadOnlyCollection<RouteSegment> GetAllSegments();
 }
 

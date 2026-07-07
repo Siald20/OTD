@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using OTD.Common;
@@ -15,7 +16,6 @@ namespace OTD.TrainDriving;
 public sealed class RouteController : IDisposable
 {
     private const int DefaultScale = 87;
-    private const double StopPointBrakeSafetyMarginCm = 5.0;
 
     private readonly object _sync = new();
     private readonly TrainDriving _driving;
@@ -31,6 +31,9 @@ public sealed class RouteController : IDisposable
     private bool _initialHoldActive;
     private string? _lastLoggedActiveFromWaypointId;
     private string? _lastLoggedActiveToWaypointId;
+    private long? _lastProgressTickTimestamp;
+    private double _lastProgressTickPositionCm;
+    private int _lastProgressTickSpeedKmh;
 
     /// <param name="initialHold">
     /// Wenn <c>true</c>, wartet der Controller nach dem ersten AddRoute/ReplaceRoutes-Aufruf auf
@@ -52,6 +55,19 @@ public sealed class RouteController : IDisposable
         : this(train,
             new RouteTableService(),
             new RouteLegResolver(routeDefinitionService),
+            routeDefinitionService,
+            initialHold)
+    {
+    }
+
+    public RouteController(
+        Train train,
+        IRouteDefinitionService routeDefinitionService,
+        IRailwayLayoutService trackLayoutService,
+        bool initialHold = false)
+        : this(train,
+            new RouteTableService(),
+            new RouteLegResolver(routeDefinitionService, trackLayoutService),
             routeDefinitionService,
             initialHold)
     {
@@ -86,6 +102,12 @@ public sealed class RouteController : IDisposable
         set => _driving.AccelerationMs2 = value;
     }
 
+    public double BrakingMs2
+    {
+        get => _driving.BrakingMs2;
+        set => _driving.BrakingMs2 = value;
+    }
+
     public bool UseAdaptiveSpeedStepInterval
     {
         get => _driving.UseAdaptiveSpeedStepInterval;
@@ -106,25 +128,25 @@ public sealed class RouteController : IDisposable
 
     public event Action<RouteRuntimeState>? RouteTick;
 
-    public void AddRoute(RouteLeg leg) => _service.AddRoute(leg);
+    public void AddRoute(RouteLeg leg) => _service.AddRoutes(ExpandRouteLegInput(leg));
 
-    public void AddRoute(DynamicRouteRequest request) => _service.AddRoute(ResolveDynamicRoute(request));
+    public void AddRoute(DynamicRouteRequest request) => _service.AddRoutes(ExpandDynamicRoute(request));
 
-    public void AddRoutes(IReadOnlyList<RouteLeg> legs) => _service.AddRoutes(legs);
+    public void AddRoutes(IReadOnlyList<RouteLeg> legs) => _service.AddRoutes(ExpandRouteLegInputs(legs));
 
-    public void AddRoutes(IReadOnlyList<DynamicRouteRequest> requests) => _service.AddRoutes(ResolveDynamicRoutes(requests));
+    public void AddRoutes(IReadOnlyList<DynamicRouteRequest> requests) => _service.AddRoutes(ExpandDynamicRoutes(requests));
 
-    public void ReplaceRoutes(IReadOnlyList<RouteLeg> legs) => _service.ReplaceRoutes(legs);
+    public void ReplaceRoutes(IReadOnlyList<RouteLeg> legs) => _service.ReplaceRoutes(ExpandRouteLegInputs(legs));
 
-    public void ReplaceRoutes(IReadOnlyList<DynamicRouteRequest> requests) => _service.ReplaceRoutes(ResolveDynamicRoutes(requests));
+    public void ReplaceRoutes(IReadOnlyList<DynamicRouteRequest> requests) => _service.ReplaceRoutes(ExpandDynamicRoutes(requests));
 
-    public void ReplaceRouteAtEnd(RouteLeg leg) => _service.ReplaceRouteAtEnd(leg);
+    public void ReplaceRouteAtEnd(RouteLeg leg) => _service.ReplaceRoutes(ExpandRouteLegInput(leg));
 
     public void RemoveRouteAtEnd() => _service.RemoveRouteAtEnd();
 
     public void RemoveRoutesFromWaypoint(string fromWaypointId) => _service.RemoveRoutesFromWaypoint(fromWaypointId);
 
-    public void UpdateActiveRouteLeg(string fromWaypointId, int? newDistanceCm = null, double? newMaxSpeedKmh = null)
+    public void UpdateActiveRouteLeg(string fromWaypointId, int? newDistanceCm = null, int? newMaxSpeedKmh = null)
         => _service.UpdateActiveRouteLeg(fromWaypointId, newDistanceCm, newMaxSpeedKmh);
 
     /// <summary>
@@ -157,10 +179,11 @@ public sealed class RouteController : IDisposable
 
     public void OnSensorActivated(int sensorId)
     {
-        var activation = _service.OnSensorActivated(sensorId);
+        var estimatedHeadPositionCm = EstimateHeadPositionAtSensorEvent();
+        var activation = _service.OnSensorActivated(sensorId, estimatedHeadPositionCm);
         if (!activation.Accepted)
         {
-            Logging.DebugExtended<RouteController>($"Sensor {sensorId}: ignored, not part of active cycle payload.");
+            Logging.DebugExtended<RouteController>($"Event=SensorActivationIgnored SensorId={sensorId} Reason=NotPartOfActiveCyclePayload");
             return;
         }
 
@@ -171,17 +194,28 @@ public sealed class RouteController : IDisposable
         var cycleLabel = TryGetCycleLabel(snapshot.RuntimeState.ActiveRouteIndex, snapshot.RouteLegs);
 
         // Sensor-Fenster-Validierung: Größere Positionssprünge erfordern sofortige Neu-Planung der Bremsrampe.
-        // Standard-Toleranzfenster: ±15 cm (Spezifikation: maximal akzeptable Sensorabweichung pro RouteControl SPEC v1).
-        const double maxAcceptableErrorCm = 15.0;
-        var errorAbsMagnitude = Math.Abs(error);
-        var isLargeCorrection = errorAbsMagnitude > maxAcceptableErrorCm;
+        // Basis-Toleranzfenster: ±15 cm (Spezifikation: maximal akzeptable Sensorabweichung pro RouteControl SPEC v1).
+        // Für dicht aufeinanderfolgende Sensoren (z. B. Weiche->Weiche) wird die Schwelle proportional
+        // zum topologisch bekannten Sensorabstand erweitert, damit kurze Abschnittswechsel nicht
+        // fälschlich als "LargeCorrection" markiert werden.
+        const double baseAcceptableErrorCm = 15.0;
+        var dynamicThresholdCm = baseAcceptableErrorCm;
+        double? expectedSensorSpacingCm = null;
+        if (TryGetPreviousSensorSpacingCm(snapshot.RouteLegs, sensorId, currentPos, out var spacingCm))
+        {
+            expectedSensorSpacingCm = spacingCm;
+            dynamicThresholdCm = Math.Max(baseAcceptableErrorCm, spacingCm * 0.60);
+        }
 
-        Logging.Debug<RouteController>($"Sensor {sensorId}: accepted for active cycle, remaining pending sensors=-.");
+        var errorAbsMagnitude = Math.Abs(error);
+        var isLargeCorrection = errorAbsMagnitude > dynamicThresholdCm;
+
+        Logging.Debug<RouteController>($"Event=SensorActivationAccepted SensorId={sensorId} RemainingPendingSensors=-");
         Logging.Debug<RouteController>(
-            $"Sensor {sensorId}: recal=yes, pos={currentPos:F1} cm, err={error:F1} cm (magnitude={errorAbsMagnitude:F1} cm), " +
-            $"active={activation.ActiveFromWaypointId ?? "-"} (from {previousPos:F1} cm), " +
-            $"forcedForwardLegSync={(activation.ForcedForwardLegSync ? "yes" : "no")}, " +
-            $"largeCorrection={(isLargeCorrection ? "YES" : "no")} (threshold={maxAcceptableErrorCm:F1} cm).");
+            $"Event=SensorRecalibration SensorId={sensorId} Recalibrated=yes PositionCm={currentPos:F1} ErrorCm={error:F1} ErrorMagnitudeCm={errorAbsMagnitude:F1} " +
+            $"Active={activation.ActiveFromWaypointId ?? "-"} PreviousPositionCm={previousPos:F1} ForcedForwardLegSync={(activation.ForcedForwardLegSync ? "yes" : "no")} " +
+            $"LargeCorrection={(isLargeCorrection ? "yes" : "no")} ThresholdCm={dynamicThresholdCm:F1} " +
+            $"ExpectedSensorSpacingCm={(expectedSensorSpacingCm is null ? "-" : expectedSensorSpacingCm.Value.ToString("F1"))}");
 
         // Erzwingt unmittelbar eine Neuberechnung des Brems-/Fahrprofils nach großem Positionssprung.
         // Dies gewährleistet, dass die Bremsrampe sofort neu auf die korrigierte Zielposition kalibriert wird.
@@ -193,7 +227,7 @@ public sealed class RouteController : IDisposable
                 {
                     _activeCycleCancellation.Cancel();
                     Logging.DebugExtended<RouteController>(
-                        $"Sensor {sensorId}: active cycle cancellation triggered for immediate replan.");
+                        $"Event=ActiveCycleCancellation SensorId={sensorId} Reason=ImmediateReplan");
                 }
             }
             catch (ObjectDisposedException)
@@ -203,11 +237,11 @@ public sealed class RouteController : IDisposable
         }
 
         Logging.DebugExtended<RouteController>(
-            $"RouteTick: pos={currentPos:F1} cm, speed={Math.Max(0, BoundTrain.SpeedV)} km/h, cycle={cycleLabel}");
+            $"Event=RouteTick PositionCm={currentPos:F1} SpeedKmh={Math.Max(0, BoundTrain.SpeedV)} Cycle={cycleLabel}");
         Logging.DebugExtended<RouteController>(
-            $"ApplyStep: delta=0.0 cm, pos={previousPos:F1}->{currentPos:F1} cm, " +
-            $"traj={Math.Max(0, BoundTrain.SpeedV)} km/h, effective={Math.Max(0, BoundTrain.SpeedV)} km/h, " +
-            $"sensor={sensorId}, recalibrated=yes, cycle={cycleLabel}.");
+            $"Event=ApplyStep DeltaCm=0.0 PreviousPositionCm={previousPos:F1} PositionCm={currentPos:F1} " +
+            $"TrajectorySpeedKmh={Math.Max(0, BoundTrain.SpeedV)} EffectiveSpeedKmh={Math.Max(0, BoundTrain.SpeedV)} " +
+            $"SensorId={sensorId} Recalibrated=yes Cycle={cycleLabel}");
     }
 
     public async Task Run(CancellationToken cancellationToken = default)
@@ -233,14 +267,16 @@ public sealed class RouteController : IDisposable
 
             if (state.SafetyStopInjected || state.ActiveStopPoint || initialHold)
             {
-                await BoundTrain.SetSpeedVAsync(0, runToken).ConfigureAwait(false);
+                if (Math.Max(0, BoundTrain.SpeedV) > 0)
+                    await BoundTrain.SetSpeedVAsync(0, runToken).ConfigureAwait(false);
                 await WaitForRouteChangeAsync(runToken).ConfigureAwait(false);
                 continue;
             }
 
             if (state.ActiveRouteIndex is null)
             {
-                await BoundTrain.SetSpeedVAsync(0, runToken).ConfigureAwait(false);
+                if (Math.Max(0, BoundTrain.SpeedV) > 0)
+                    await BoundTrain.SetSpeedVAsync(0, runToken).ConfigureAwait(false);
                 await WaitForRouteChangeAsync(runToken).ConfigureAwait(false);
                 continue;
             }
@@ -249,16 +285,54 @@ public sealed class RouteController : IDisposable
             var activeLeg = snapshot.RouteLegs[activeIndex];
             LogActiveCycleIfChanged(activeLeg);
             var legStartCm = ComputeLegStart(snapshot.RouteLegs, activeIndex);
-            var legEndCm = legStartCm + activeLeg.DistanceCm;
-            var remainingDistanceCm = Math.Max(1.0, legEndCm - state.HeadPositionCm);
+            var remainingDistanceCm = Math.Max(1.0, ComputeRemainingDistanceForActiveGroup(snapshot.RouteLegs, activeIndex, state.HeadPositionCm, legStartCm));
 
             var targetSpeedKmh = ResolveTargetSpeed(snapshot.RouteLegs, activeIndex, state, legStartCm);
+            var currentSpeedKmh = Math.Max(0, BoundTrain.SpeedV);
+
+            // One-route-leg lookahead: inspect only the immediately following route-leg group.
+            if (targetSpeedKmh > 0 &&
+                TryGetNextRouteLegSpeedDropConstraint(
+                    snapshot.RouteLegs,
+                    activeIndex,
+                    state.HeadPositionCm,
+                    legStartCm,
+                    out var reducedSpeedKmh,
+                    out var distanceToReductionBoundaryCm,
+                    out var reductionBoundaryWaypointId) &&
+                currentSpeedKmh > reducedSpeedKmh)
+            {
+                targetSpeedKmh = Math.Min(targetSpeedKmh, reducedSpeedKmh);
+                remainingDistanceCm = Math.Min(remainingDistanceCm, Math.Max(1.0, distanceToReductionBoundaryCm));
+                Logging.DebugExtended<RouteController>(
+                    $"Event=NextLegSpeedReductionApplied Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} " +
+                    $"CurrentSpeedKmh={currentSpeedKmh} TargetSpeedKmh={targetSpeedKmh} Boundary={reductionBoundaryWaypointId} " +
+                    $"DistanceToBoundaryCm={distanceToReductionBoundaryCm:F1} Reason=RouteLegBoundaryProfile");
+            }
+
+            if (TryGetUpcomingStopPointBrakingWindow(
+                    snapshot.RouteLegs,
+                    activeIndex,
+                    state.HeadPositionCm,
+                    out var preBrakeStartCm,
+                    out var stopPositionCm,
+                    out var stopLegLabel) &&
+                state.HeadPositionCm >= preBrakeStartCm)
+            {
+                targetSpeedKmh = 0;
+                remainingDistanceCm = Math.Max(1.0, stopPositionCm - state.HeadPositionCm);
+                Logging.DebugExtended<RouteController>(
+                    $"Event=StopPointPreBrakeApplied Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} " +
+                    $"StopLeg={stopLegLabel} PreBrakeStartCm={preBrakeStartCm:F1} StopPositionCm={stopPositionCm:F1} " +
+                    $"RemainingDistanceCm={remainingDistanceCm:F1}");
+            }
 
             // Safety break: if target speed is 0 and we're very close to the end, wait for next route
             // This prevents tight spinning loops when a cycle completes with minimal remaining distance
             if (targetSpeedKmh == 0 && remainingDistanceCm <= 1.5)
             {
-                await BoundTrain.SetSpeedVAsync(0, runToken).ConfigureAwait(false);
+                if (Math.Max(0, BoundTrain.SpeedV) > 0)
+                    await BoundTrain.SetSpeedVAsync(0, runToken).ConfigureAwait(false);
                 await Task.Delay(50, runToken).ConfigureAwait(false);  // Minimal delay to prevent CPU spinning
                 continue;
             }
@@ -268,7 +342,7 @@ public sealed class RouteController : IDisposable
                 ToWaypointId: activeLeg.ToWaypointId,
                 DistanceCm: remainingDistanceCm,
                 AllowedSpeedKmh: targetSpeedKmh,
-                DriveProfile: activeLeg.DriveProfile);
+                DriveProfile: ResolveGroupDriveProfile(snapshot.RouteLegs, activeIndex));
 
             CancellationTokenSource? cycleCts = null;
             _driving.ProgressTick += OnProgressTick;
@@ -318,12 +392,12 @@ public sealed class RouteController : IDisposable
         double activeLegStartCm)
     {
         var activeLeg = routeLegs[activeIndex];
-        var targetSpeed = Math.Max(0, (int)Math.Round(activeLeg.MaxSpeedKmh, MidpointRounding.AwayFromZero));
+        var targetSpeed = Math.Max(0, activeLeg.MaxSpeedKmh);
 
         // Safety-first lookahead: if the next leg is slower, cap current target to avoid late braking.
         if (activeIndex < routeLegs.Count - 1)
         {
-            var nextSpeed = Math.Max(0, (int)Math.Round(routeLegs[activeIndex + 1].MaxSpeedKmh, MidpointRounding.AwayFromZero));
+            var nextSpeed = Math.Max(0, routeLegs[activeIndex + 1].MaxSpeedKmh);
             if (nextSpeed < targetSpeed)
                 targetSpeed = nextSpeed;
         }
@@ -335,78 +409,178 @@ public sealed class RouteController : IDisposable
             if (activeLeg.MaxSpeedKmh > previousLeg.MaxSpeedKmh &&
                 activeLeg.AccelerationStartPolicy == AccelerationStartPolicy.AfterTrainClearsWaypoint)
             {
-                var previousSpeed = Math.Max(0, (int)Math.Round(previousLeg.MaxSpeedKmh, MidpointRounding.AwayFromZero));
+                var previousSpeed = Math.Max(0, previousLeg.MaxSpeedKmh);
                 var trainClearsWaypointCm = activeLegStartCm + Math.Max(0.0, state.TrainLengthCm);
                 if (state.HeadPositionCm < trainClearsWaypointCm)
                     targetSpeed = Math.Min(targetSpeed, previousSpeed);
             }
         }
 
-        // Vorlauf-Bremsung: Wenn ein kommender StopPoint nahe genug ist, bereits im vorherigen Leg bremsen.
-        var distanceToNextStopPointCm = TryGetDistanceToNextStopPoint(routeLegs, activeIndex, state.HeadPositionCm);
-        if (distanceToNextStopPointCm is > 0)
+        // Vorverlagerte StopPoint-Bremsung:
+        // StopPoint.OffsetCm ist als Abstand zum Leg-Ende interpretiert.
+        // Die Bremsung startet daher bereits OffsetCm vor Leg-Beginn des StopPoint-Legs,
+        // damit das Profil identisch zu "Bremsung ueber volle StopPoint-Leg-Laenge" bleibt.
+        if (TryGetUpcomingStopPointBrakingWindow(
+                routeLegs,
+                activeIndex,
+                state.HeadPositionCm,
+                out var preBrakeStartCm,
+                out _,
+                out _) &&
+            state.HeadPositionCm >= preBrakeStartCm)
         {
-            var currentSpeedKmh = Math.Max(0, BoundTrain.SpeedV);
-            var estimatedBrakeDistanceCm = EstimateBrakeDistanceCm(currentSpeedKmh, AccelerationMs2);
-            if (distanceToNextStopPointCm.Value <= estimatedBrakeDistanceCm + StopPointBrakeSafetyMarginCm)
-            {
-                targetSpeed = 0;
-            }
+            targetSpeed = 0;
         }
 
-        // Impliziter End-Halt: Im letzten RouteLeg muss zum Tabellenende regulär auf 0 gebremst werden,
-        // auch wenn kein expliziter StopPoint existiert.
+        // Impliziter End-Halt: Im letzten RouteLeg wird immer ueber die Reststrecke auf 0 gebremst.
         if (activeIndex == routeLegs.Count - 1)
-        {
-            var currentSpeedKmh = Math.Max(0, BoundTrain.SpeedV);
-            var estimatedBrakeDistanceCm = EstimateBrakeDistanceCm(currentSpeedKmh, AccelerationMs2);
-            var distanceToImplicitEndCm = Math.Max(0.0, activeLegStartCm + activeLeg.DistanceCm - state.HeadPositionCm);
-
-            if (distanceToImplicitEndCm <= estimatedBrakeDistanceCm + StopPointBrakeSafetyMarginCm)
-            {
-                targetSpeed = 0;
-            }
-        }
+            targetSpeed = 0;
 
         return targetSpeed;
     }
 
-    private static double? TryGetDistanceToNextStopPoint(
+    private static bool TryGetNextRouteLegSpeedDropConstraint(
         IReadOnlyList<RouteLeg> routeLegs,
         int activeIndex,
-        double headPositionCm)
+        double headPositionCm,
+        double activeLegStartCm,
+        out int reducedSpeedKmh,
+        out double distanceToReductionBoundaryCm,
+        out string reductionBoundaryWaypointId)
     {
-        var cumulativeStartCm = 0.0;
-        for (var i = 0; i < activeIndex; i++)
-            cumulativeStartCm += routeLegs[i].DistanceCm;
+        reducedSpeedKmh = 0;
+        distanceToReductionBoundaryCm = 0.0;
+        reductionBoundaryWaypointId = string.Empty;
 
-        var runningStartCm = cumulativeStartCm;
+        if (activeIndex < 0 || activeIndex >= routeLegs.Count - 1)
+            return false;
+
+        var activeLeg = routeLegs[activeIndex];
+        var activeGroupId = activeLeg.GroupId;
+        var currentGroupEndIndex = activeIndex;
+        if (!string.IsNullOrWhiteSpace(activeGroupId))
+        {
+            while (currentGroupEndIndex + 1 < routeLegs.Count &&
+                   string.Equals(routeLegs[currentGroupEndIndex + 1].GroupId, activeGroupId, StringComparison.OrdinalIgnoreCase))
+            {
+                currentGroupEndIndex++;
+            }
+        }
+
+        var nextGroupStartIndex = currentGroupEndIndex + 1;
+        if (nextGroupStartIndex >= routeLegs.Count)
+        {
+            Logging.DebugExtended<RouteController>(
+                $"Event=NextLegLookahead Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} " +
+                $"ActiveGroup={FormatGroupLabel(activeGroupId, activeIndex, currentGroupEndIndex)} NextGroup=- Outcome=NoFollowingRouteLeg");
+            return false;
+        }
+
+        var nextGroupId = routeLegs[nextGroupStartIndex].GroupId;
+        var nextGroupEndIndex = nextGroupStartIndex;
+        if (!string.IsNullOrWhiteSpace(nextGroupId))
+        {
+            while (nextGroupEndIndex + 1 < routeLegs.Count &&
+                   string.Equals(routeLegs[nextGroupEndIndex + 1].GroupId, nextGroupId, StringComparison.OrdinalIgnoreCase))
+            {
+                nextGroupEndIndex++;
+            }
+        }
+
+        var currentRouteLegSpeed = Math.Max(0, activeLeg.MaxSpeedKmh);
+        var runningLegStartCm = activeLegStartCm;
+        for (var i = activeIndex; i < nextGroupStartIndex; i++)
+            runningLegStartCm += routeLegs[i].DistanceCm;
+
+        var nextGroupHeadLeg = routeLegs[nextGroupStartIndex];
+        var nextGroupTailLeg = routeLegs[nextGroupEndIndex];
+        Logging.DebugExtended<RouteController>(
+            $"Event=NextLegLookahead Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} " +
+            $"ActiveGroup={FormatGroupLabel(activeGroupId, activeIndex, currentGroupEndIndex)} " +
+            $"NextGroup={FormatGroupLabel(nextGroupId, nextGroupStartIndex, nextGroupEndIndex)} " +
+            $"NextRouteLeg={nextGroupHeadLeg.FromWaypointId}->{nextGroupTailLeg.ToWaypointId} " +
+            $"CurrentMaxKmh={currentRouteLegSpeed} HeadPositionCm={headPositionCm:F1} Outcome=Inspecting");
+
+        for (var legIndex = nextGroupStartIndex; legIndex <= nextGroupEndIndex; legIndex++)
+        {
+            var nextLegSpeed = Math.Max(0, routeLegs[legIndex].MaxSpeedKmh);
+            if (nextLegSpeed < currentRouteLegSpeed)
+            {
+                reducedSpeedKmh = nextLegSpeed;
+                distanceToReductionBoundaryCm = Math.Max(0.0, runningLegStartCm - headPositionCm);
+                reductionBoundaryWaypointId = routeLegs[legIndex].FromWaypointId;
+                Logging.Debug<RouteController>(
+                    $"Event=NextLegSpeedDropCandidate Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} " +
+                    $"NextRouteLeg={nextGroupHeadLeg.FromWaypointId}->{nextGroupTailLeg.ToWaypointId} " +
+                    $"Boundary={reductionBoundaryWaypointId} Segment={routeLegs[legIndex].FromWaypointId}->{routeLegs[legIndex].ToWaypointId} " +
+                    $"CurrentMaxKmh={currentRouteLegSpeed} ReducedMaxKmh={reducedSpeedKmh} DistanceToBoundaryCm={distanceToReductionBoundaryCm:F1}");
+                return true;
+            }
+
+            runningLegStartCm += routeLegs[legIndex].DistanceCm;
+        }
+
+        Logging.DebugExtended<RouteController>(
+            $"Event=NextLegLookahead Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} " +
+            $"NextRouteLeg={nextGroupHeadLeg.FromWaypointId}->{nextGroupTailLeg.ToWaypointId} Outcome=NoLowerSpeedSegment");
+
+        return false;
+    }
+
+    private static bool TryGetUpcomingStopPointBrakingWindow(
+        IReadOnlyList<RouteLeg> routeLegs,
+        int activeIndex,
+        double headPositionCm,
+        out double preBrakeStartCm,
+        out double stopPositionCm,
+        out string stopLegLabel)
+    {
+        preBrakeStartCm = 0.0;
+        stopPositionCm = 0.0;
+        stopLegLabel = string.Empty;
+
+        if (activeIndex < 0 || activeIndex >= routeLegs.Count)
+            return false;
+
+        var runningLegStartCm = ComputeLegStart(routeLegs, activeIndex);
         for (var i = activeIndex; i < routeLegs.Count; i++)
         {
             var leg = routeLegs[i];
             if (leg.StopPoint is not null)
             {
-                var stopAbsCm = runningStartCm + leg.StopPoint.OffsetCm;
-                var distanceToStopCm = stopAbsCm - headPositionCm;
-                if (distanceToStopCm > 0)
-                    return distanceToStopCm;
+                // Nach topologischer Auflösung ist StopPoint.OffsetCm bereits ABSOLUT
+                // relativ zum Leg-Anfang (nicht zum Leg-Ende).
+                // Die Offset-Position wird so interpretiert:
+                // - StopPoint.OffsetCm = Abstand vom Leg-Anfang zum StopPoint
+                // - Vorverlagerung: Bremsung beginnt um diesen Offset VOR Leg-Anfang
+                var offsetCm = Math.Clamp((double)leg.StopPoint.OffsetCm, 0.0, leg.DistanceCm);
+                var candidateStopPositionCm = runningLegStartCm + offsetCm;
+                var candidatePreBrakeStartCm = runningLegStartCm - offsetCm;
+
+                // Skip bereits passierte StopPoints innerhalb derselben Resttabelle.
+                if (candidateStopPositionCm + 0.001 < headPositionCm)
+                {
+                    runningLegStartCm += leg.DistanceCm;
+                    continue;
+                }
+
+                // Vorverlagerung kann in vorherige Legs gehen.
+                preBrakeStartCm = Math.Max(0.0, candidatePreBrakeStartCm);
+                stopPositionCm = candidateStopPositionCm;
+                stopLegLabel = $"{leg.FromWaypointId}->{leg.ToWaypointId}";
+                return true;
             }
 
-            runningStartCm += leg.DistanceCm;
+            runningLegStartCm += leg.DistanceCm;
         }
 
-        return null;
+        return false;
     }
 
-    private static double EstimateBrakeDistanceCm(int currentSpeedKmhPrototype, double decelerationMs2)
+    private static string FormatGroupLabel(string? groupId, int startIndex, int endIndex)
     {
-        if (currentSpeedKmhPrototype <= 0)
-            return 0.0;
-
-        var a = decelerationMs2 <= 0 ? 0.55 : decelerationMs2;
-        var vMs = currentSpeedKmhPrototype / 3.6;
-        var distancePrototypeM = (vMs * vMs) / (2.0 * a);
-        return distancePrototypeM * 100.0 / DefaultScale;
+        var label = string.IsNullOrWhiteSpace(groupId) ? "single" : groupId;
+        return startIndex == endIndex ? $"{label}[{startIndex}]" : $"{label}[{startIndex}-{endIndex}]";
     }
 
     private static double ComputeLegStart(IReadOnlyList<RouteLeg> legs, int legIndex)
@@ -416,6 +590,67 @@ public sealed class RouteController : IDisposable
             start += legs[i].DistanceCm;
 
         return start;
+    }
+
+    private static bool TryGetPreviousSensorSpacingCm(
+        IReadOnlyList<RouteLeg> routeLegs,
+        int sensorId,
+        double anchorPositionCm,
+        out double spacingCm)
+    {
+        spacingCm = 0.0;
+        var markers = new List<(int SensorId, double AnchorCm)>();
+        var cumulative = 0.0;
+
+        foreach (var leg in routeLegs)
+        {
+            if (leg.SensorMarkers is not null)
+            {
+                foreach (var marker in leg.SensorMarkers)
+                    markers.Add((marker.SensorId, cumulative + marker.OffsetCm));
+            }
+
+            cumulative += leg.DistanceCm;
+        }
+
+        if (markers.Count == 0)
+            return false;
+
+        var currentIndex = -1;
+        var currentBestDistance = double.MaxValue;
+        for (var i = 0; i < markers.Count; i++)
+        {
+            if (markers[i].SensorId != sensorId)
+                continue;
+
+            var distanceToAnchor = Math.Abs(markers[i].AnchorCm - anchorPositionCm);
+            if (distanceToAnchor >= currentBestDistance)
+                continue;
+
+            currentBestDistance = distanceToAnchor;
+            currentIndex = i;
+        }
+
+        if (currentIndex < 0)
+            return false;
+
+        var currentAnchor = markers[currentIndex].AnchorCm;
+        var previousAnchor = double.MinValue;
+        for (var i = 0; i < markers.Count; i++)
+        {
+            var anchor = markers[i].AnchorCm;
+            if (anchor >= currentAnchor - 0.001)
+                continue;
+
+            if (anchor > previousAnchor)
+                previousAnchor = anchor;
+        }
+
+        if (previousAnchor == double.MinValue)
+            return false;
+
+        spacingCm = Math.Max(0.0, currentAnchor - previousAnchor);
+        return spacingCm > 0.0;
     }
 
     private void LogActiveCycleIfChanged(RouteLeg activeLeg)
@@ -433,9 +668,9 @@ public sealed class RouteController : IDisposable
         }
 
         Logging.Debug<RouteController>(
-            $"Route active: {activeLeg.FromWaypointId}->{activeLeg.ToWaypointId}, dist={activeLeg.DistanceCm:F1} cm, allowed={activeLeg.MaxSpeedKmh:F0} km/h.");
+            $"Event=ActiveCycleChanged Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} DistanceCm={activeLeg.DistanceCm:F1} AllowedSpeedKmh={activeLeg.MaxSpeedKmh:F0}");
         Logging.DebugExtended<RouteController>(
-            $"Active cycle payload: pendingSensors={activeLeg.SensorMarkers?.Count ?? 0}, pendingActions=0.");
+            $"Event=ActiveCyclePayload Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} PendingSensors={activeLeg.SensorMarkers?.Count ?? 0} PendingActions=0");
     }
 
     private void LogActiveCycleClearedIfChanged()
@@ -451,7 +686,7 @@ public sealed class RouteController : IDisposable
             _lastLoggedActiveToWaypointId = null;
         }
 
-        Logging.Debug<RouteController>($"Active cycle cleared (previous={previousFrom ?? "-"}).");
+        Logging.Debug<RouteController>($"Event=ActiveCycleCleared Previous={previousFrom ?? "-"}");
     }
 
     private void OnProgressTick(TrainDrivingProgressTick tick)
@@ -461,14 +696,18 @@ public sealed class RouteController : IDisposable
         var snapshot = _service.GetSnapshot();
         var state = snapshot.RuntimeState;
         var currentPos = state.HeadPositionCm;
+        _lastProgressTickTimestamp = Stopwatch.GetTimestamp();
+        _lastProgressTickPositionCm = currentPos;
+        _lastProgressTickSpeedKmh = Math.Max(0, tick.CommandedSpeedKmhPrototype);
 
         var cycleLabel = TryGetCycleLabel(state.ActiveRouteIndex, snapshot.RouteLegs);
         Logging.DebugExtended<RouteController>(
-            $"RouteTick: pos={currentPos:F1} cm, speed={tick.CommandedSpeedKmhPrototype} km/h, cycle={cycleLabel}");
+            $"Event=RouteTick PositionCm={currentPos:F1} SpeedKmh={tick.CommandedSpeedKmhPrototype} Cycle={cycleLabel}");
 
         Logging.DebugExtended<RouteController>(
-            $"ApplyStep: delta={tick.DeltaCmModel:F1} cm, pos={previousPos:F1}->{currentPos:F1} cm, " +
-            $"traj={tick.CommandedSpeedKmhPrototype} km/h, effective={tick.CommandedSpeedKmhPrototype} km/h, sensor=-, recal=no, cycle={cycleLabel}.");
+            $"Event=ApplyStep DeltaCm={tick.DeltaCmModel:F1} PreviousPositionCm={previousPos:F1} PositionCm={currentPos:F1} " +
+            $"TrajectorySpeedKmh={tick.CommandedSpeedKmhPrototype} EffectiveSpeedKmh={tick.CommandedSpeedKmhPrototype} " +
+            $"SensorId=- Recalibrated=no Cycle={cycleLabel}");
 
         // Dynamische Replanung innerhalb eines laufenden Fahrzyklus:
         // Wenn sich durch fortschreitende Position das Bremsziel (StopPoint oder impliziter End-Halt)
@@ -479,6 +718,19 @@ public sealed class RouteController : IDisposable
             var activeLeg = snapshot.RouteLegs[activeIndex];
             var legStartCm = ComputeLegStart(snapshot.RouteLegs, activeIndex);
             var desiredTargetSpeedKmh = ResolveTargetSpeed(snapshot.RouteLegs, activeIndex, state, legStartCm);
+
+            if (TryGetNextRouteLegSpeedDropConstraint(
+                    snapshot.RouteLegs,
+                    activeIndex,
+                    state.HeadPositionCm,
+                    legStartCm,
+                    out var reducedSpeedKmh,
+                    out _,
+                    out _) &&
+                Math.Max(0, BoundTrain.SpeedV) > reducedSpeedKmh)
+            {
+                desiredTargetSpeedKmh = Math.Min(desiredTargetSpeedKmh, reducedSpeedKmh);
+            }
             int? activeCycleAllowedSpeedKmh;
             lock (_sync)
             {
@@ -492,8 +744,8 @@ public sealed class RouteController : IDisposable
             if (desiredTargetSpeedKmh < activeCycleTarget)
             {
                 Logging.Debug<RouteController>(
-                    $"Dynamic replan requested: commanded={tick.CommandedSpeedKmhPrototype} km/h, cycleTarget={activeCycleTarget} km/h, desired={desiredTargetSpeedKmh} km/h, " +
-                    $"cycle={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId}, pos={currentPos:F1} cm.");
+                    $"Event=DynamicReplanRequested Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} PositionCm={currentPos:F1} " +
+                    $"CommandedSpeedKmh={tick.CommandedSpeedKmhPrototype} CycleTargetKmh={activeCycleTarget} DesiredTargetKmh={desiredTargetSpeedKmh}");
 
                 lock (_sync)
                 {
@@ -513,6 +765,31 @@ public sealed class RouteController : IDisposable
         RouteTick?.Invoke(state);
     }
 
+    private double EstimateHeadPositionAtSensorEvent()
+    {
+        var basePositionCm = _lastProgressTickTimestamp is null
+            ? _service.GetRuntimeState().HeadPositionCm
+            : _lastProgressTickPositionCm;
+
+        if (_lastProgressTickTimestamp is null)
+            return Math.Max(0.0, basePositionCm);
+
+        var elapsedTicks = Stopwatch.GetTimestamp() - _lastProgressTickTimestamp.Value;
+        if (elapsedTicks <= 0)
+            return Math.Max(0.0, basePositionCm);
+
+        var speedKmh = _lastProgressTickSpeedKmh > 0
+            ? _lastProgressTickSpeedKmh
+            : Math.Max(0, BoundTrain.SpeedV);
+        var dtSeconds = elapsedTicks / (double)Stopwatch.Frequency;
+        var deltaCm = ModelCmPerSecondFromPrototypeKmh(speedKmh) * dtSeconds;
+
+        return Math.Max(0.0, basePositionCm + deltaCm);
+    }
+
+    private static double ModelCmPerSecondFromPrototypeKmh(double speedKmhPrototype)
+        => (speedKmhPrototype / 3.6) * 100.0 / DefaultScale;
+
     private static string TryGetCycleLabel(int? activeIndex, IReadOnlyList<RouteLeg> legs)
     {
         if (activeIndex is null || activeIndex < 0 || activeIndex >= legs.Count)
@@ -522,7 +799,7 @@ public sealed class RouteController : IDisposable
         return $"{leg.FromWaypointId}->{leg.ToWaypointId}";
     }
 
-    private RouteLeg ResolveDynamicRoute(DynamicRouteRequest request)
+    private IReadOnlyList<RouteLeg> ExpandDynamicRoute(DynamicRouteRequest request)
     {
         if (_routeLegResolver is null)
         {
@@ -530,17 +807,92 @@ public sealed class RouteController : IDisposable
                 "Dynamic route requests require a route definition service. Use RouteController(train, IRouteDefinitionService, ...)." );
         }
 
-        return _routeLegResolver.Resolve(request);
+        return _routeLegResolver.Expand(request);
     }
 
-    private IReadOnlyList<RouteLeg> ResolveDynamicRoutes(IReadOnlyList<DynamicRouteRequest> requests)
+    private IReadOnlyList<RouteLeg> ExpandRouteLegInput(RouteLeg leg)
+    {
+        ArgumentNullException.ThrowIfNull(leg);
+        if (leg.IsTopologyResolved)
+            return [leg];
+
+        if (_routeLegResolver is null)
+        {
+            throw new InvalidOperationException(
+                "RouteLeg without resolved topology requires a route definition service. Use RouteController(train, IRouteDefinitionService, ...)." );
+        }
+
+        return _routeLegResolver.Expand(leg);
+    }
+
+    private IReadOnlyList<RouteLeg> ExpandRouteLegInputs(IReadOnlyList<RouteLeg> legs)
+    {
+        ArgumentNullException.ThrowIfNull(legs);
+        var expanded = new List<RouteLeg>();
+        foreach (var leg in legs)
+            expanded.AddRange(ExpandRouteLegInput(leg));
+
+        return expanded;
+    }
+
+    private IReadOnlyList<RouteLeg> ExpandDynamicRoutes(IReadOnlyList<DynamicRouteRequest> requests)
     {
         ArgumentNullException.ThrowIfNull(requests);
-        var resolved = new List<RouteLeg>(requests.Count);
+        var expanded = new List<RouteLeg>();
         foreach (var request in requests)
-            resolved.Add(ResolveDynamicRoute(request));
+            expanded.AddRange(ExpandDynamicRoute(request));
 
-        return resolved;
+        return expanded;
+    }
+
+    private static double ComputeRemainingDistanceForActiveGroup(
+        IReadOnlyList<RouteLeg> routeLegs,
+        int activeIndex,
+        double headPositionCm,
+        double activeLegStartCm)
+    {
+        var activeLeg = routeLegs[activeIndex];
+        if (string.IsNullOrWhiteSpace(activeLeg.GroupId) || activeLeg.GroupTotalDistanceCm <= 0)
+        {
+            var legEndCm = activeLegStartCm + activeLeg.DistanceCm;
+            return Math.Max(1.0, legEndCm - headPositionCm);
+        }
+
+        var groupStartAbsCm = activeLegStartCm - activeLeg.GroupOffsetStartCm;
+        var groupEndAbsCm = groupStartAbsCm + activeLeg.GroupTotalDistanceCm;
+        return Math.Max(1.0, groupEndAbsCm - headPositionCm);
+    }
+
+    private static RouteDriveProfile? ResolveGroupDriveProfile(IReadOnlyList<RouteLeg> routeLegs, int activeIndex)
+    {
+        var activeLeg = routeLegs[activeIndex];
+        if (activeLeg.DriveProfile is not null)
+            return activeLeg.DriveProfile;
+
+        if (string.IsNullOrWhiteSpace(activeLeg.GroupId))
+            return null;
+
+        for (var i = activeIndex - 1; i >= 0; i--)
+        {
+            var candidate = routeLegs[i];
+            if (!string.Equals(candidate.GroupId, activeLeg.GroupId, StringComparison.OrdinalIgnoreCase))
+                break;
+
+            if (candidate.DriveProfile is not null)
+                return candidate.DriveProfile;
+        }
+
+        for (var i = activeIndex + 1; i < routeLegs.Count; i++)
+        {
+            var candidate = routeLegs[i];
+            if (!string.Equals(candidate.GroupId, activeLeg.GroupId, StringComparison.OrdinalIgnoreCase))
+                break;
+
+            if (candidate.DriveProfile is not null)
+                return candidate.DriveProfile;
+        }
+
+        return null;
     }
 
     private void OnRouteChanged(int _)

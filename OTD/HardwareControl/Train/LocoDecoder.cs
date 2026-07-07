@@ -113,7 +113,7 @@ public class LocoDecoder : ILocoDecoder
 
             try
             {
-                // // Geschwindigkeit und Fahrtrichtung abfragen (Antworten werden über Callback verarbeitet)
+                // ToDo: Geschwindigkeit und Fahrtrichtung abfragen (Antworten werden über Callback verarbeitet)
                 Logging.Debug<LocoDecoder>(
                     $"Frage aktuelle Geschwindigkeit von der Zentrale ab (Adresse {Address})...");
                 await commandStation.QueryLocoSpeedDirectionAsync(Address, cancellationToken).ConfigureAwait(false);
@@ -166,7 +166,7 @@ public class LocoDecoder : ILocoDecoder
     {
         if (state is LocoDecoderFunctionState.Undefined)
             throw new ArgumentOutOfRangeException(nameof(state), state,
-                "FunctionState.Undefined: kein gültiger Wert zum Schalten.");
+                $"Invalid function state: Address={Address}, Function={function}, State={state}. Must be On or Off.");
 
         await _commandLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -178,7 +178,7 @@ public class LocoDecoder : ILocoDecoder
                     .ConfigureAwait(false);
             _functionStates[function] = state;
             Logging.Debug<LocoDecoder>(
-                $"Funktion {function} {(state == LocoDecoderFunctionState.On ? "AN" : "AUS")} an Adresse {Address} gesendet.");
+                $"Function state sent to Loco: Address={Address}, Function={function}, State={state}");
         }
         finally
         {
@@ -228,7 +228,7 @@ public class LocoDecoder : ILocoDecoder
             foreach (var station in _subscribedCommandStations)
                 await station.SetLocoSpeedAsync(Address, speedStep, direction, cancellationToken).ConfigureAwait(false);
             Logging.Debug<LocoDecoder>(
-                $"Fahrbefehl {direction} mit SpeedStep {speedStep} an Adresse {Address} gesendet.");
+                $"Speed command sent to Loco: Address={Address}, Direction={direction}, Speed step={speedStep}.");
 
             Direction = direction;
             SpeedStep = speedStep;

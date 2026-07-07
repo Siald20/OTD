@@ -32,44 +32,58 @@ public static class RouteValidator
                 $"StopPoint on RouteLeg '{leg.FromWaypointId}' must be within [0, {leg.DistanceCm}] cm.");
         }
 
-        if (leg.SensorMarkers is null)
+        if (leg.SensorMarkers is not null)
+        {
+            var localSensorIds = new HashSet<int>();
+            foreach (var marker in leg.SensorMarkers)
+            {
+                if (marker.OffsetCm < 0 || marker.OffsetCm > leg.DistanceCm)
+                {
+                    throw new RouteValidationException(
+                        $"SensorMarker '{marker.SensorId}' on RouteLeg '{leg.FromWaypointId}' must be within [0, {leg.DistanceCm}] cm.");
+                }
+
+                if (!localSensorIds.Add(marker.SensorId))
+                    throw new RouteValidationException($"Duplicate SensorMarker '{marker.SensorId}' on RouteLeg '{leg.FromWaypointId}'.");
+            }
+        }
+
+        if (leg.FeedbackReferences is null)
             return;
 
-        var localSensorIds = new HashSet<int>();
-        foreach (var marker in leg.SensorMarkers)
+        var localFeedbackIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var reference in leg.FeedbackReferences)
         {
-            if (marker.OffsetCm < 0 || marker.OffsetCm > leg.DistanceCm)
+            if (reference.OffsetCm < 0 || reference.OffsetCm > leg.DistanceCm)
             {
                 throw new RouteValidationException(
-                    $"SensorMarker '{marker.SensorId}' on RouteLeg '{leg.FromWaypointId}' must be within [0, {leg.DistanceCm}] cm.");
+                    $"FeedbackReference '{reference.TargetId}' on RouteLeg '{leg.FromWaypointId}' must be within [0, {leg.DistanceCm}] cm.");
             }
 
-            if (!localSensorIds.Add(marker.SensorId))
-                throw new RouteValidationException($"Duplicate SensorMarker '{marker.SensorId}' on RouteLeg '{leg.FromWaypointId}'.");
+            if (!localFeedbackIds.Add(reference.TargetId.Trim()))
+                throw new RouteValidationException($"Duplicate FeedbackReference '{reference.TargetId}' on RouteLeg '{leg.FromWaypointId}'.");
         }
     }
 
     public static void ValidateChain(IReadOnlyList<RouteLeg> legs)
     {
-        var fromWaypointSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var globalSensorIds = new HashSet<int>();
-
         for (var i = 0; i < legs.Count; i++)
         {
             var leg = legs[i];
             ValidateLeg(leg);
 
-            if (!fromWaypointSet.Add(leg.FromWaypointId.Trim()))
-                throw new RouteValidationException($"Duplicate FromWaypointId '{leg.FromWaypointId}'.");
 
-            if (leg.SensorMarkers is not null)
+            // Sensor IDs may repeat across legs when one physical detector is mapped
+            // to multiple logical route anchors (e.g., direction-specific section entries).
+
+            if (leg.FeedbackReferences is not null)
             {
-                foreach (var marker in leg.SensorMarkers)
+                foreach (var reference in leg.FeedbackReferences)
                 {
-                    if (!globalSensorIds.Add(marker.SensorId))
+                    if (reference.OffsetCm < 0 || reference.OffsetCm > leg.DistanceCm)
                     {
                         throw new RouteValidationException(
-                            $"SensorMarker '{marker.SensorId}' is not unique across RouteTable.");
+                            $"FeedbackReference '{reference.TargetId}' on RouteLeg '{leg.FromWaypointId}' must be within [0, {leg.DistanceCm}] cm.");
                     }
                 }
             }

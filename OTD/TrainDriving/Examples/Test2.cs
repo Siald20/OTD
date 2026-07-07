@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using OTD.Common;
 using OTD.HardwareControl;
 using OTD.TrainDriving.RouteControl.Domain;
+using OTD.TrainDriving.RouteControl.Services;
 using OTD.TrainDriving.Trajectory;
 
 namespace OTD.TrainDriving.Examples;
@@ -44,7 +45,10 @@ public static class Test2
         using var cts = new CancellationTokenSource();
 
         var train = new Train(Guid.Parse("8b9d1f2c-6a44-4e8f-9c31-5f2a7d1e0b6e"), commandStation);
-        using var controller = new RouteController(train);
+        var layoutService = new XmlRailwayLayoutService(
+            topologyFilePath: XmlRailwayLayoutService.GetDefaultTopologyFilePath());
+        var routeDefinitions = new XmlRouteDefinitionService(layoutService);
+        using var controller = new RouteController(train, routeDefinitions, layoutService);
 
         controller.AccelerationMs2 = 0.55;
         controller.UseAdaptiveSpeedStepInterval = true;
@@ -58,7 +62,6 @@ public static class Test2
             new RouteLeg(
                 FromWaypointId: "B2",
                 ToWaypointId: "K102",
-                DistanceCm: 224,
                 MaxSpeedKmh: 40,
                 DriveProfile: new RouteDriveProfile(
                     AccelerationPreset: AccelerationTrajectoryPreset.Linear,
@@ -66,13 +69,14 @@ public static class Test2
             new RouteLeg(
                 FromWaypointId: "K102",
                 ToWaypointId: "H41",
-                DistanceCm: 163,
                 MaxSpeedKmh: 60,
                 DriveProfile: new RouteDriveProfile(
                     AccelerationPreset: AccelerationTrajectoryPreset.Linear,
                     BrakingPreset: BrakingTrajectoryPreset.Linear),
-                AccelerationStartPolicy: AccelerationStartPolicy.AfterTrainClearsWaypoint,
-                StopPoint: new StopPoint(OffsetCm: 150, StopReason: "Zielhalt"))
+                StopPointToTargetCm: 13)
+            {
+                AccelerationStartPolicy = AccelerationStartPolicy.AfterTrainClearsWaypoint
+            }
         ]);
 
         var driveTask = controller.Run(cts.Token);

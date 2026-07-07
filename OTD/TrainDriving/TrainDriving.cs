@@ -50,8 +50,9 @@ public class TrainDriving
     private const int DefaultScale = 87;
     private static readonly TimeSpan DefaultSpeedStepInterval = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan DefaultMinSpeedStepInterval = TimeSpan.FromMilliseconds(100);
-    private const double DefaultAccelerationMs2 = 0.55;
-    private const double DefaultBrakePointCorrectionPercent = 0.0;
+    private const double DefaultAccelerationMs2 = 5; // 0.55
+    private const double DefaultBrakingMs2 = 0.8; // Independent deceleration rate (m/s²)
+    private const double DefaultBrakePointCorrectionPercent = 0; // -3.5
     private const double DefaultBrakePointCorrectionPercentPerVMax  = 0.0;
     private const double DefaultSpeedCurveFidelityPercent = 60.0;
 
@@ -78,6 +79,15 @@ public class TrainDriving
     /// data such as operating mass and locomotive power instead of being set manually.
     /// </summary>
     public double AccelerationMs2 { get; set; } = DefaultAccelerationMs2;
+
+    /// <summary>
+    /// Effective train deceleration/braking in m/s² for braking phases.
+    /// This value is independent from <see cref="AccelerationMs2"/> and represents the actual braking capability.
+    /// This value is interpreted in prototype units and converted to model scale internally.
+    /// REMINDER: In the long term this value should be derived automatically from <c>Train</c>/<c>TrainComposition</c>
+    /// data such as brake type and friction instead of being set manually.
+    /// </summary>
+    public double BrakingMs2 { get; set; } = DefaultBrakingMs2;
 
     /// <summary>
     /// Enables adaptive speed-step timing. If enabled, small expected speed changes
@@ -172,7 +182,8 @@ public class TrainDriving
 
     /// <summary>
     /// Accelerates from the train's current speed (<see cref="Train.SpeedV"/>) to <paramref name="targetSpeed"/>.
-    /// The acceleration distance is derived from <see cref="AccelerationPreset"/> and <see cref="AccelerationMs2"/>.
+    /// The acceleration is purely time-based, governed exclusively by <see cref="AccelerationMs2"/>.
+    /// No distance limit applies — acceleration runs until the target speed is reached or the token is cancelled.
     /// </summary>
     public async Task AccelerateAsync(
         int targetSpeed,
@@ -189,13 +200,88 @@ public class TrainDriving
         if (targetSpeed == currentSpeed)
             return;
 
-        var distanceCm = EstimateAccelerationDistanceCm(
-            currentSpeed,
-            targetSpeed,
-            DefaultScale,
-            AccelerationMs2);
+        await DriveAccelerationAsync(targetSpeed, cancellationToken).ConfigureAwait(false);
+    }
 
-        await DriveDistanceAsync(currentSpeed, targetSpeed, distanceCm, cancellationToken).ConfigureAwait(false);
+    /// <summary>
+    /// Purely time-based acceleration loop.
+    /// Ramps up commanded speed at the rate defined by <see cref="AccelerationMs2"/>,
+    /// integrates position, fires <see cref="ProgressTick"/>, and returns the total
+    /// distance traveled (in model cm) during the acceleration phase.
+    /// </summary>
+    private async Task<double> DriveAccelerationAsync(
+        int targetSpeedKmh,
+        CancellationToken cancellationToken = default)
+    {
+        var train = GetBoundTrain();
+        // Convert prototype m/s² → km/h/s for easy per-tick increment.
+        var accelerationKmhPerSecond = Math.Max(0.001, AccelerationMs2 * 3.6);
+        var commandedSpeedKmh = (double)Math.Max(0, train.SpeedV);
+        var traveledCm = 0.0;
+        int? lastSentSpeedKmh = null;
+
+        var stopwatch = Stopwatch.StartNew();
+        var lastTick = stopwatch.Elapsed;
+
+        Logging.Debug<TrainDriving>(
+            $"Acceleration start: from={commandedSpeedKmh:F0} km/h → target={targetSpeedKmh} km/h, " +
+            $"a={AccelerationMs2:F2} m/s² ({accelerationKmhPerSecond:F1} km/h/s)");
+
+        while (commandedSpeedKmh < targetSpeedKmh - 0.001)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Use a balanced tick interval for smooth commands without flooding the bus.
+            var accelInterval = UseAdaptiveSpeedStepInterval
+                ? TimeSpan.FromMilliseconds(
+                    (MinSpeedStepInterval.TotalMilliseconds + MaxSpeedStepInterval.TotalMilliseconds) / 2.0)
+                : MaxSpeedStepInterval;
+
+            Logging.DebugExtended<TrainDriving>(
+                $"Accel tick: cmd={commandedSpeedKmh:F1} km/h, delay={accelInterval.TotalMilliseconds:F0} ms");
+
+            await Task.Delay(accelInterval, cancellationToken).ConfigureAwait(false);
+
+            var now = stopwatch.Elapsed;
+            var dtSeconds = (now - lastTick).TotalSeconds;
+            lastTick = now;
+
+            var prevSpeed = commandedSpeedKmh;
+            commandedSpeedKmh = Math.Min(targetSpeedKmh, commandedSpeedKmh + accelerationKmhPerSecond * dtSeconds);
+            var avgSpeedKmh = (prevSpeed + commandedSpeedKmh) / 2.0;
+
+            var deltaCm = ModelCmPerSecondFromPrototypeKmh(avgSpeedKmh, DefaultScale) * dtSeconds;
+            if (Math.Abs(deltaCm) < 0.5 && commandedSpeedKmh > 0.0)
+                deltaCm = 1.0;
+
+            var prevTraveled = traveledCm;
+            traveledCm += deltaCm;
+
+            var roundedSpeedKmh = (int)Math.Round(commandedSpeedKmh, MidpointRounding.AwayFromZero);
+
+            RaiseProgressTick(new TrainDrivingProgressTick(
+                DeltaCmModel: traveledCm - prevTraveled,
+                CommandedSpeedKmhPrototype: Math.Max(0, roundedSpeedKmh)));
+
+            if (lastSentSpeedKmh != roundedSpeedKmh)
+            {
+                await train.SetSpeedVAsync(roundedSpeedKmh, cancellationToken).ConfigureAwait(false);
+                lastSentSpeedKmh = roundedSpeedKmh;
+
+                Logging.DebugExtended<TrainDriving>(
+                    $"Accel cmd sent: speed={roundedSpeedKmh} km/h, traveled={traveledCm:F1} cm, " +
+                    $"dt={dtSeconds * 1000.0:F0} ms");
+            }
+        }
+
+        // Ensure exact target speed is sent.
+        if (lastSentSpeedKmh != targetSpeedKmh)
+            await train.SetSpeedVAsync(targetSpeedKmh, cancellationToken).ConfigureAwait(false);
+
+        Logging.Debug<TrainDriving>(
+            $"Acceleration complete: reached {targetSpeedKmh} km/h, traveled={traveledCm:F1} cm");
+
+        return traveledCm;
     }
 
     /// <summary>
@@ -525,8 +611,25 @@ public class TrainDriving
 
     /// <summary>
     /// Executes one route cycle using the start-waypoint permission and cycle distance.
-    /// If a drive profile exists on the cycle's start waypoint, it temporarily overrides
-    /// AccelerationPreset/BrakingPreset for this call.
+    ///
+    /// Hybrid behaviour:
+    /// <list type="bullet">
+    ///   <item><description>
+    ///     <b>Accelerating</b> (currentSpeed &lt; AllowedSpeedKmh):
+    ///     Time-based ramp (governed by <see cref="AccelerationMs2"/>), no distance limit.
+    ///     After the target speed is reached, the remaining segment distance is covered at constant speed (<see cref="HoldSpeedAsync"/>).
+    ///   </description></item>
+    ///   <item><description>
+    ///     <b>Braking</b> (currentSpeed &gt; AllowedSpeedKmh):
+    ///     Distance-based braking ramp over the full segment distance.
+    ///   </description></item>
+    ///   <item><description>
+    ///     <b>Holding</b> (currentSpeed == AllowedSpeedKmh):
+    ///     Constant speed for the segment distance.
+    ///   </description></item>
+    /// </list>
+    ///
+    /// If a drive profile exists on the cycle, it temporarily overrides AccelerationPreset/BrakingPreset.
     /// AccelerationMs2 is global and is not overridden by route cycle drive profiles.
     /// </summary>
     /// <param name="cycle">The route cycle providing distance, allowed speed, and optional drive profile.</param>
@@ -544,29 +647,59 @@ public class TrainDriving
         var originalAccelerationPreset = AccelerationPreset;
         var originalBrakingPreset = BrakingPreset;
 
-        // AccelerationPreset override from route drive profile.
         if (cycle.DriveProfile?.AccelerationPreset is not null)
-        {
-            var accelerationPreset = cycle.DriveProfile.AccelerationPreset.Value;
-            AccelerationPreset = accelerationPreset;
-        }
+            AccelerationPreset = cycle.DriveProfile.AccelerationPreset.Value;
 
         if (cycle.DriveProfile?.BrakingPreset is not null)
-        {
-            var brakingPreset = cycle.DriveProfile.BrakingPreset.Value;
-            BrakingPreset = brakingPreset;
-        }
+            BrakingPreset = cycle.DriveProfile.BrakingPreset.Value;
 
         try
         {
-            if (targetSpeedKmh > currentSpeedKmh)
+            // ── Hybrid segment: accelerate toward intermediate peak, then brake to target ──
+            // Active when MaxIntermediateSpeedKmh is set, exceeds the end target, and the
+            // segment has enough distance to be meaningful.
+            var maxIntermediate = cycle.MaxIntermediateSpeedKmh;
+            var isHybridSegment =
+                maxIntermediate.HasValue &&
+                maxIntermediate.Value > targetSpeedKmh &&
+                maxIntermediate.Value > currentSpeedKmh &&
+                distanceCm > 0;
+
+            if (isHybridSegment)
             {
-                await AccelerateAsync(
-                    targetSpeed: targetSpeedKmh,
+                Logging.Debug<TrainDriving>(
+                    $"RouteCycle hybrid: from={currentSpeedKmh} km/h, peak={maxIntermediate!.Value} km/h, " +
+                    $"end={targetSpeedKmh} km/h, distance={distanceCm} cm");
+
+                await DriveHybridSegmentAsync(
+                    maxSpeedKmh: maxIntermediate.Value,
+                    endSpeedKmh: targetSpeedKmh,
+                    totalDistanceCm: distanceCm,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            else if (targetSpeedKmh > currentSpeedKmh)
+            {
+                // --- Hybrid: time-based acceleration, then hold for remaining segment distance ---
+                var traveledDuringAccelCm = await DriveAccelerationAsync(
+                    targetSpeedKmh,
+                    cancellationToken).ConfigureAwait(false);
+
+                var remainingDistanceCm = Math.Max(0.0, distanceCm - traveledDuringAccelCm);
+                if (remainingDistanceCm > 0.001)
+                {
+                    Logging.Debug<TrainDriving>(
+                        $"RouteCycle hold phase after acceleration: speed={targetSpeedKmh} km/h, " +
+                        $"remaining={remainingDistanceCm:F1} cm (segment={distanceCm} cm, accel={traveledDuringAccelCm:F1} cm)");
+
+                    await HoldSpeedAsync(
+                        speedKmh: targetSpeedKmh,
+                        distance: (int)Math.Round(remainingDistanceCm, MidpointRounding.AwayFromZero),
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
+                }
             }
             else if (targetSpeedKmh < currentSpeedKmh)
             {
+                // --- Distance-based braking ramp ---
                 await BrakeAsync(
                     targetSpeed: targetSpeedKmh,
                     distance: distanceCm,
@@ -574,6 +707,7 @@ public class TrainDriving
             }
             else
             {
+                // --- Hold at current speed ---
                 await HoldSpeedAsync(
                     speedKmh: targetSpeedKmh,
                     distance: distanceCm,
@@ -595,23 +729,147 @@ public class TrainDriving
         return _train;
     }
 
-    private static int EstimateAccelerationDistanceCm(
-        int currentSpeedKmhPrototype,
-        int targetSpeedKmhPrototype,
-        int scale,
-        double accelerationMs2)
+    /// <summary>
+    /// Estimates the braking distance in model cm from <paramref name="fromSpeedKmh"/> to
+    /// <paramref name="toSpeedKmh"/> using <see cref="BrakingMs2"/> as deceleration reference.
+    /// Returns 0 if fromSpeed &lt;= toSpeed.
+    /// </summary>
+    private double EstimateBrakeDistanceCm(double fromSpeedKmh, double toSpeedKmh)
     {
-        if (targetSpeedKmhPrototype <= currentSpeedKmhPrototype)
-            return 0;
+        if (fromSpeedKmh <= toSpeedKmh)
+            return 0.0;
 
-        if (accelerationMs2 <= 0)
-            return 1;
+        var a = Math.Max(0.001, BrakingMs2);
+        var v0 = fromSpeedKmh / 3.6;
+        var v1 = toSpeedKmh / 3.6;
+        var distancePrototypeM = (v0 * v0 - v1 * v1) / (2.0 * a);
+        return distancePrototypeM * 100.0 / DefaultScale;
+    }
 
-        var v0 = currentSpeedKmhPrototype / 3.6;
-        var v1 = targetSpeedKmhPrototype / 3.6;
-        var distanceMetersPrototype = (v1 * v1 - v0 * v0) / (2.0 * accelerationMs2);
-        var distanceCmModel = distanceMetersPrototype * 100.0 / scale;
-        return Math.Max(1, (int)Math.Round(distanceCmModel, MidpointRounding.AwayFromZero));
+    /// <summary>
+    /// Hybrid segment drive: accelerates freely (time-based) toward <paramref name="maxSpeedKmh"/>,
+    /// holds at that speed if reached, then switches to a distance-based braking ramp once the
+    /// calculated brake point is reached, arriving at <paramref name="endSpeedKmh"/> at the end of
+    /// the segment.
+    ///
+    /// All three sub-phases (accelerate → [hold] → brake) are contained in a single call.
+    /// Position is tracked throughout and <see cref="ProgressTick"/> is raised on every tick.
+    /// </summary>
+    /// <param name="maxSpeedKmh">Peak speed the train may reach during the segment.</param>
+    /// <param name="endSpeedKmh">Target speed at the END of the segment (braking target).</param>
+    /// <param name="totalDistanceCm">Full length of the segment in model cm.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task DriveHybridSegmentAsync(
+        int maxSpeedKmh,
+        int endSpeedKmh,
+        int totalDistanceCm,
+        CancellationToken cancellationToken = default)
+    {
+        var train = GetBoundTrain();
+        var accelKmhPerSecond = Math.Max(0.001, AccelerationMs2 * 3.6);
+        var commandedSpeedKmh = (double)Math.Max(0, train.SpeedV);
+        var traveledCm = 0.0;
+        int? lastSentSpeedKmh = null;
+
+        var stopwatch = Stopwatch.StartNew();
+        var lastTick = stopwatch.Elapsed;
+
+        Logging.Debug<TrainDriving>(
+            $"HybridSegment start: from={commandedSpeedKmh:F0} km/h, peak={maxSpeedKmh} km/h, " +
+            $"end={endSpeedKmh} km/h, distance={totalDistanceCm} cm, a={AccelerationMs2:F2} m/s²");
+
+        // ── Phase 1: Accelerate toward maxSpeedKmh (then hold), until brake point is reached ──
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Check brake trigger BEFORE delay to act as early as possible.
+            var remainingCm = Math.Max(0.0, totalDistanceCm - traveledCm);
+            var neededBrakeCm = EstimateBrakeDistanceCm(commandedSpeedKmh, endSpeedKmh);
+
+            if (remainingCm <= neededBrakeCm + 0.5 || traveledCm >= totalDistanceCm - 0.001)
+            {
+                Logging.Debug<TrainDriving>(
+                    $"HybridSegment brake trigger: traveled={traveledCm:F1}/{totalDistanceCm} cm, " +
+                    $"remaining={remainingCm:F1} cm, neededBrake={neededBrakeCm:F1} cm, " +
+                    $"cmd={commandedSpeedKmh:F1} km/h");
+                break;
+            }
+
+            var accelInterval = UseAdaptiveSpeedStepInterval
+                ? TimeSpan.FromMilliseconds(
+                    (MinSpeedStepInterval.TotalMilliseconds + MaxSpeedStepInterval.TotalMilliseconds) / 2.0)
+                : MaxSpeedStepInterval;
+
+            Logging.DebugExtended<TrainDriving>(
+                $"HybridSegment accel/hold tick: cmd={commandedSpeedKmh:F1} km/h, " +
+                $"remaining={remainingCm:F1} cm, neededBrake={neededBrakeCm:F1} cm, " +
+                $"delay={accelInterval.TotalMilliseconds:F0} ms");
+
+            await Task.Delay(accelInterval, cancellationToken).ConfigureAwait(false);
+
+            var now = stopwatch.Elapsed;
+            var dtSeconds = (now - lastTick).TotalSeconds;
+            lastTick = now;
+
+            // Accelerate or clamp at maxSpeedKmh (hold phase).
+            var prevSpeed = commandedSpeedKmh;
+            commandedSpeedKmh = Math.Min(maxSpeedKmh, commandedSpeedKmh + accelKmhPerSecond * dtSeconds);
+            var avgSpeedKmh = (prevSpeed + commandedSpeedKmh) / 2.0;
+
+            var deltaCm = ModelCmPerSecondFromPrototypeKmh(avgSpeedKmh, DefaultScale) * dtSeconds;
+            if (Math.Abs(deltaCm) < 0.5 && commandedSpeedKmh > 0.0)
+                deltaCm = 1.0;
+
+            var prevTraveled = traveledCm;
+            traveledCm += deltaCm;
+
+            var roundedSpeedKmh = (int)Math.Round(commandedSpeedKmh, MidpointRounding.AwayFromZero);
+
+            RaiseProgressTick(new TrainDrivingProgressTick(
+                DeltaCmModel: traveledCm - prevTraveled,
+                CommandedSpeedKmhPrototype: Math.Max(0, roundedSpeedKmh)));
+
+            if (lastSentSpeedKmh != roundedSpeedKmh)
+            {
+                await train.SetSpeedVAsync(roundedSpeedKmh, cancellationToken).ConfigureAwait(false);
+                lastSentSpeedKmh = roundedSpeedKmh;
+
+                Logging.DebugExtended<TrainDriving>(
+                    $"HybridSegment cmd sent: speed={roundedSpeedKmh} km/h, traveled={traveledCm:F1} cm, " +
+                    $"dt={dtSeconds * 1000.0:F0} ms");
+            }
+        }
+
+        // ── Phase 2: Distance-based braking ramp over remaining segment distance ──
+        var remainingBrakeCm = Math.Max(1, (int)Math.Round(totalDistanceCm - traveledCm, MidpointRounding.AwayFromZero));
+        var speedAtBrakeEntry = Math.Max(0, train.SpeedV);
+
+        Logging.Debug<TrainDriving>(
+            $"HybridSegment braking phase: current={speedAtBrakeEntry} km/h → target={endSpeedKmh} km/h, " +
+            $"remaining={remainingBrakeCm} cm");
+
+        if (speedAtBrakeEntry > endSpeedKmh)
+        {
+            await BrakeAsync(
+                targetSpeed: endSpeedKmh,
+                distance: remainingBrakeCm,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        else if (speedAtBrakeEntry < endSpeedKmh)
+        {
+            // Edge case: speed dropped below endSpeed (e.g., very short segment).
+            // Accelerate to endSpeed directly.
+            await DriveAccelerationAsync(endSpeedKmh, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await HoldSpeedAsync(endSpeedKmh, remainingBrakeCm, cancellationToken).ConfigureAwait(false);
+        }
+
+        Logging.Debug<TrainDriving>(
+            $"HybridSegment complete: total traveled≈{traveledCm:F1}+brakeDist cm, " +
+            $"endSpeed={endSpeedKmh} km/h");
     }
 
     private async Task HoldSpeedAsync(

@@ -9,58 +9,66 @@ using System.Xml.Linq;
 using OTD.Common;
 using OTD.TrainDriving.RouteControl.Domain;
 using OTD.TrainDriving.RouteControl.Exceptions;
-using OTD.TrainDriving.Trajectory;
 
 namespace OTD.TrainDriving.RouteControl.Services;
 
 public sealed class XmlRouteDefinitionService : IRouteDefinitionService
 {
-    private const string ConfigFileName = "routelegs.xml";
+    private const string ConfigFileName = "topology.xml";
 
     private readonly object _sync = new();
     private readonly string _configPath;
-    private Dictionary<(string From, string To), StaticRouteLegData> _legs = new();
+    private readonly IRailwayLayoutService _trackLayoutService;
+    private Dictionary<(string A, string B), RouteSegment> _segments = new();
 
     public event Action? DefinitionsChanged;
 
     public XmlRouteDefinitionService(string? configFilePath = null)
+        : this(new XmlRailwayLayoutService(topologyFilePath: configFilePath ?? GetDefaultConfigFilePath()), configFilePath)
     {
+    }
+
+    public XmlRouteDefinitionService(IRailwayLayoutService? trackLayoutService, string? configFilePath = null)
+    {
+        _trackLayoutService = trackLayoutService ?? new XmlRailwayLayoutService(
+            topologyFilePath: configFilePath ?? GetDefaultConfigFilePath());
         _configPath = string.IsNullOrWhiteSpace(configFilePath)
             ? GetDefaultConfigFilePath()
             : Path.GetFullPath(configFilePath);
 
+        _trackLayoutService.DefinitionsChanged += OnRailwayLayoutDefinitionsChanged;
         Reload();
     }
 
-    public bool TryGetLeg(string fromWaypointId, string toWaypointId, out StaticRouteLegData legData)
+    public bool TryGetSegment(string fromWaypointId, string toWaypointId, out RouteSegment segment)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fromWaypointId);
         ArgumentException.ThrowIfNullOrWhiteSpace(toWaypointId);
 
-        var key = (NormalizeKey(fromWaypointId), NormalizeKey(toWaypointId));
+        var key = CreateUndirectedKey(fromWaypointId, toWaypointId);
         lock (_sync)
         {
-            return _legs.TryGetValue(key, out legData!);
+            return _segments.TryGetValue(key, out segment!);
         }
     }
 
-    public IReadOnlyCollection<StaticRouteLegData> GetAllLegs()
+    public IReadOnlyCollection<RouteSegment> GetAllSegments()
     {
         lock (_sync)
         {
-            return _legs.Values.ToList().AsReadOnly();
+            return _segments.Values.ToList().AsReadOnly();
         }
     }
 
     public void Reload()
     {
-        var loaded = LoadFromFile(_configPath);
+        var loaded = LoadSegmentsFromFile(_trackLayoutService, _configPath);
         lock (_sync)
         {
-            _legs = loaded;
+            _segments = loaded;
         }
 
-        Logging.Info<XmlRouteDefinitionService>($"Route definition config loaded: legs={loaded.Count}, file='{_configPath}'.");
+        Logging.Info<XmlRouteDefinitionService>($"Route definition config loaded: segments={loaded.Count}, file='{_configPath}'.");
         DefinitionsChanged?.Invoke();
     }
 
@@ -70,10 +78,73 @@ public sealed class XmlRouteDefinitionService : IRouteDefinitionService
         return Path.GetFullPath(Path.Combine(appDataPath, ConfigFileName));
     }
 
-    private static Dictionary<(string From, string To), StaticRouteLegData> LoadFromFile(string configPath)
+    private void OnRailwayLayoutDefinitionsChanged() => Reload();
+
+    private static Dictionary<(string A, string B), RouteSegment> LoadSegmentsFromFile(
+        IRailwayLayoutService trackLayoutService,
+        string configPath)
     {
+        var generatedLegs = trackLayoutService.GetAllGeneratedLegs();
+        var generatedLegsByDirectedKey = generatedLegs.ToDictionary(
+            leg => CreateDirectedKey(leg.FromWaypointId, leg.ToWaypointId),
+            leg => leg);
+        var generatedDirectedKeys = new HashSet<(string From, string To)>(
+            generatedLegs.Select(leg => CreateDirectedKey(leg.FromWaypointId, leg.ToWaypointId)));
+
+        var segments = ParseSegmentsFromFile(configPath);
+        var result = new Dictionary<(string A, string B), RouteSegment>();
+
+        foreach (var segment in segments)
+        {
+            var directKey = CreateDirectedKey(segment.FromWaypointId, segment.ToWaypointId);
+            var reverseKey = CreateDirectedKey(segment.ToWaypointId, segment.FromWaypointId);
+            if (!generatedDirectedKeys.Contains(directKey) && !generatedDirectedKeys.Contains(reverseKey))
+            {
+                throw new RouteValidationException(
+                    $"routesegment '{segment.FromWaypointId}->{segment.ToWaypointId}' is not a neighboring waypoint segment in railwaylayout.xml.");
+            }
+
+            var undirectedKey = CreateUndirectedKey(segment.FromWaypointId, segment.ToWaypointId);
+            if (result.ContainsKey(undirectedKey))
+            {
+                throw new RouteValidationException(
+                    $"Duplicate routesegment override for pair '{segment.FromWaypointId}<->{segment.ToWaypointId}'.");
+            }
+
+            var lengthCm = ResolveSegmentLengthCm(segment.FromWaypointId, segment.ToWaypointId, generatedLegsByDirectedKey);
+
+            result[undirectedKey] = new RouteSegment(
+                FromWaypointId: segment.FromWaypointId,
+                ToWaypointId: segment.ToWaypointId,
+                LengthCm: lengthCm,
+                MaxSpeedByClassKmh: segment.Defaults.MaxSpeedByClassKmh);
+        }
+
+        return result;
+    }
+
+    private static int ResolveSegmentLengthCm(
+        string fromWaypointId,
+        string toWaypointId,
+        IReadOnlyDictionary<(string From, string To), GeneratedTrackLeg> generatedLegsByDirectedKey)
+    {
+        var directKey = CreateDirectedKey(fromWaypointId, toWaypointId);
+        if (generatedLegsByDirectedKey.TryGetValue(directKey, out var directLeg))
+            return directLeg.DistanceCm;
+
+        var reverseKey = CreateDirectedKey(toWaypointId, fromWaypointId);
+        if (generatedLegsByDirectedKey.TryGetValue(reverseKey, out var reverseLeg))
+            return reverseLeg.DistanceCm;
+
+        throw new RouteValidationException(
+            $"Unable to derive length for routesegment '{fromWaypointId}<->{toWaypointId}' from railwaylayout topology.");
+    }
+
+    private static List<RouteOverrideDefinition> ParseSegmentsFromFile(string configPath)
+    {
+        var overrides = new List<RouteOverrideDefinition>();
         if (!File.Exists(configPath))
-            throw new RouteValidationException($"Route definition file not found: {configPath}");
+            return overrides;
 
         XDocument document;
         try
@@ -86,231 +157,113 @@ public sealed class XmlRouteDefinitionService : IRouteDefinitionService
         }
 
         var root = document.Root;
-        if (root is null || !string.Equals(root.Name.LocalName, "routelegs", StringComparison.OrdinalIgnoreCase))
-            throw new RouteValidationException("routelegs.xml root element must be <routelegs>.");
+        if (root is null)
+            throw new RouteValidationException("topology.xml must contain a root element.");
 
-        var globalDefaults = ParseDefaults(root.Element("defaults"), null);
-        var result = new Dictionary<(string From, string To), StaticRouteLegData>();
+        var rootName = root.Name.LocalName;
+        var isTopologyRoot = string.Equals(rootName, "topology", StringComparison.OrdinalIgnoreCase);
+        var isRouteSegmentsRoot = string.Equals(rootName, "routesegments", StringComparison.OrdinalIgnoreCase)
+                                  || string.Equals(rootName, "routesegemnts", StringComparison.OrdinalIgnoreCase);
+        var isLegacyRouteLegsRoot = string.Equals(rootName, "routelegs", StringComparison.OrdinalIgnoreCase);
+        if (!isTopologyRoot && !isRouteSegmentsRoot && !isLegacyRouteLegsRoot)
+            throw new RouteValidationException("topology.xml root element must be <topology> (legacy: <routesegments> or <routelegs>)." );
 
-        foreach (var legElement in root.Elements("routeleg"))
+        var segmentElementName = isTopologyRoot ? "segment" : (isRouteSegmentsRoot ? "routesegment" : "routeleg");
+        foreach (var routeLegElement in root.Elements(segmentElementName))
         {
-            var from = RequireAttribute(legElement, "fromwaypoint", "routeleg");
-            var to = RequireAttribute(legElement, "towaypoint", "routeleg");
-
-            var distanceCm = ParseIntAttribute(legElement, "distance_cm")
-                ?? ParseIntAttribute(legElement, "length")
-                ?? throw new RouteValidationException($"RouteLeg '{from}->{to}' requires attribute distance_cm (legacy: length).");
-
-            if (distanceCm <= 0)
-                throw new RouteValidationException($"RouteLeg '{from}->{to}' requires distance_cm > 0.");
-
-            var category = OptionalAttribute(legElement, "category") ?? "other";
-            var localDefaults = ParseDefaults(legElement.Element("defaults"), globalDefaults);
-
-            var maxSpeedKmh = ParseDoubleAttribute(legElement, "max_speed_kmh")
-                              ?? ResolveSpeedByCategory(localDefaults.SpeedByCategoryKmh, category);
-
-            var sensors = ParseSensors(legElement.Element("sensors"), distanceCm, localDefaults.SensorActivationTimeoutMs);
-
-            var key = (NormalizeKey(from), NormalizeKey(to));
-            if (result.ContainsKey(key))
-                throw new RouteValidationException($"Duplicate static route definition for '{from}->{to}'.");
-
-            result[key] = new StaticRouteLegData(
-                FromWaypointId: from.Trim(),
-                ToWaypointId: to.Trim(),
-                DistanceCm: distanceCm,
-                SensorMarkers: sensors,
-                DefaultMaxSpeedKmh: maxSpeedKmh,
-                DefaultDriveProfile: localDefaults.DriveProfile,
-                DefaultAccelerationStartPolicy: localDefaults.AccelerationStartPolicy,
-                DefaultStopPoint: localDefaults.StopPoint,
-                Metadata: null);
-        }
-
-        return result;
-    }
-
-    private static IReadOnlyList<SensorMarker>? ParseSensors(XElement? sensorsElement, int distanceCm, int? defaultTimeoutMs)
-    {
-        if (sensorsElement is null)
-            return null;
-
-        var markers = new List<SensorMarker>();
-        var localIds = new HashSet<int>();
-
-        foreach (var sensorElement in sensorsElement.Elements("sensor"))
-        {
-            var sensorId = ParseIntAttribute(sensorElement, "id")
-                ?? throw new RouteValidationException("sensor requires id.");
-            var offsetCm = ParseIntAttribute(sensorElement, "offset_cm")
-                ?? ParseIntAttribute(sensorElement, "offset")
-                ?? throw new RouteValidationException($"sensor '{sensorId}' requires offset_cm (legacy: offset).");
-
-            if (offsetCm < 0 || offsetCm > distanceCm)
+            if (routeLegElement.Elements("direction").Any())
             {
                 throw new RouteValidationException(
-                    $"SensorMarker '{sensorId}' must be within [0, {distanceCm}] cm.");
+                    "Direction-specific routesegments are not supported.");
             }
 
-            if (!localIds.Add(sensorId))
-                throw new RouteValidationException($"Duplicate SensorMarker '{sensorId}' in one routeleg.");
+            var fromWaypointId = OptionalAttribute(routeLegElement, "from")
+                                 ?? OptionalAttribute(routeLegElement, "waypoint1")
+                                  ?? throw new RouteValidationException("routesegment requires from (legacy: waypoint1).");
+            var toWaypointId = OptionalAttribute(routeLegElement, "to")
+                               ?? OptionalAttribute(routeLegElement, "waypoint2")
+                               ?? throw new RouteValidationException("routesegment requires to (legacy: waypoint2).");
+            if (string.Equals(fromWaypointId.Trim(), toWaypointId.Trim(), StringComparison.OrdinalIgnoreCase))
+                throw new RouteValidationException($"routesegment '{fromWaypointId}' requires distinct from/to.");
 
-            var timeoutMs = ParseIntAttribute(sensorElement, "activation_timeout_ms") ?? defaultTimeoutMs;
-            markers.Add(new SensorMarker(SensorId: sensorId, OffsetCm: offsetCm, ActivationTimeoutMs: timeoutMs));
+            if (!string.IsNullOrWhiteSpace(OptionalAttribute(routeLegElement, "intermediate")))
+            {
+                throw new RouteValidationException(
+                    $"routesegment '{fromWaypointId}->{toWaypointId}' must not define intermediate='...'. Only neighboring segments are allowed.");
+            }
+
+            var parsedDefaults = ParseDefaults(routeLegElement);
+            var undirectedKey = CreateUndirectedKey(fromWaypointId, toWaypointId);
+            if (overrides.Any(existing => CreateUndirectedKey(existing.FromWaypointId, existing.ToWaypointId) == undirectedKey))
+            {
+                throw new RouteValidationException(
+                    $"Duplicate routesegment override for pair '{fromWaypointId}<->{toWaypointId}'.");
+            }
+
+            overrides.Add(new RouteOverrideDefinition(
+                FromWaypointId: fromWaypointId.Trim(),
+                ToWaypointId: toWaypointId.Trim(),
+                Defaults: parsedDefaults));
         }
 
-        return markers.Count == 0 ? null : markers.AsReadOnly();
+        return overrides;
     }
 
-    private static RouteDefaults ParseDefaults(XElement? defaultsElement, RouteDefaults? fallback)
+    private static RouteOverride ParseDefaults(XElement routeLegElement)
     {
-        var speedByCategory = fallback?.SpeedByCategoryKmh is null
-            ? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
-            : new Dictionary<string, double>(fallback.SpeedByCategoryKmh, StringComparer.OrdinalIgnoreCase);
+        var defaultsElement = routeLegElement.Element("defaults");
+        var speedBySpeedClass = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        var driveProfile = fallback?.DriveProfile;
-        var accelerationStartPolicy = fallback?.AccelerationStartPolicy;
-        var stopPoint = fallback?.StopPoint;
-        var sensorActivationTimeoutMs = fallback?.SensorActivationTimeoutMs;
+        // Tolerant parser: only speedlimits are evaluated, all other elements are ignored.
+        var speedLimitsElements = routeLegElement.Elements("speedlimits")
+            .Concat(defaultsElement?.Elements("speedlimits") ?? Enumerable.Empty<XElement>());
 
-        if (defaultsElement is not null)
+        foreach (var speedLimitsElement in speedLimitsElements)
         {
-            var policyElement = defaultsElement.Element("acceleration_start_policy");
-            var policyValue = OptionalAttribute(policyElement, "value");
-            if (!string.IsNullOrWhiteSpace(policyValue) &&
-                Enum.TryParse<AccelerationStartPolicy>(policyValue, true, out var parsedPolicy))
+            foreach (var speedLimitElement in speedLimitsElement.Elements("speedlimit"))
             {
-                accelerationStartPolicy = parsedPolicy;
-            }
-
-            var driveProfileElement = defaultsElement.Element("driveprofile");
-            if (driveProfileElement is not null)
-            {
-                driveProfile = new RouteDriveProfile(
-                    AccelerationPreset: ParseAccelerationPreset(OptionalAttribute(driveProfileElement, "acceleration_preset")),
-                    BrakingPreset: ParseBrakingPreset(OptionalAttribute(driveProfileElement, "braking_preset")));
-            }
-            else
-            {
-                var legacyDriveProfilesElement = defaultsElement.Element("driveprofiles");
-                if (legacyDriveProfilesElement is not null)
-                    driveProfile = ParseLegacyDriveProfile(legacyDriveProfilesElement, fallback?.DriveProfile);
-            }
-
-            var speedLimitsElement = defaultsElement.Element("speedlimits");
-            if (speedLimitsElement is not null)
-            {
-                foreach (var speedLimitElement in speedLimitsElement.Elements("speedlimit"))
+                var speedClass = OptionalAttribute(speedLimitElement, "speedClass")
+                                 ?? OptionalAttribute(speedLimitElement, "category")
+                                 ?? OptionalAttribute(speedLimitElement, "catetory")
+                                 ?? "default";
+                var speedKmh = ParseIntAttribute(speedLimitElement, "speed_kmh")
+                               ?? ParseIntAttribute(speedLimitElement, "speed");
+                if (speedKmh is null)
                 {
-                    var category = OptionalAttribute(speedLimitElement, "category")
-                                   ?? OptionalAttribute(speedLimitElement, "catetory")
-                                   ?? "other";
-                    var speedKmh = ParseDoubleAttribute(speedLimitElement, "speed_kmh")
-                                   ?? ParseDoubleAttribute(speedLimitElement, "speed")
-                                   ?? throw new RouteValidationException($"speedlimit for category '{category}' requires speed_kmh (legacy: speed).");
-                    if (speedKmh <= 0)
-                        throw new RouteValidationException($"speedlimit for category '{category}' must be > 0.");
-
-                    speedByCategory[category.Trim()] = speedKmh;
+                    var speedAsDouble = ParseDoubleAttribute(speedLimitElement, "speed_kmh")
+                                       ?? ParseDoubleAttribute(speedLimitElement, "speed")
+                                       ?? throw new RouteValidationException($"speedlimit for speedClass '{speedClass}' requires speed_kmh.");
+                    speedKmh = (int)Math.Round(speedAsDouble, MidpointRounding.AwayFromZero);
                 }
-            }
+                if (speedKmh <= 0)
+                    throw new RouteValidationException($"speedlimit for speedClass '{speedClass}' must be > 0.");
 
-            var stopPointElement = defaultsElement.Element("stoppoint");
-            if (stopPointElement is not null)
-            {
-                var enabled = ParseBoolAttribute(stopPointElement, "enabled") ?? true;
-                if (enabled)
-                {
-                    var offset = ParseIntAttribute(stopPointElement, "offset_cm")
-                                 ?? ParseIntAttribute(stopPointElement, "offset")
-                                 ?? throw new RouteValidationException("defaults/stoppoint requires offset_cm when enabled=true.");
-                    var reason = OptionalAttribute(stopPointElement, "reason");
-                    stopPoint = new StopPoint(OffsetCm: offset, StopReason: reason);
-                }
-                else
-                {
-                    stopPoint = null;
-                }
-            }
-
-            var sensorElement = defaultsElement.Element("sensor");
-            if (sensorElement is not null)
-            {
-                sensorActivationTimeoutMs = ParseIntAttribute(sensorElement, "activation_timeout_ms");
+                speedBySpeedClass[speedClass.Trim()] = speedKmh.Value;
             }
         }
 
-        return new RouteDefaults(speedByCategory, driveProfile, accelerationStartPolicy, stopPoint, sensorActivationTimeoutMs);
+        return new RouteOverride(speedBySpeedClass.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase));
     }
 
-    private static RouteDriveProfile? ParseLegacyDriveProfile(XElement legacyContainer, RouteDriveProfile? fallback)
+
+    private static (string From, string To) CreateDirectedKey(string fromWaypointId, string toWaypointId)
     {
-        var acceleration = fallback?.AccelerationPreset;
-        var braking = fallback?.BrakingPreset;
-
-        foreach (var profileElement in legacyContainer.Elements("driveprofile"))
-        {
-            var profileType = OptionalAttribute(profileElement, "profile");
-            var presetValue = OptionalAttribute(profileElement, "preset");
-            if (string.IsNullOrWhiteSpace(profileType) || string.IsNullOrWhiteSpace(presetValue))
-                continue;
-
-            if (string.Equals(profileType, "acceleration", StringComparison.OrdinalIgnoreCase))
-                acceleration = ParseAccelerationPreset(presetValue);
-            else if (string.Equals(profileType, "braking", StringComparison.OrdinalIgnoreCase))
-                braking = ParseBrakingPreset(presetValue);
-        }
-
-        if (acceleration is null && braking is null)
-            return fallback;
-
-        return new RouteDriveProfile(acceleration, braking);
+        return (NormalizeKey(fromWaypointId), NormalizeKey(toWaypointId));
     }
 
-    private static AccelerationTrajectoryPreset? ParseAccelerationPreset(string? value)
+    private static (string A, string B) CreateUndirectedKey(string waypointA, string waypointB)
     {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        return Enum.TryParse<AccelerationTrajectoryPreset>(value, true, out var parsed)
-            ? parsed
-            : throw new RouteValidationException($"Unknown acceleration preset '{value}'.");
-    }
-
-    private static BrakingTrajectoryPreset? ParseBrakingPreset(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        return Enum.TryParse<BrakingTrajectoryPreset>(value, true, out var parsed)
-            ? parsed
-            : throw new RouteValidationException($"Unknown braking preset '{value}'.");
-    }
-
-    private static double? ResolveSpeedByCategory(Dictionary<string, double> speedByCategory, string category)
-    {
-        if (speedByCategory.TryGetValue(category.Trim(), out var speedByCategoryValue))
-            return speedByCategoryValue;
-
-        return speedByCategory.TryGetValue("other", out var speedByOtherValue)
-            ? speedByOtherValue
-            : null;
+        var a = NormalizeKey(waypointA);
+        var b = NormalizeKey(waypointB);
+        return string.CompareOrdinal(a, b) <= 0 ? (a, b) : (b, a);
     }
 
     private static string NormalizeKey(string value) => value.Trim().ToUpperInvariant();
 
-    private static string RequireAttribute(XElement element, string name, string context)
-    {
-        var value = OptionalAttribute(element, name);
-        return !string.IsNullOrWhiteSpace(value)
-            ? value.Trim()
-            : throw new RouteValidationException($"Missing required attribute '{name}' in {context}.");
-    }
-
     private static string? OptionalAttribute(XElement? element, string name)
     {
-        return element?.Attribute(name)?.Value?.Trim();
+        var attribute = element?.Attribute(name);
+        return attribute is null ? null : attribute.Value.Trim();
     }
 
     private static int? ParseIntAttribute(XElement? element, string name)
@@ -337,24 +290,13 @@ public sealed class XmlRouteDefinitionService : IRouteDefinitionService
         throw new RouteValidationException($"Invalid numeric value '{raw}' for attribute '{name}'.");
     }
 
-    private static bool? ParseBoolAttribute(XElement? element, string name)
-    {
-        var raw = OptionalAttribute(element, name);
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
+    private sealed record RouteOverride(
+        IReadOnlyDictionary<string, int> MaxSpeedByClassKmh);
 
-        if (bool.TryParse(raw, out var parsed))
-            return parsed;
-
-        throw new RouteValidationException($"Invalid boolean value '{raw}' for attribute '{name}'.");
-    }
-
-    private sealed record RouteDefaults(
-        Dictionary<string, double> SpeedByCategoryKmh,
-        RouteDriveProfile? DriveProfile,
-        AccelerationStartPolicy? AccelerationStartPolicy,
-        StopPoint? StopPoint,
-        int? SensorActivationTimeoutMs);
+    private sealed record RouteOverrideDefinition(
+        string FromWaypointId,
+        string ToWaypointId,
+        RouteOverride Defaults);
 }
 
 

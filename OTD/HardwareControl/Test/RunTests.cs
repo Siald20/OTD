@@ -27,6 +27,8 @@ using System.Xml.Linq;
 using OTD.HardwareControl.Drivers;
 using OTD.HardwareControl.Test;
 using OTD.TrainDriving.Examples;
+using OTD.TrainDriving.RouteControl.Services;
+using OTD.TrainDriving.RouteControl.Tests;
 
 namespace OTD.HardwareControl;
 
@@ -39,6 +41,39 @@ internal static class RunTests
 
     private static async Task RunAsync()
     {
+        var directTestId = Environment.GetEnvironmentVariable("OTD_TEST_CASE")?.Trim();
+        if (string.Equals(directTestId, "TRAINDRIVING_ROUTE_LAYOUT_MINIMAL", StringComparison.OrdinalIgnoreCase))
+        {
+            RouteLayoutMinimalExample.Run();
+            return;
+        }
+
+        if (string.Equals(directTestId, "TRAINDRIVING_ROUTELEG_BUILD_TRACE", StringComparison.OrdinalIgnoreCase))
+        {
+            RouteLegBuildTrace.RunInteractive();
+            return;
+        }
+
+        if (string.Equals(directTestId, "TRAINDRIVING_LAYOUT_LEGS_DUMP", StringComparison.OrdinalIgnoreCase))
+        {
+            var layoutPath = XmlRailwayLayoutService.GetDefaultConfigFilePath();
+            var topologyPath = XmlRailwayLayoutService.GetDefaultTopologyFilePath();
+            var layoutService = new XmlRailwayLayoutService(layoutPath, topologyPath);
+            var legs = layoutService.GetAllGeneratedLegs()
+                .OrderBy(leg => leg.FromWaypointId, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(leg => leg.ToWaypointId, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            Console.WriteLine($"Layout: {layoutPath}");
+            Console.WriteLine($"Generated legs: {legs.Count}");
+            Console.WriteLine();
+            foreach (var leg in legs)
+            {
+                var markers = leg.SensorMarkers?.Count ?? 0;
+                Console.WriteLine($"  {leg.FromWaypointId,-15} -> {leg.ToWaypointId,-15}  dist={leg.DistanceCm,4} cm  sensors={markers}");
+            }
+            return;
+        }
+
         var configPath = CommandStationUtils.GetDefaultConfigFilePath();
         var document = CommandStationUtils.LoadXDocument(configPath);
 
@@ -189,6 +224,27 @@ internal static class RunTests
             new TestEntry(
                 new SelectableEntry("FEEDBACK_MOCK_KEYBOARD", "test", "Mock Keyboard Feedback", null, 0),
                 (_, _) => MockKeyboardFeedback.RunAsync(),
+                false,
+                false)
+            ,
+            new TestEntry(
+                new SelectableEntry("TRAINDRIVING_ROUTE_LAYOUT_MINIMAL", "test", "TrainDriving: Minimales topologiebasiertes Layout-Beispiel (ohne Hardware)", null, 0),
+                (_, _) =>
+                {
+                    RailwayLayoutDirectedTable.Run();
+                    //RouteLayoutMinimalExample.Run();
+                    return Task.CompletedTask;
+                },
+                false,
+                false)
+            ,
+            new TestEntry(
+                new SelectableEntry("TRAINDRIVING_ROUTELEG_BUILD_TRACE", "test", "TrainDriving: RouteLeg-Aufbau Trace (Segmente/SensorMarker)", null, 0),
+                (_, _) =>
+                {
+                    RouteLegBuildTrace.RunInteractive();
+                    return Task.CompletedTask;
+                },
                 false,
                 false)
         ];

@@ -198,7 +198,7 @@ public sealed class RouteTableService
         handlers?.Invoke(version);
     }
 
-    public void UpdateActiveRouteLeg(string fromWaypointId, int? newDistanceCm = null, double? newMaxSpeedKmh = null)
+    public void UpdateActiveRouteLeg(string fromWaypointId, int? newDistanceCm = null, int? newMaxSpeedKmh = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fromWaypointId);
 
@@ -207,7 +207,7 @@ public sealed class RouteTableService
 
         lock (_sync)
         {
-            Logging.Info<RouteTableService>($"UpdateActiveRouteLeg: from={fromWaypointId}, dist={newDistanceCm?.ToString() ?? "-"}, vmax={newMaxSpeedKmh?.ToString("F0") ?? "-"}.");
+            Logging.Info<RouteTableService>($"UpdateActiveRouteLeg: from={fromWaypointId}, dist={newDistanceCm?.ToString() ?? "-"}, vmax={newMaxSpeedKmh?.ToString() ?? "-"}.");
             var activeIndex = GetActiveIndexUnsafe();
             if (activeIndex is null)
                 throw new RouteStateException("No active RouteLeg available for UpdateActiveRouteLeg.");
@@ -333,7 +333,7 @@ public sealed class RouteTableService
         }
     }
 
-    public SensorActivationResult OnSensorActivated(int sensorId)
+    public SensorActivationResult OnSensorActivated(int sensorId, double? estimatedHeadPositionCm = null)
     {
         Action<int>? handlers = null;
         int version = 0;
@@ -342,14 +342,14 @@ public sealed class RouteTableService
 
         lock (_sync)
         {
-            var activeIndexBefore = GetActiveIndexUnsafe();
-            if (!TryResolveSensorAnchorUnsafe(sensorId, out var anchorCm, out var sensorLegIndex))
+            var activeIndexBefore = GetActiveIndexUnsafe(estimatedHeadPositionCm);
+            if (!TryResolveSensorAnchorUnsafe(sensorId, estimatedHeadPositionCm, out var anchorCm, out var sensorLegIndex))
             {
                 Logging.DebugExtended<RouteTableService>($"Sensor {sensorId}: ignored, no SensorMarker found in route table.");
                 return new SensorActivationResult(false, null, null, null, null, false);
             }
 
-            var previousHead = _headPositionCm;
+            var previousHead = estimatedHeadPositionCm is null ? _headPositionCm : Math.Max(0.0, estimatedHeadPositionCm.Value);
             var forcedForwardLegSync = false;
             var correctedAnchorCm = anchorCm;
 
@@ -479,12 +479,12 @@ public sealed class RouteTableService
         return changed;
     }
 
-    private int? GetActiveIndexUnsafe()
+    private int? GetActiveIndexUnsafe(double? headPositionOverrideCm = null)
     {
         if (_routeLegs.Count == 0)
             return null;
 
-        var position = Math.Max(0.0, _headPositionCm);
+        var position = Math.Max(0.0, headPositionOverrideCm ?? _headPositionCm);
         var cumulative = 0.0;
 
         for (var i = 0; i < _routeLegs.Count; i++)
@@ -588,11 +588,12 @@ public sealed class RouteTableService
         return _boundTrain.Length / 10.0;
     }
 
-    private bool TryResolveSensorAnchorUnsafe(int sensorId, out double anchorCm, out int sensorLegIndex)
+    private bool TryResolveSensorAnchorUnsafe(int sensorId, double? headPositionOverrideCm, out double anchorCm, out int sensorLegIndex)
     {
         anchorCm = 0.0;
         sensorLegIndex = -1;
         var cumulative = 0.0;
+        var candidates = new List<(double AnchorCm, int LegIndex)>();
 
         for (var legIndex = 0; legIndex < _routeLegs.Count; legIndex++)
         {
@@ -604,16 +605,56 @@ public sealed class RouteTableService
                     if (marker.SensorId != sensorId)
                         continue;
 
-                    anchorCm = cumulative + marker.OffsetCm;
-                    sensorLegIndex = legIndex;
-                    return true;
+                    candidates.Add((cumulative + marker.OffsetCm, legIndex));
                 }
             }
 
             cumulative += leg.DistanceCm;
         }
 
-        return false;
+        if (candidates.Count == 0)
+            return false;
+
+        if (candidates.Count == 1)
+        {
+            anchorCm = candidates[0].AnchorCm;
+            sensorLegIndex = candidates[0].LegIndex;
+            return true;
+        }
+
+        var activeIndex = GetActiveIndexUnsafe(headPositionOverrideCm);
+        var headPosition = Math.Max(0.0, headPositionOverrideCm ?? _headPositionCm);
+
+        // Prefer anchors on the active leg or immediate neighbor, then pick nearest by distance.
+        var bestScore = double.MaxValue;
+        var best = candidates[0];
+
+        foreach (var candidate in candidates)
+        {
+            var legPenalty = 0.0;
+            if (activeIndex is not null)
+            {
+                var legDistance = Math.Abs(candidate.LegIndex - activeIndex.Value);
+                legPenalty = legDistance switch
+                {
+                    0 => 0.0,
+                    1 => 10_000.0,
+                    _ => 100_000.0 + (legDistance * 1_000.0)
+                };
+            }
+
+            var anchorDistance = Math.Abs(candidate.AnchorCm - headPosition);
+            var score = legPenalty + anchorDistance;
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+
+        anchorCm = best.AnchorCm;
+        sensorLegIndex = best.LegIndex;
+        return true;
     }
 
     private int MarkRouteChangedUnsafe()

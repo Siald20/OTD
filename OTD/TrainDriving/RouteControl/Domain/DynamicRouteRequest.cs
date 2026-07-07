@@ -5,9 +5,9 @@ namespace OTD.TrainDriving.RouteControl.Domain;
 public sealed record DynamicRouteRequest(
     string FromWaypointId,
     string ToWaypointId,
-    double? MaxSpeedKmh = null,
+    int? MaxSpeedKmh = null,
     RouteDriveProfile? DriveProfile = null,
     AccelerationStartPolicy? AccelerationStartPolicy = null,
-    StopPointOverride? StopPoint = null,
+    int? StopPointToTargetCm = null,
     RouteMetadata? Metadata = null);
 

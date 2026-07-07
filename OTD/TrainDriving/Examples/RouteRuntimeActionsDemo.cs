@@ -11,20 +11,18 @@ namespace OTD.TrainDriving.Examples;
 /// </summary>
 public static class RouteRuntimeActionsDemo
 {
-    public static void RunDemo()
+    public static void RunDemo(IRouteDefinitionService routeDefinitionService, IRailwayLayoutService railwayLayoutService)
     {
-        var legs = new RouteTableBuilder()
+        var legs = new RouteTableBuilder(routeDefinitionService, railwayLayoutService)
             .AddRoute(
                 fromWaypointId: "S1",
                 toWaypointId: "S2",
-                distanceCm: 120,
                 maxSpeedKmh: 40)
              .AddRoute(
                 fromWaypointId: "S2",
                 toWaypointId: "S3",
-                distanceCm: 80,
                 maxSpeedKmh: 25)
-            .AddStopPoint(fromWaypointId: "S2", offsetCm: 15, stopReason: "Bahnsteig")
+            .AddStopPointToTarget(fromWaypointId: "S2", stopPointToTargetCm: 15, stopReason: "Bahnsteig")
             .Build();
  
         var service = new RouteTableService();

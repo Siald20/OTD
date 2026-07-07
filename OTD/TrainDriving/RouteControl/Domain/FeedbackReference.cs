@@ -2,9 +2,10 @@
 
 namespace OTD.TrainDriving.RouteControl.Domain;
 
-public sealed record SensorMarker(
-    int SensorId,
+public sealed record FeedbackReference(
+    string TargetId,
+    FeedbackReferenceKind TargetKind,
     int OffsetCm,
-    SensorType Type = SensorType.TrackContact,
+    string? Role = null,
     int? ActivationTimeoutMs = null);
 

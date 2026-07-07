@@ -1,0 +1,57 @@
+<routesegemnts>
+    <routesegment from="S_A13" to="N_W1">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="60"/>
+        </speedlimits>
+    </routesegment>
+    <routesegment from="N_W1" to="S_B2">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="40"/>
+        </speedlimits>
+    </routesegment>
+    <routesegment from="S_B2" to="S_C2">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="80"/>
+        </speedlimits>
+    </routesegment>
+    <routesegment from="S_C2" to="N_W5/6">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="60"/>
+        </speedlimits>
+    </routesegment>
+    <routesegment from="N_W5/6" to="S_D12">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="60"/>
+        </speedlimits>
+    </routesegment>
+    <routesegment from="S_D12" to="N_121">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="60"/>
+        </speedlimits>
+    </routesegment>
+    <routesegment from="N_121" to="S_E104">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="80"/>
+        </speedlimits>
+    </routesegment>
+    <routesegment from="S_E104" to="S_H41">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="60"/>
+        </speedlimits>
+    </routesegment>
+    <routesegment from="S_H41" to="S_I41">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="80"/>
+        </speedlimits>
+    </routesegment>
+    <routesegment from="S_I41" to="S_K102">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="60"/>
+        </speedlimits>
+    </routesegment>
+    <routesegment from="S_K102" to="S_A13">
+        <speedlimits>
+            <speedlimit speedClass="default" speed_kmh="60"/>
+        </speedlimits>
+    </routesegment>
+</routesegemnts>
