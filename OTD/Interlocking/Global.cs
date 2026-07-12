@@ -19,4 +19,8 @@ public static class Global
     public const bool INIT_IS_FREI = true;
     public const bool CONFIG_SP_E = true;
     public const bool CONFIG_SP_A = true;
+
+    // RouteControl: globaler Safety-Guard fuer unerwartete Sensoren vor der Zugspitze.
+    public const bool ROUTECONTROL_ENABLE_UNEXPECTED_AHEAD_SENSOR_EMERGENCY_STOP = false;
+    public const double ROUTECONTROL_UNEXPECTED_AHEAD_SENSOR_TOLERANCE_CM = 30.0;
 }
