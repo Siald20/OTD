@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using System;
 using OTD.HardwareControl;
+using OTD.HardwareControl.Test;
 
 namespace OTD;
 

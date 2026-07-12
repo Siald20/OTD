@@ -30,7 +30,7 @@ using OTD.TrainDriving.Examples;
 using OTD.TrainDriving.RouteControl.Services;
 using OTD.TrainDriving.RouteControl.Tests;
 
-namespace OTD.HardwareControl;
+namespace OTD.HardwareControl.Test;
 
 internal static class RunTests
 {
@@ -54,6 +54,24 @@ internal static class RunTests
             return;
         }
 
+        if (string.Equals(directTestId, "TRAINDRIVING_ROUTELEG_DIRECTION_TEST", StringComparison.OrdinalIgnoreCase))
+        {
+            RouteLegDirectionTest.RunAll();
+            return;
+        }
+
+        if (string.Equals(directTestId, "TRAINDRIVING_STUCK_ALERT_TEST", StringComparison.OrdinalIgnoreCase))
+        {
+            StuckAlertEmergencyStopTest.RunAll();
+            return;
+        }
+
+        if (string.Equals(directTestId, "TRAINDRIVING_UNEXPECTED_AHEAD_SENSOR_TEST", StringComparison.OrdinalIgnoreCase))
+        {
+            UnexpectedAheadFeedbackInputEmergencyStopTest.RunAll();
+            return;
+        }
+
         if (string.Equals(directTestId, "TRAINDRIVING_LAYOUT_LEGS_DUMP", StringComparison.OrdinalIgnoreCase))
         {
             var layoutPath = XmlRailwayLayoutService.GetDefaultConfigFilePath();
@@ -68,7 +86,7 @@ internal static class RunTests
             Console.WriteLine();
             foreach (var leg in legs)
             {
-                var markers = leg.SensorMarkers?.Count ?? 0;
+                var markers = leg.FeedbackActivationPoints?.Count ?? 0;
                 Console.WriteLine($"  {leg.FromWaypointId,-15} -> {leg.ToWaypointId,-15}  dist={leg.DistanceCm,4} cm  sensors={markers}");
             }
             return;
@@ -106,7 +124,7 @@ internal static class RunTests
         var feedbackUid = ParseGuidOrThrow(selectedFeedback.Id, "feedback commandstation uid");
 
         using var commandStation = new CommandStation(commandStationUid);
-        using var feedbackModule = new Feedback(feedbackUid);
+        using var feedbackModule = new FeedbackController(feedbackUid);
 
         
         
@@ -144,7 +162,7 @@ internal static class RunTests
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Testfehler: {ex.Message}");
+                Console.WriteLine($"Testfehler: {ex.Message}, {ex.StackTrace}");
             }
 
             Console.WriteLine();
@@ -158,20 +176,20 @@ internal static class RunTests
         return
         [
             new TestEntry(
-                new SelectableEntry("TRAINDRIVING_RouteTestRoundTripBi", "test", "TrainDriving: RouteTestRoundTripBi (Rundkurs BR193 mit Sensorabgleich)", null, 0),
+                new SelectableEntry("TRAINDRIVING_RoundTripBi_BiDi", "test", "TrainDriving: RoundTripBi_BiDi (Zug + Richtung waehlen)", null, 0),
                 (cs, fb) =>
                 {
-                    RouteTestRoundTripBi.Run(cs, fb);
+                    TestRoundTripBi_BiDi.Run(cs, fb);
                     return Task.CompletedTask;
                 },
                 true,
                 true),
-
+            
             new TestEntry(
                 new SelectableEntry("TRAINDRIVING_BRAKE_SENSOR56", "test", "TrainDriving: Sensor56 -> Bremsen 40->0 auf 200cm", null, 0),
                 (cs, fb) =>
                 {
-                    TrayectoryTestSingleSensor.Run(cs, fb);
+                    TrayectoryTestSingleFeedback.Run(cs, fb);
                     return Task.CompletedTask;
                 },
                 true,
@@ -188,7 +206,7 @@ internal static class RunTests
                 true),
 
             new TestEntry(
-                new SelectableEntry("FEEDBACK_SINGLE", "test", "Feedback Einzelmodul", null, 0),
+                new SelectableEntry("FEEDBACK_SINGLE", "test", "FeedbackController Einzelmodul", null, 0),
                 (_, _) => FeedbackTests.RunSingleModuleAsync(selectedFeedbackUid),
                 true,
                 true),
@@ -206,7 +224,7 @@ internal static class RunTests
                 false),
 
             new TestEntry(
-                new SelectableEntry("FEEDBACK_TRIGGER_DIAG", "test", "Feedback Trigger Diagnose", null, 0),
+                new SelectableEntry("FEEDBACK_TRIGGER_DIAG", "test", "FeedbackController Trigger Diagnose", null, 0),
                 (_, _) =>
                 {
                     var observeSeconds = PromptInt("Beobachtungsfenster in Sekunden", 30, 5, 600);
@@ -239,10 +257,40 @@ internal static class RunTests
                 false)
             ,
             new TestEntry(
-                new SelectableEntry("TRAINDRIVING_ROUTELEG_BUILD_TRACE", "test", "TrainDriving: RouteLeg-Aufbau Trace (Segmente/SensorMarker)", null, 0),
+                new SelectableEntry("TRAINDRIVING_ROUTELEG_BUILD_TRACE", "test", "TrainDriving: RouteLeg-Aufbau Trace (Segmente/FeedbackActivationPoint)", null, 0),
                 (_, _) =>
                 {
                     RouteLegBuildTrace.RunInteractive();
+                    return Task.CompletedTask;
+                },
+                false,
+                false)
+            ,
+            new TestEntry(
+                new SelectableEntry("TRAINDRIVING_ROUTELEG_DIRECTION_TEST", "test", "TrainDriving: RouteLeg Richtungstest AlongLine/AgainstLine (ohne Hardware)", null, 0),
+                (_, _) =>
+                {
+                    RouteLegDirectionTest.RunAll();
+                    return Task.CompletedTask;
+                },
+                false,
+                false)
+            ,
+            new TestEntry(
+                new SelectableEntry("TRAINDRIVING_STUCK_ALERT_TEST", "test", "TrainDriving: StuckAlert Notbrems-Guard (prozentbasiert, ohne Hardware)", null, 0),
+                (_, _) =>
+                {
+                    StuckAlertEmergencyStopTest.RunAll();
+                    return Task.CompletedTask;
+                },
+                false,
+                false)
+            ,
+            new TestEntry(
+                new SelectableEntry("TRAINDRIVING_UNEXPECTED_AHEAD_SENSOR_TEST", "test", "TrainDriving: Unexpected-Ahead-Sensor Notbrems-Guard (ohne Hardware)", null, 0),
+                (_, _) =>
+                {
+                    UnexpectedAheadFeedbackInputEmergencyStopTest.RunAll();
                     return Task.CompletedTask;
                 },
                 false,
@@ -260,7 +308,7 @@ internal static class RunTests
         Console.WriteLine($"  CommandStation bereit, Gleisspannung: {(powerState ? "EIN" : "AUS")}");
     }
 
-    private static async Task EnsureFeedbackReadyAsync(Feedback feedbackModule)
+    private static async Task EnsureFeedbackReadyAsync(FeedbackController feedbackModule)
     {
         if (!feedbackModule.IsConnected)
             await feedbackModule.ConnectAsync().ConfigureAwait(false);
@@ -268,9 +316,9 @@ internal static class RunTests
         var ready = await feedbackModule.EnsureOperationalAsync().ConfigureAwait(false);
         if (!ready)
             throw new InvalidOperationException(
-                "Feedback konnte nicht in einen betriebsbereiten Zustand gebracht werden.");
+                "FeedbackController konnte nicht in einen betriebsbereiten Zustand gebracht werden.");
 
-        Console.WriteLine($"  Feedback bereit, Sensoren: {feedbackModule.SensorCount}");
+        Console.WriteLine($"  FeedbackController bereit, Sensoren: {feedbackModule.InputCount}");
     }
 
     private static int PromptInt(string label, int defaultValue, int min, int max)
@@ -408,7 +456,7 @@ internal static class RunTests
 
     private sealed record TestEntry(
         SelectableEntry MenuEntry,
-        Func<CommandStation, Feedback, Task> ExecuteAsync,
+        Func<CommandStation, FeedbackController, Task> ExecuteAsync,
         bool RequiresCommandStation,
         bool RequiresFeedback);
 

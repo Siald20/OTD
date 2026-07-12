@@ -36,7 +36,7 @@ internal static class FeedbackTests
         Guid moduleUid,
         CancellationToken cancellationToken = default)
     {
-        using var module = new Feedback(moduleUid);
+        using var module = new FeedbackController(moduleUid);
 
         Console.WriteLine($"=== FeedbackTest - Einzelmodul {moduleUid} ===");
         Console.WriteLine($"Treiber : {module.DriverName}");
@@ -45,31 +45,31 @@ internal static class FeedbackTests
         await module.ConnectAsync(cancellationToken).ConfigureAwait(false);
         var isReady = await module.EnsureOperationalAsync(cancellationToken).ConfigureAwait(false);
         Console.WriteLine(
-            $"      Verbunden: {module.IsConnected}  |  Operational: {isReady}  |  Sensoren: {module.SensorCount}");
+            $"      Verbunden: {module.IsConnected}  |  Operational: {isReady}  |  Sensoren: {module.InputCount}");
 
         Console.WriteLine("\n[2/3] Sensor-Snapshot abfragen...");
-        var snapshot = await module.QueryAllSensorsAsync(cancellationToken).ConfigureAwait(false);
-        PrintSnapshot(moduleUid, snapshot, module.SensorCount);
+        var snapshot = await module.QueryFeedbackAsync(cancellationToken).ConfigureAwait(false);
+        PrintSnapshot(moduleUid, snapshot, module.InputCount);
 
         Console.WriteLine("\n[3/3] Monitoring aktiv - Taste druecken zum Beenden.");
         var eventCount = 0;
-        module.SensorStateChanged += OnChanged;
+        module.InputStateChanged += OnChanged;
 
         await WaitForKeyOrCancelAsync(cancellationToken).ConfigureAwait(false);
 
-        module.SensorStateChanged -= OnChanged;
+        module.InputStateChanged -= OnChanged;
         Console.WriteLine($"\nMonitoring beendet. Empfangene Updates: {eventCount}");
 
         await module.DisconnectAsync(CancellationToken.None).ConfigureAwait(false);
         Console.WriteLine("Verbindung getrennt.");
         return;
 
-        void OnChanged(object? _, SensorStateChangedEventArgs e)
+        void OnChanged(object? _, InputStateChangedEventArgs e)
         {
             var n = Interlocked.Increment(ref eventCount);
-            var mark = e.State == RailSensorState.Active ? "ON " : "OFF";
+            var mark = e.State == InputState.Active ? "ON " : "OFF";
             Console.WriteLine(
-                $"  [{DateTimeOffset.Now:HH:mm:ss.fff}] #{n:D4}  Sensor {e.SensorNumber:D4}  {mark}");
+                $"  [{DateTimeOffset.Now:HH:mm:ss.fff}] #{n:D4}  Sensor {e.InputNumber:D4}  {mark}");
         }
     }
 
@@ -235,17 +235,17 @@ internal static class FeedbackTests
     /// </summary>
     private static void PrintSnapshot(
         Guid moduleUid,
-        IReadOnlyDictionary<int, RailSensorState> states,
-        int sensorCount)
+        IReadOnlyDictionary<int, InputState> states,
+        int inputCount)
     {
         var bar = string.Concat(
-            Enumerable.Range(1, sensorCount)
-                .Select(n => states.TryGetValue(n, out var s) && s == RailSensorState.Active ? 'X' : '.'));
+            Enumerable.Range(1, inputCount)
+                .Select(n => states.TryGetValue(n, out var s) && s == InputState.Active ? 'X' : '.'));
 
         Console.WriteLine($"  Modul {moduleUid}  [{bar}]");
 
         var active = states
-            .Where(kv => kv.Value == RailSensorState.Active)
+            .Where(kv => kv.Value == InputState.Active)
             .OrderBy(kv => kv.Key)
             .ToList();
 

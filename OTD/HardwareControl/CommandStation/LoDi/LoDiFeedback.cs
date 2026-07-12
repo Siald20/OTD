@@ -28,12 +28,12 @@ using System.Xml.Linq;
 namespace OTD.HardwareControl.Drivers;
 
 /// <summary>
-///     LoDi S88 implementation of <see cref="IFeedback" />.
+///     LoDi S88 implementation of <see cref="IFeedbackController" />.
 ///     Queries device info (Bus1/Bus2 configurations) automatically and maps to flat sensor numbers.
 ///     S88 Shiftregister: Bus1 sensors 1..Bus1SensorCount, Bus2 sensors
 ///     (Bus1SensorCount+1)..(Bus1SensorCount+Bus2SensorCount).
 /// </summary>
-internal sealed class LoDiFeedback : IFeedback, IDisposable
+internal sealed class LoDiFeedback : IFeedbackController, IDisposable
 {
     private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(2);
     private const int InvalidModulePlaceholder = 0x7F;
@@ -45,7 +45,7 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
     private readonly HashSet<int> _pendingModulesSeen = [];
     private readonly int _port;
     private readonly bool _queryOnStartup;
-    private readonly Dictionary<int, RailSensorState> _sensorStates = [];
+    private readonly Dictionary<int, InputState> _inputStates = [];
     private readonly bool _subscribeOnStartup;
     private readonly Lock _syncRoot = new();
 
@@ -114,12 +114,12 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
             _pendingModulesQuery = null;
             _pendingModulesSeen.Clear();
             _pendingModulesExpectedCount = 0;
-            _sensorStates.Clear();
+            _inputStates.Clear();
         }
     }
 
     // -------------------------------------------------------------------------
-    // IFeedback
+    // IFeedbackController
     // -------------------------------------------------------------------------
 
     public Guid UniqueId { get; }
@@ -127,9 +127,9 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
     public bool IsConnected => _commander.IsConnected;
 
     /// <summary>Total sensors = Bus1 + Bus2 (queried from device on connect).</summary>
-    public int SensorCount => _bus1SensorCount + _bus2SensorCount;
+    public int InputCount => _bus1SensorCount + _bus2SensorCount;
 
-    public event EventHandler<SensorStateChangedEventArgs>? SensorStateChanged;
+    public event EventHandler<InputStateChangedEventArgs>? InputStateChanged;
 
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
@@ -146,19 +146,19 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
         var deviceInfo = await _commander.QueryDeviceInfoAsync(cancellationToken).ConfigureAwait(false);
         _bus1SensorCount = deviceInfo.Bus1SensorCount;
         _bus2SensorCount = deviceInfo.Bus2SensorCount;
-        _configuredModuleCount = SensorCount > 0 ? SensorCount / 16 : 0;
+        _configuredModuleCount = InputCount > 0 ? InputCount / 16 : 0;
 
         // Initialisiere Sensor-States
         lock (_syncRoot)
         {
-            _sensorStates.Clear();
-            for (var i = 1; i <= SensorCount; i++)
-                _sensorStates[i] = RailSensorState.Inactive;
+            _inputStates.Clear();
+            for (var i = 1; i <= InputCount; i++)
+                _inputStates[i] = InputState.Inactive;
         }
 
         if (_diagnosticLogging)
             LoDiLog.FeedbackDebug(
-                $"Device-Info abgerufen: Bus1={_bus1SensorCount} Sensoren, Bus2={_bus2SensorCount} Sensoren, Summe={SensorCount}");
+                $"Device-Info abgerufen: Bus1={_bus1SensorCount} Sensoren, Bus2={_bus2SensorCount} Sensoren, Summe={InputCount}");
 
         // Initialzustand via globale Modulabfrage (0x20/0x30)
         if (_queryOnStartup) await QueryModulesAndAwaitStateAsync(cancellationToken).ConfigureAwait(false);
@@ -185,19 +185,19 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
         await _commander.DisconnectAsync().ConfigureAwait(false);
     }
 
-    public RailSensorState GetSensorState(int sensorNumber)
+    public InputState GetInputState(int inputNumber)
     {
-        if (sensorNumber < 1 || sensorNumber > SensorCount)
-            throw new ArgumentOutOfRangeException(nameof(sensorNumber),
-                $"Sensor number must be between 1 and {SensorCount}.");
+        if (inputNumber < 1 || inputNumber > InputCount)
+            throw new ArgumentOutOfRangeException(nameof(inputNumber),
+                $"Sensor number must be between 1 and {InputCount}.");
 
         lock (_syncRoot)
         {
-            return _sensorStates.GetValueOrDefault(sensorNumber, RailSensorState.Inactive);
+            return _inputStates.GetValueOrDefault(inputNumber, InputState.Inactive);
         }
     }
 
-    public async Task<IReadOnlyDictionary<int, RailSensorState>> QueryAllSensorsAsync(
+    public async Task<IReadOnlyDictionary<int, InputState>> QueryFeedbackAsync(
         CancellationToken cancellationToken = default)
     {
         // Globale Modulabfrage (0x20/0x30) und Initialisierung aus ACK 0x21/0x30
@@ -205,7 +205,7 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
 
         lock (_syncRoot)
         {
-            return new Dictionary<int, RailSensorState>(_sensorStates);
+            return new Dictionary<int, InputState>(_inputStates);
         }
     }
 
@@ -214,27 +214,27 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Maps module address + contact number to flat IFeedback sensor number.
+    ///     Maps module address + contact number to flat IFeedbackController sensor number.
     ///     Module 1 => 1..16, Module 2 => 17..32, ...
     /// </summary>
-    private int ModuleContactToSensorNumber(int moduleAddress, int contactNumber)
+    private int ModuleContactToInputNumber(int moduleAddress, int contactNumber)
     {
         if (moduleAddress < 1 || contactNumber < 1 || contactNumber > 16)
             return -1;
 
-        var sensorNumber = (moduleAddress - 1) * 16 + contactNumber;
-        return sensorNumber <= SensorCount ? sensorNumber : -1;
+        var inputNumber = (moduleAddress - 1) * 16 + contactNumber;
+        return inputNumber <= InputCount ? inputNumber : -1;
     }
 
-    private string SensorNumberToSensorName(int sensorNumber)
+    private string InputNumberToInputName(int inputNumber)
     {
-        if (sensorNumber < 1)
+        if (inputNumber < 1)
             return "1.1";
 
-        if (sensorNumber <= _bus1SensorCount)
-            return $"1.{sensorNumber}";
+        if (inputNumber <= _bus1SensorCount)
+            return $"1.{inputNumber}";
 
-        return $"2.{sensorNumber - _bus1SensorCount}";
+        return $"2.{inputNumber - _bus1SensorCount}";
     }
 
     // -------------------------------------------------------------------------
@@ -243,28 +243,28 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
 
     private void OnContactStateChanged(object? sender, S88StateChangedEventArgs e)
     {
-        var sensorNumber = ModuleContactToSensorNumber(e.ModuleAddress, e.ContactNumber);
-        if (sensorNumber < 1) return;
-        var sensorName = SensorNumberToSensorName(sensorNumber);
+        var inputNumber = ModuleContactToInputNumber(e.ModuleAddress, e.ContactNumber);
+        if (inputNumber < 1) return;
+        var inputName = InputNumberToInputName(inputNumber);
 
-        var state = e.IsOccupied ? RailSensorState.Active : RailSensorState.Inactive;
+        var state = e.IsOccupied ? InputState.Active : InputState.Inactive;
 
         lock (_syncRoot)
         {
-            _sensorStates[sensorNumber] = state;
+            _inputStates[inputNumber] = state;
         }
 
         if (_diagnosticLogging)
-            LoDiLog.FeedbackDebug($"Sensor {sensorNumber:D4} ({sensorName}) => {state}");
+            LoDiLog.FeedbackDebug($"Sensor {inputNumber:D4} ({inputName}) => {state}");
 
-        SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(
+        InputStateChanged?.Invoke(this, new InputStateChangedEventArgs(
             UniqueId,
-            new SensorInfo(sensorNumber, sensorName, state)));
+            new InputInfo(inputNumber, inputName, state)));
     }
 
     private void OnModuleStateReceived(object? sender, S88ModuleStateEventArgs e)
     {
-        var changed = new List<(int SensorNumber, string SensorName, RailSensorState State)>();
+        var changed = new List<(int InputNumber, string InputName, InputState State)>();
         string? moduleSnapshotDiagnostic = null;
         string? invalidModuleDiagnostic = null;
 
@@ -310,14 +310,14 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
         if (_diagnosticLogging && moduleSnapshotDiagnostic is not null)
             LoDiLog.FeedbackDebug(moduleSnapshotDiagnostic);
 
-        foreach (var (sensorNumber, sensorName, state) in changed)
+        foreach (var (inputNumber, inputName, state) in changed)
         {
             if (_diagnosticLogging)
-                LoDiLog.FeedbackDebug($"Sensor {sensorNumber:D4} ({sensorName}) => {state}");
+                LoDiLog.FeedbackDebug($"Sensor {inputNumber:D4} ({inputName}) => {state}");
 
-            SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(
+            InputStateChanged?.Invoke(this, new InputStateChangedEventArgs(
                 UniqueId,
-                new SensorInfo(sensorNumber, sensorName, state)));
+                new InputInfo(inputNumber, inputName, state)));
         }
     }
 
@@ -340,7 +340,7 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
     /// <summary>Global module query (0x20/0x30) and wait for initial module states.</summary>
     private async Task QueryModulesAndAwaitStateAsync(CancellationToken cancellationToken)
     {
-        if (SensorCount <= 0)
+        if (InputCount <= 0)
             return;
 
         TaskCompletionSource<bool> waitHandle;
@@ -411,30 +411,30 @@ internal sealed class LoDiFeedback : IFeedback, IDisposable
                && _pendingInvalidModulesSeen.Count == 0;
     }
 
-    private void ApplyBufferedSnapshotLocked(List<(int SensorNumber, string SensorName, RailSensorState State)> changed)
+    private void ApplyBufferedSnapshotLocked(List<(int InputNumber, string InputName, InputState State)> changed)
     {
         foreach (var (moduleAddress, state) in _pendingModuleSnapshots)
             UpdateModuleStateLocked(moduleAddress, state.StatusHigh, state.StatusLow, changed);
     }
 
     private void UpdateModuleStateLocked(int moduleAddress, byte statusHigh, byte statusLow,
-        List<(int SensorNumber, string SensorName, RailSensorState State)> changed)
+        List<(int InputNumber, string InputName, InputState State)> changed)
     {
         var stateBitmask = (ushort)((statusHigh << 8) | statusLow);
 
         for (var contact = 1; contact <= 16; contact++)
         {
-            var sensorNumber = ModuleContactToSensorNumber(moduleAddress, contact);
-            if (sensorNumber < 1) continue;
+            var inputNumber = ModuleContactToInputNumber(moduleAddress, contact);
+            if (inputNumber < 1) continue;
 
             var isActive = (stateBitmask & (1 << (contact - 1))) != 0;
-            var newState = isActive ? RailSensorState.Active : RailSensorState.Inactive;
+            var newState = isActive ? InputState.Active : InputState.Inactive;
 
-            if (_sensorStates.TryGetValue(sensorNumber, out var current) && current == newState)
+            if (_inputStates.TryGetValue(inputNumber, out var current) && current == newState)
                 continue;
 
-            _sensorStates[sensorNumber] = newState;
-            changed.Add((sensorNumber, SensorNumberToSensorName(sensorNumber), newState));
+            _inputStates[inputNumber] = newState;
+            changed.Add((inputNumber, InputNumberToInputName(inputNumber), newState));
         }
     }
 }

@@ -22,7 +22,7 @@ public static class RouteControlPrototype
                 fromWaypointId: "S0",
                 toWaypointId: "S1",
                 maxSpeedKmh: 40,
-                accelerationPreset: AccelerationTrajectoryPreset.EarlyAcceleration,
+                accelerationPreset: AccelerationTrajectoryPresets.EarlyAcceleration,
                 brakingPreset: BrakingTrajectoryPreset.LateBrake)
             .AddRoute(
                 fromWaypointId: "S1",

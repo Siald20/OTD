@@ -32,7 +32,7 @@ namespace OTD.TrainDriving.Examples;
 
 public static class Test2
 {
-    public static void Run(CommandStation commandStation, Feedback feedbackModule)
+    public static void Run(CommandStation commandStation, FeedbackController feedbackModule)
     {
         ArgumentNullException.ThrowIfNull(commandStation);
         ArgumentNullException.ThrowIfNull(feedbackModule);
@@ -60,18 +60,20 @@ public static class Test2
 
         controller.ReplaceRoutes([
             new RouteLeg(
+                TravelDirection: RouteTravelDirection.AlongLine,
                 FromWaypointId: "B2",
                 ToWaypointId: "K102",
                 MaxSpeedKmh: 40,
                 DriveProfile: new RouteDriveProfile(
-                    AccelerationPreset: AccelerationTrajectoryPreset.Linear,
+                    AccelerationPreset: AccelerationTrajectoryPresets.Linear,
                     BrakingPreset: BrakingTrajectoryPreset.Linear)),
             new RouteLeg(
+                TravelDirection: RouteTravelDirection.AlongLine,
                 FromWaypointId: "K102",
                 ToWaypointId: "H41",
                 MaxSpeedKmh: 60,
                 DriveProfile: new RouteDriveProfile(
-                    AccelerationPreset: AccelerationTrajectoryPreset.Linear,
+                    AccelerationPreset: AccelerationTrajectoryPresets.Linear,
                     BrakingPreset: BrakingTrajectoryPreset.Linear),
                 StopPointToTargetCm: 13)
             {

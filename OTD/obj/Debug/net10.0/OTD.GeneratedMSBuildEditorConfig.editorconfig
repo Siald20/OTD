@@ -29,34 +29,34 @@ build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 [/home/hua/RiderProjects/OTD/OTD/BlockTestWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/BlockTiles/BlockTile.axaml]
+[/home/hua/RiderProjects/OTD/OTD/Controls/InterlockingEnlements/BlockTiles/BlockTile.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/ButtonTiles/AutomaticButtonTiles.axaml]
+[/home/hua/RiderProjects/OTD/OTD/Controls/InterlockingEnlements/ButtonTiles/AutomaticButtonTiles.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/ButtonTiles/ControllButtonTiles.axaml]
+[/home/hua/RiderProjects/OTD/OTD/Controls/InterlockingEnlements/ButtonTiles/ControllButtonTiles.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/ButtonTiles/Styles/ButtonTilesStyle.axaml]
+[/home/hua/RiderProjects/OTD/OTD/Controls/InterlockingEnlements/ButtonTiles/Styles/ButtonTilesStyle.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/ButtonTiles/SwitchButtonTiles.axaml]
+[/home/hua/RiderProjects/OTD/OTD/Controls/InterlockingEnlements/ButtonTiles/SwitchButtonTiles.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/SignalTiles.axaml]
+[/home/hua/RiderProjects/OTD/OTD/Controls/InterlockingEnlements/SignalTiles.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/SingalTiles/SignalTileMemory.axaml]
+[/home/hua/RiderProjects/OTD/OTD/Controls/InterlockingEnlements/SingalTiles/SignalTileMemory.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/SingalTiles/SignalTileNoMemory.axaml]
+[/home/hua/RiderProjects/OTD/OTD/Controls/InterlockingEnlements/SingalTiles/SignalTileNoMemory.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/SingalTiles/Styles/SignalTilesStyles.axaml]
+[/home/hua/RiderProjects/OTD/OTD/Controls/InterlockingEnlements/SingalTiles/Styles/SignalTilesStyles.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[/home/hua/RiderProjects/OTD/OTD/Controlls/InterlockingEnlements/TrackTiles/TrackTiles.axaml]
+[/home/hua/RiderProjects/OTD/OTD/Controls/InterlockingEnlements/TrackTiles/TrackTiles.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
 [/home/hua/RiderProjects/OTD/OTD/MainWindow.axaml]

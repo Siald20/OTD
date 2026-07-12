@@ -8,13 +8,13 @@
         </trackelement>
     </trackelements>
 
-    <sensors>
-        <section id="sec_A13" detectorId="30" host="seg_A13_W1" description="Blockeinfahrt A13→W1"/>
-        <point id="contact_145" detectorId="145" host="seg_A13_W1" offset_cm="145" description="Fester Kontakt vor W1"/>
-        <section id="sec_B120" detectorId="31" host="sw1_straight" description="Einfahrt in geraden Zweig"/>
-        <section id="sec_B121" detectorId="32" host="sw1_branch" description="Einfahrt in Abzweig"/>
-        <point id="contact_C1" detectorId="56" host="seg_B120_C1" offset_cm="40" description="Kontakt im Folgegleis"/>
-    </sensors>
+    <feedbacks>
+        <feedback type="occupancy" id="sec_A13" detectorId="30" host="seg_A13_W1" description="Blockeinfahrt A13→W1"/>
+        <feedback type="contact" id="contact_145" detectorId="145" host="seg_A13_W1" offset_cm="145" description="Fester Kontakt vor W1"/>
+        <feedback type="occupancy" id="sec_B120" detectorId="31" host="sw1_straight" description="Einfahrt in geraden Zweig"/>
+        <feedback type="occupancy" id="sec_B121" detectorId="32" host="sw1_branch" description="Einfahrt in Abzweig"/>
+        <feedback type="contact" id="contact_C1" detectorId="56" host="seg_B120_C1" offset_cm="40" description="Kontakt im Folgegleis"/>
+    </feedbacks>
 
     <waypoints>
         <waypoint id="A13" node="nA13" description="Startpunkt vor W1"/>

@@ -13,7 +13,7 @@ Dieses Modul steuert die Geschwindigkeitsfuehrung eines Zuges entlang eines Rout
 
 - `TrainDriving`: erzeugt Trajektorien und sendet zyklisch Sollgeschwindigkeit an `Train`.
 - `RouteControl.Services.RouteTableService`: verwaltet `RouteLeg`-Tabelle + Runtime-State.
-- `RouteController`: orchestriert Fahrzyklen, Re-Planning und StopPoint-/Sensor-Logik.
+- `RouteController`: orchestriert Fahrzyklen, Re-Planning und StopPoint-/Rueckmelde-Logik.
 - `Trajectory.*`: parametrisierte Geschwindigkeitskurven.
 
 ## Schnellstart
@@ -59,7 +59,7 @@ await driving.DriveAsync(
 ## Hinweise
 
 - `StopPoint` erzwingt Halt; Weiterfahrt erfolgt via `ReleaseGo()`.
-- Sensorabgleich erfolgt ueber `RouteController.OnSensorActivated(int sensorId)`.
+- Rueckmeldeabgleich erfolgt ueber `RouteController.OnFeedbackInputActivated(int feedbackId)`.
 - `AccelerationStartPolicy` steuert, wann bei schnellerem Folge-Leg beschleunigt wird.
 - `RouteControl_SPEC_v1` liegt unter `TrainDriving/RouteControl/RouteControl_SPEC_v1.md`.
 

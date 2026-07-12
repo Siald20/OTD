@@ -13,7 +13,8 @@ OTD (Avalonia Desktop App)
 │   └── Feedback/            # Sensor feedback handling
 ├── Interlocking/            # Relay logic (Integra/Relais) with cycle-based execution
 ├── Controlls/               # Avalonia UI controls (InterlockingElements: signals, tracks, buttons)
-└── AppData/                 # XML configs (train/loco/accessory + deviceconfig for command stations/feedback)
+├── TrainDriving/            # RouteControl + trajectory-based speed control and runtime driving orchestration
+└── AppData/                 # XML configs (train/loco/accessory + commandstations + routelegs/railwaylayout)
 ```
 
 ## Critical Design Patterns
@@ -45,14 +46,15 @@ await train.SetSpeedVAsync(20);  // Then speed; duplex guards automatically appl
 All hardware control goes through `ICommandStation` (manufacturer-independent):
 - Current implementations: `LoDiRektor` (UDP-based DCC), `MockCommandStation` (testing)
 - Runtime orchestration uses `CommandStation` (`HardwareControl/CommandStation/CommandStation.cs`) as wrapper/facade around concrete drivers
-- Driver selection is UID-based via `AppData/deviceconfig.xml` (`<commandstation driver="...">`)
+- Driver selection is UID-based via `AppData/commandstations.xml` (`<commandstation driver="...">`)
 - All async methods support `CancellationToken`
 - Core methods: `ConnectAsync`, `SetLocoSpeedAsync`, `SetLocoFunctionAsync`, `EmergencyStopAsync`, `QueryLoco*`, `SetAccessoryValueAsync`
+- `Feedback` uses the same UID-based `<commandstation>` source (`lodi-s88-commander`, `mock-keyboard-feedback`)
 
 **Adding a new command station**:
 1. Create a class implementing `ICommandStation` in `HardwareControl/CommandStation/`
 2. Register the driver key in `CommandStation.CreateDriver(...)` switch
-3. Add/update `<commandstation uid="..." driver="...">` in `OTD/AppData/deviceconfig.xml`
+3. Add/update `<commandstation uid="..." driver="...">` in `OTD/AppData/commandstations.xml`
 
 ### 3. XML Configuration as Single Source of Truth
 
@@ -60,7 +62,8 @@ Train/Vehicle/Decoder configs live in `OTD/AppData/` as XML:
 - `trains.xml`: Train compositions, vehicle references
 - `locos.xml`: Decoder protocol, speedsteps, address, function tables
 - `accessories.xml`: Zubehör configuration
-- `deviceconfig.xml`: Command station + feedback module drivers/connection settings (UID-based lookup)
+- `commandstations.xml`: Command station + feedback module drivers/connection settings (UID-based lookup)
+- `routelegs.xml`, `railwaylayout.xml`: RouteControl definitions consumed by TrainDriving services
 - **Required decoder fields** (throws `InvalidOperationException` if missing):
   - `<protocol>`, `<speedsteps>`, `<address>`, `<functiontable>` (optional)
 
@@ -85,26 +88,24 @@ dotnet run
 # Test mode via environment variable
 OTD_ENTRYPOINT=TEST_HARDWARECONTROL dotnet run
 
-# Select a concrete hardware example in TrainTest (no default test auto-runs)
-OTD_ENTRYPOINT=TEST_HARDWARECONTROL OTD_TRAIN_TEST=FEEDBACK dotnet run
-
-# Optional: select command station UID from AppData/deviceconfig.xml
-OTD_ENTRYPOINT=TEST_HARDWARECONTROL OTD_COMMANDSTATION_UID=<uuid> dotnet run
+# Optional: direct non-interactive test case (currently available: TRAINDRIVING_ROUTE_LAYOUT_MINIMAL)
+OTD_ENTRYPOINT=TEST_HARDWARECONTROL OTD_TEST_CASE=TRAINDRIVING_ROUTE_LAYOUT_MINIMAL dotnet run
 ```
 
 ### Key Entry Points
 
 - **App.axaml → RelayPlanWindow**: Default UI (interlocking relay visualizer)
 - **Program.cs**: Avalonia initialization + test mode router
-- **HardwareControl/Examples/TrainTest.cs**: HardwareControl test router (`OTD_TRAIN_TEST`, `OTD_COMMANDSTATION_UID`)
+- **HardwareControl/Test/RunTests.cs**: HardwareControl test router (interactive station/test selection, optional `OTD_TEST_CASE`)
 - **HardwareControl/CommandStation/CommandStation.cs**: Driver orchestration + readback forwarding to registered decoders
+- **TrainDriving/RouteControl/Services/XmlRouteDefinitionService.cs**, **XmlRailwayLayoutService.cs**: loading `routelegs.xml` and `railwaylayout.xml`
 
 ### Testing & Mocking
 
 - Use `MockCommandStation` in `HardwareControl/CommandStation/Mock/` for unit tests
 - All domain logic can be tested without hardware via mocks
-- `TrainTest` uses `CommandStation` (driver from `deviceconfig.xml`) for integration scenarios
-- See `HardwareControl/Examples/` for integration examples (`ACCESSORY`, `FEEDBACK`, `READBACK_LOCO`, etc. via `OTD_TRAIN_TEST`)
+- `RunTests` uses `CommandStation` + `Feedback` (drivers from `commandstations.xml`) for integration scenarios
+- See `HardwareControl/Test/` and `TrainDriving/Examples/` for integration examples (`READBACK_LOCO`, `FEEDBACK_SINGLE`, `TRAINDRIVING_RouteTestRoundTripBi`, etc.)
 
 ## Interlocking & Relay Logic
 
@@ -129,13 +130,13 @@ OTD_ENTRYPOINT=TEST_HARDWARECONTROL OTD_COMMANDSTATION_UID=<uuid> dotnet run
 1. Create `OTD/HardwareControl/CommandStation/MyNewStation.cs`
 2. Implement `ICommandStation` interface (including query + accessory APIs)
 3. Register driver mapping in `CommandStation.CreateDriver(...)`
-4. Add station entry in `OTD/AppData/deviceconfig.xml` and use its UID (e.g. `OTD_COMMANDSTATION_UID` in `TrainTest`)
+4. Add station entry in `OTD/AppData/commandstations.xml` and use its UID when creating `CommandStation`
 
 ### Extending Train Functionality
 
 1. Modify `Train.cs` public methods (e.g., new operating mode)
 2. Ensure `SetDirectionAsync` is called before speed commands
-3. Test with `TrainTest.cs` in test mode
+3. Test with `HardwareControl/Test/RunTests.cs` in test mode
 4. Update `HardwareControl/Train/README.md` if behavioral changes
 
 ### Adding Interlocking Logic
@@ -160,8 +161,10 @@ OTD_ENTRYPOINT=TEST_HARDWARECONTROL OTD_COMMANDSTATION_UID=<uuid> dotnet run
 | `HardwareControl/CommandStation/ICommandStation.cs` | Hardware abstraction contract |
 | `HardwareControl/CommandStation/CommandStation.cs` | Driver facade/orchestration (`EnsureOperationalAsync`, decoder/event routing) |
 | `HardwareControl/CommandStation/LoDi/` | LoDi protocol implementatio (UDP, DCC126) |
+| `HardwareControl/Test/RunTests.cs` | Interactive test router for command station/feedback + integration test entry points |
+| `TrainDriving/RouteControl/Services/` | Route definition + model railway layout loading and route table/runtime validation |
 | `Controlls/InterlockingEnlements/` | Avalonia UI tiles for signals/tracks/buttons |
-| `OTD/AppData/deviceconfig.xml` | Command station + feedback module selection/config (UID + driver + connection) |
+| `OTD/AppData/commandstations.xml` | Command station + feedback module selection/config (UID + driver + connection) |
 | `OTD/AppData/` | XML configuration files (train, loco, accessory) |
 | `Interlocking/Global.cs` | Global cycle config & simulation flags |
 
@@ -172,7 +175,8 @@ OTD_ENTRYPOINT=TEST_HARDWARECONTROL OTD_COMMANDSTATION_UID=<uuid> dotnet run
 3. **Configuration immutability**: `TrainComposition` is immutable after creation; rebuild if changes needed
 4. **Direction/Speed contract**: Never call `SetSpeedVAsync` without prior `SetDirectionAsync`; Train class enforces this
 5. **Speed guards**: `Loco` applies VMax checks and duplicate-suppression automatically; don't bypass
-6. **Test mode**: Set `OTD_ENTRYPOINT=TEST_HARDWARECONTROL` to run `TrainTest.cs` instead of UI
+6. **Test mode**: Set `OTD_ENTRYPOINT=TEST_HARDWARECONTROL` to run `HardwareControl/Test/RunTests.cs` instead of UI
+7. **Direct test case hook**: `OTD_TEST_CASE=TRAINDRIVING_ROUTE_LAYOUT_MINIMAL` bypasses menu selection for that case
 
 ## Performance Considerations
 
@@ -186,6 +190,7 @@ OTD_ENTRYPOINT=TEST_HARDWARECONTROL OTD_COMMANDSTATION_UID=<uuid> dotnet run
 **For questions on architecture**, refer to:
 - `HardwareControl/Train/README.md` - detailed Train/Vehicle/Decoder design
 - `HardwareControl/CommandStation/ICommandStation_README.md` - hardware abstraction
-- `HardwareControl/Examples/TrainTest.cs` - working reference code
+- `HardwareControl/Test/RunTests.cs` - working reference code for integration tests
+- `TrainDriving/README.md` - route/trajectory driving architecture and usage
 - `Program.cs` + `Interlocking/Global.cs` - app lifecycle and global config
 

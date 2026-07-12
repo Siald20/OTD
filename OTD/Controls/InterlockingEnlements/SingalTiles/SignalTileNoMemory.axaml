@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="120" d:DesignHeight="120"
+             x:Class="OTD.Controls.InterlockingEnlements.SignalTileNoMemory">
+
+    <UserControl.Styles>
+        <StyleInclude Source="avares://OTD/Controls/InterlockingEnlements/SingalTiles/Styles/SignalTilesStyles.axaml" />
+    </UserControl.Styles>
+
+    <Grid>
+        <!-- hinten -->
+        <Border Background="#7E9F88"
+                ZIndex="0"/>
+
+        <Rectangle Height="14"
+                   Fill="{StaticResource GleisDunkel}"
+                   VerticalAlignment="Center"
+                   ZIndex="1"/>
+
+        <!-- vorne -->
+        <Border Background="#111"
+                Height="20"
+                Width="70"
+                CornerRadius="8"
+                ZIndex="1"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,15,10,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                <Ellipse Width="10" Height="10" Fill="{StaticResource LampOff}"/>
+                <Ellipse Width="10" Height="10" Fill="{StaticResource SignalRed}"/>
+                <Ellipse Width="10" Height="10" Fill="{StaticResource SignalGreen}"/>
+            </StackPanel>
+        </Border>
+
+        <Button Width="24"
+                Height="24"
+                CornerRadius="12"
+                ZIndex="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Classes="signal-button"/>
+
+        <TextBlock x:Name="SignalNameText"
+                   ZIndex="1"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Bottom"
+                   Margin="0,0,0,20"/>
+    </Grid>
+      
+    
+</UserControl>

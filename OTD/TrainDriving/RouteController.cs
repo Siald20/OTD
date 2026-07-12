@@ -2,12 +2,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using OTD.Common;
 using OTD.HardwareControl;
 using OTD.TrainDriving.RouteControl.Domain;
+using OTD.TrainDriving.RouteControl.Exceptions;
 using OTD.TrainDriving.RouteControl.Runtime;
 using OTD.TrainDriving.RouteControl.Services;
 
@@ -16,6 +18,12 @@ namespace OTD.TrainDriving;
 public sealed class RouteController : IDisposable
 {
     private const int DefaultScale = 87;
+
+    static RouteController()
+    {
+        EnableUnexpectedAheadFeedbackInputEmergencyStop = Global.ROUTECONTROL_ENABLE_UNEXPECTED_AHEAD_SENSOR_EMERGENCY_STOP;
+        UnexpectedAheadFeedbackInputToleranceCm = Global.ROUTECONTROL_UNEXPECTED_AHEAD_SENSOR_TOLERANCE_CM;
+    }
 
     private readonly object _sync = new();
     private readonly TrainDriving _driving;
@@ -29,12 +37,16 @@ public sealed class RouteController : IDisposable
     private int? _activeCycleAllowedSpeedKmh;
     private bool _disposed;
     private bool _initialHoldActive;
+    private bool _emergencyReleaseHoldActive;
     private string? _lastLoggedActiveFromWaypointId;
     private string? _lastLoggedActiveToWaypointId;
     private long? _lastProgressTickTimestamp;
     private double _lastProgressTickPositionCm;
     private int _lastProgressTickSpeedKmh;
+    private string? _lastIdleStateSignature;
+    private RouteSnapshot? _lastTransitionSnapshot;
 
+    /// <param name="train">Zu steuernder Zug.</param>
     /// <param name="initialHold">
     /// Wenn <c>true</c>, wartet der Controller nach dem ersten AddRoute/ReplaceRoutes-Aufruf auf
     /// einen expliziten <see cref="ReleaseGo"/>-Aufruf, bevor der Zug losfährt.
@@ -96,6 +108,30 @@ public sealed class RouteController : IDisposable
 
     public Train BoundTrain => _driving.BoundTrain ?? throw new InvalidOperationException("RouteController requires a bound train.");
 
+    public static bool EnableUnexpectedAheadFeedbackInputEmergencyStop
+    {
+        get => RouteControlSafetyOptions.EnableUnexpectedAheadFeedbackInputEmergencyStop;
+        set => RouteControlSafetyOptions.EnableUnexpectedAheadFeedbackInputEmergencyStop = value;
+    }
+
+    public static double UnexpectedAheadFeedbackInputToleranceCm
+    {
+        get => RouteControlSafetyOptions.UnexpectedAheadFeedbackInputToleranceCm;
+        set => RouteControlSafetyOptions.UnexpectedAheadFeedbackInputToleranceCm = Math.Max(0.0, value);
+    }
+
+    public static bool EnableStuckAlertEmergencyStop
+    {
+        get => RouteControlSafetyOptions.EnableStuckAlertEmergencyStop;
+        set => RouteControlSafetyOptions.EnableStuckAlertEmergencyStop = value;
+    }
+
+    public static double StuckAlertTolerancePercent
+    {
+        get => RouteControlSafetyOptions.StuckAlertTolerancePercent;
+        set => RouteControlSafetyOptions.StuckAlertTolerancePercent = Math.Max(0.0, value);
+    }
+
     public double AccelerationMs2
     {
         get => _driving.AccelerationMs2;
@@ -127,20 +163,106 @@ public sealed class RouteController : IDisposable
     }
 
     public event Action<RouteRuntimeState>? RouteTick;
+    public event Action<IdleState>? IdleStateReached;
+    public event Action<RouteLegTransitionEvent>? RouteLegTransition;
+    public event Action<RouteLegSegmentTransitionEvent>? RouteLegSegmentTransition;
 
-    public void AddRoute(RouteLeg leg) => _service.AddRoutes(ExpandRouteLegInput(leg));
+    public enum RouteLegTransitionType
+    {
+        Enter,
+        Leave
+    }
 
-    public void AddRoute(DynamicRouteRequest request) => _service.AddRoutes(ExpandDynamicRoute(request));
+    /// <summary>
+    /// Transition-Event für den Übergang einer Zugachse in/aus ein RouteLeg.
+    /// Enter: Zugspitze betritt das erste Segment der Gruppe (RouteLeg-Start).
+    /// Leave: Zugschluss verlässt das letzte Segment der Gruppe (RouteLeg-Ende).
+    /// GroupFromWaypointId/GroupToWaypointId: Start- und Endwaypoint des ursprünglichen (unexpandiert) RouteLeg.
+    /// </summary>
+    public sealed record RouteLegTransitionEvent(
+        RouteLegTransitionType TransitionType,
+        RouteLeg RouteLeg,
+        int? RouteIndex,
+        int ConsumedRouteCount,
+        string? ActiveFromWaypointId,
+        string GroupFromWaypointId,
+        string GroupToWaypointId)
+    {
+        /// <summary>Gibt an ob das Leg dem RouteLeg mit den angebebenen Wegpunkten entspricht (Gruppen-Vergleich).</summary>
+        public bool IsGroup(string fromWaypointId, string toWaypointId) =>
+            string.Equals(GroupFromWaypointId, fromWaypointId, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(GroupToWaypointId, toWaypointId, StringComparison.OrdinalIgnoreCase);
+    }
 
-    public void AddRoutes(IReadOnlyList<RouteLeg> legs) => _service.AddRoutes(ExpandRouteLegInputs(legs));
+    /// <summary>
+    /// Transition-Event für einzelne Segmente innerhalb einer Gruppe (RouteTable-Einträge).
+    /// Enter: Zugspitze betritt das Segment (ActiveRouteIndex wechselt auf dieses Segment).
+    /// Leave: Zugschluss verlässt das Segment (Segment wurde konsumiert, ConsumedRouteCount gestiegen).
+    /// </summary>
+    public sealed record RouteLegSegmentTransitionEvent(
+        RouteLegTransitionType TransitionType,
+        RouteLeg Segment,
+        int? SegmentIndex,
+        int ConsumedRouteCount,
+        string? ActiveFromWaypointId,
+        string GroupFromWaypointId,
+        string GroupToWaypointId);
 
-    public void AddRoutes(IReadOnlyList<DynamicRouteRequest> requests) => _service.AddRoutes(ExpandDynamicRoutes(requests));
+    public sealed record IdleState(
+        string Reason,
+        string? ActiveFromWaypointId,
+        int? ActiveRouteIndex,
+        int RouteLegCount,
+        int ConsumedRouteCount,
+        int CurrentSpeedKmh,
+        double HeadPositionCm,
+        double RemainingDistanceCm);
 
-    public void ReplaceRoutes(IReadOnlyList<RouteLeg> legs) => _service.ReplaceRoutes(ExpandRouteLegInputs(legs));
 
-    public void ReplaceRoutes(IReadOnlyList<DynamicRouteRequest> requests) => _service.ReplaceRoutes(ExpandDynamicRoutes(requests));
+    public void AddRoute(RouteLeg leg)
+    {
+        ValidateAgainstLineRouteStart(leg);
+        _service.AddRoutes(ExpandRouteLegInput(leg));
+        LogRouteMutation("AddRoute", 1);
+    }
 
-    public void ReplaceRouteAtEnd(RouteLeg leg) => _service.ReplaceRoutes(ExpandRouteLegInput(leg));
+    public void AddRoute(DynamicRouteRequest request)
+    {
+        _service.AddRoutes(ExpandDynamicRoute(request));
+        LogRouteMutation("AddRouteDynamic", 1);
+    }
+
+    public void AddRoutes(IReadOnlyList<RouteLeg> legs)
+    {
+        _service.AddRoutes(ExpandRouteLegInputs(legs));
+        LogRouteMutation("AddRoutes", legs.Count);
+    }
+
+    public void AddRoutes(IReadOnlyList<DynamicRouteRequest> requests)
+    {
+        _service.AddRoutes(ExpandDynamicRoutes(requests));
+        LogRouteMutation("AddRoutesDynamic", requests.Count);
+    }
+
+    public void ReplaceRoutes(IReadOnlyList<RouteLeg> legs)
+    {
+        ValidateAgainstLineRoutes(legs);
+        _service.ReplaceRoutes(ExpandRouteLegInputs(legs));
+        LogRouteMutation("ReplaceRoutes", legs.Count);
+    }
+
+    public void ReplaceRoutes(IReadOnlyList<DynamicRouteRequest> requests)
+    {
+        _service.ReplaceRoutes(ExpandDynamicRoutes(requests));
+        LogRouteMutation("ReplaceRoutesDynamic", requests.Count);
+    }
+
+    public void ReplaceRouteAtEnd(RouteLeg leg)
+    {
+        ValidateAgainstLineRouteStart(leg);
+        _service.ReplaceRoutes(ExpandRouteLegInput(leg));
+        LogRouteMutation("ReplaceRouteAtEnd", 1);
+    }
 
     public void RemoveRouteAtEnd() => _service.RemoveRouteAtEnd();
 
@@ -164,6 +286,14 @@ public sealed class RouteController : IDisposable
                 catch (ObjectDisposedException) { }
                 return;
             }
+
+            if (_emergencyReleaseHoldActive)
+            {
+                _emergencyReleaseHoldActive = false;
+                try { _routeChangeSignal.Release(); }
+                catch (ObjectDisposedException) { }
+                return;
+            }
         }
 
         _service.ReleaseGo();
@@ -171,19 +301,69 @@ public sealed class RouteController : IDisposable
 
     public RouteSnapshot GetSnapshot() => _service.GetSnapshot();
 
-    public void OnEmergencyStop() => _service.OnEmergencyStop();
+    /// <summary>
+    /// Liefert die aktuell in der RouteTable befindlichen RouteLegs als Snapshot.
+    /// </summary>
+    public IReadOnlyList<RouteLeg> GetRouteLegsSnapshot() => _service.GetSnapshot().RouteLegs;
 
-    public void OnEmergencyRelease() => _service.OnEmergencyRelease();
-
-    public void AdvancePosition(double headPositionCm) => _service.AdvancePosition(headPositionCm);
-
-    public void OnSensorActivated(int sensorId)
+    /// <summary>
+    /// Formatiert die aktuelle RouteTable kompakt fuer Log-/Console-Ausgaben.
+    /// </summary>
+    public string DescribeRouteTable()
     {
-        var estimatedHeadPositionCm = EstimateHeadPositionAtSensorEvent();
-        var activation = _service.OnSensorActivated(sensorId, estimatedHeadPositionCm);
+        var snapshot = _service.GetSnapshot();
+        if (snapshot.RouteLegs.Count == 0)
+            return "RouteTable=<empty>";
+
+        var activeIndex = snapshot.RuntimeState.ActiveRouteIndex;
+        var parts = new List<string>(snapshot.RouteLegs.Count);
+
+        for (var i = 0; i < snapshot.RouteLegs.Count; i++)
+        {
+            var leg = snapshot.RouteLegs[i];
+            var activeMarker = activeIndex == i ? "*" : "";
+            var groupLabel = string.IsNullOrWhiteSpace(leg.GroupId) ? "-" : leg.GroupId;
+            parts.Add(
+                $"{activeMarker}{i}:{leg.FromWaypointId}->{leg.ToWaypointId}(d={leg.DistanceCm.ToString("F1", CultureInfo.InvariantCulture)},v={leg.MaxSpeedKmh},g={groupLabel})");
+        }
+
+        return string.Join(" | ", parts);
+    }
+
+    public void OnEmergencyStop()
+    {
+        _service.OnEmergencyStop();
+        SignalRouteWakeup("EmergencyStop");
+    }
+
+    public void OnEmergencyRelease() => ReleaseEmergencyStop();
+
+    public void ReleaseEmergencyStop()
+    {
+        _service.OnEmergencyRelease();
+        lock (_sync)
+        {
+            _emergencyReleaseHoldActive = true;
+        }
+        SignalRouteWakeup("EmergencyRelease");
+    }
+
+    public RouteTableService.StuckAlertResult? AdvancePosition(double headPositionCm, bool suppressStuckAlert = false)
+        => _service.AdvancePosition(headPositionCm, suppressStuckAlert);
+
+    public void OnFeedbackInputActivated(int feedbackId)
+    {
+        var estimatedHeadPositionCm = EstimateHeadPositionAtFeedbackEvent();
+        var activation = _service.OnFeedbackInputActivated(feedbackId, estimatedHeadPositionCm);
         if (!activation.Accepted)
         {
-            Logging.DebugExtended<RouteController>($"Event=SensorActivationIgnored SensorId={sensorId} Reason=NotPartOfActiveCyclePayload");
+            if (activation.EmergencyStopRequested)
+            {
+                TriggerUnexpectedFeedbackEmergencyStop(feedbackId, activation);
+                return;
+            }
+
+            Logging.DebugExtended<RouteController>($"Event=FeedbackActivationIgnored FeedbackId={feedbackId} Reason=NotPartOfActiveCyclePayload");
             return;
         }
 
@@ -193,29 +373,29 @@ public sealed class RouteController : IDisposable
         var snapshot = _service.GetSnapshot();
         var cycleLabel = TryGetCycleLabel(snapshot.RuntimeState.ActiveRouteIndex, snapshot.RouteLegs);
 
-        // Sensor-Fenster-Validierung: Größere Positionssprünge erfordern sofortige Neu-Planung der Bremsrampe.
-        // Basis-Toleranzfenster: ±15 cm (Spezifikation: maximal akzeptable Sensorabweichung pro RouteControl SPEC v1).
-        // Für dicht aufeinanderfolgende Sensoren (z. B. Weiche->Weiche) wird die Schwelle proportional
-        // zum topologisch bekannten Sensorabstand erweitert, damit kurze Abschnittswechsel nicht
+        // Feedback-Fenster-Validierung: Größere Positionssprünge erfordern sofortige Neu-Planung der Bremsrampe.
+        // Basis-Toleranzfenster: ±15 cm (Spezifikation: maximal akzeptable Feedbackabweichung pro RouteControl SPEC v1).
+        // Für dicht aufeinanderfolgende Feedbacken (z. B. Weiche->Weiche) wird die Schwelle proportional
+        // zum topologisch bekannten Feedbackabstand erweitert, damit kurze Abschnittswechsel nicht
         // fälschlich als "LargeCorrection" markiert werden.
         const double baseAcceptableErrorCm = 15.0;
         var dynamicThresholdCm = baseAcceptableErrorCm;
-        double? expectedSensorSpacingCm = null;
-        if (TryGetPreviousSensorSpacingCm(snapshot.RouteLegs, sensorId, currentPos, out var spacingCm))
+        double? expectedFeedbackSpacingCm = null;
+        if (TryGetPreviousFeedbackSpacingCm(snapshot.RouteLegs, feedbackId, currentPos, out var spacingCm))
         {
-            expectedSensorSpacingCm = spacingCm;
+            expectedFeedbackSpacingCm = spacingCm;
             dynamicThresholdCm = Math.Max(baseAcceptableErrorCm, spacingCm * 0.60);
         }
 
         var errorAbsMagnitude = Math.Abs(error);
         var isLargeCorrection = errorAbsMagnitude > dynamicThresholdCm;
 
-        Logging.Debug<RouteController>($"Event=SensorActivationAccepted SensorId={sensorId} RemainingPendingSensors=-");
+        Logging.Debug<RouteController>($"Event=FeedbackActivationAccepted FeedbackId={feedbackId} RemainingPendingFeedbacks=-");
         Logging.Debug<RouteController>(
-            $"Event=SensorRecalibration SensorId={sensorId} Recalibrated=yes PositionCm={currentPos:F1} ErrorCm={error:F1} ErrorMagnitudeCm={errorAbsMagnitude:F1} " +
+            $"Event=FeedbackRecalibration FeedbackId={feedbackId} Recalibrated=yes PositionCm={currentPos:F1} ErrorCm={error:F1} ErrorMagnitudeCm={errorAbsMagnitude:F1} " +
             $"Active={activation.ActiveFromWaypointId ?? "-"} PreviousPositionCm={previousPos:F1} ForcedForwardLegSync={(activation.ForcedForwardLegSync ? "yes" : "no")} " +
             $"LargeCorrection={(isLargeCorrection ? "yes" : "no")} ThresholdCm={dynamicThresholdCm:F1} " +
-            $"ExpectedSensorSpacingCm={(expectedSensorSpacingCm is null ? "-" : expectedSensorSpacingCm.Value.ToString("F1"))}");
+            $"ExpectedFeedbackSpacingCm={(expectedFeedbackSpacingCm is null ? "-" : expectedFeedbackSpacingCm.Value.ToString("F1"))}");
 
         // Erzwingt unmittelbar eine Neuberechnung des Brems-/Fahrprofils nach großem Positionssprung.
         // Dies gewährleistet, dass die Bremsrampe sofort neu auf die korrigierte Zielposition kalibriert wird.
@@ -227,7 +407,7 @@ public sealed class RouteController : IDisposable
                 {
                     _activeCycleCancellation.Cancel();
                     Logging.DebugExtended<RouteController>(
-                        $"Event=ActiveCycleCancellation SensorId={sensorId} Reason=ImmediateReplan");
+                        $"Event=ActiveCycleCancellation FeedbackId={feedbackId} Reason=ImmediateReplan");
                 }
             }
             catch (ObjectDisposedException)
@@ -241,7 +421,92 @@ public sealed class RouteController : IDisposable
         Logging.DebugExtended<RouteController>(
             $"Event=ApplyStep DeltaCm=0.0 PreviousPositionCm={previousPos:F1} PositionCm={currentPos:F1} " +
             $"TrajectorySpeedKmh={Math.Max(0, BoundTrain.SpeedV)} EffectiveSpeedKmh={Math.Max(0, BoundTrain.SpeedV)} " +
-            $"SensorId={sensorId} Recalibrated=yes Cycle={cycleLabel}");
+            $"FeedbackId={feedbackId} Recalibrated=yes Cycle={cycleLabel}");
+    }
+
+    private void TriggerUnexpectedFeedbackEmergencyStop(int feedbackId, RouteTableService.FeedbackInputActivationResult activation)
+    {
+        _service.OnEmergencyStop();
+
+        lock (_sync)
+        {
+            try
+            {
+                if (_activeCycleCancellation is { IsCancellationRequested: false })
+                    _activeCycleCancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Race during disposal or cycle handover.
+            }
+        }
+
+        var expectedFeedbackInput = activation.ExpectedFeedbackInputId is null
+            ? "-"
+            : $"{activation.ExpectedFeedbackInputId.Value}@{activation.ExpectedFeedbackInputAnchorCm.GetValueOrDefault():F1}cm";
+        var activatedAnchor = activation.ActivatedFeedbackInputAnchorCm is null
+            ? "-"
+            : $"{activation.ActivatedFeedbackInputAnchorCm.Value:F1}cm";
+        var delta = activation.UnexpectedDeltaToExpectedCm is null
+            ? "-"
+            : $"{activation.UnexpectedDeltaToExpectedCm.Value:F1}cm";
+
+        Logging.Warning<RouteController>(
+            $"Event=UnexpectedAheadFeedbackEmergencyStop FeedbackId={feedbackId} " +
+            $"Expected={expectedFeedbackInput} ActivatedAnchor={activatedAnchor} DeltaToExpected={delta}.");
+
+        _ = ExecuteUnexpectedFeedbackEmergencyStopAsync(feedbackId);
+    }
+
+    private void TriggerStuckAlertEmergencyStop(RouteTableService.StuckAlertResult alert)
+    {
+        _service.OnEmergencyStop();
+
+        lock (_sync)
+        {
+            try
+            {
+                if (_activeCycleCancellation is { IsCancellationRequested: false })
+                    _activeCycleCancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Race during disposal or cycle handover.
+            }
+        }
+
+        Logging.Warning<RouteController>(
+            $"Event=StuckAlertEmergencyStop ExpectedInput={alert.ExpectedFeedbackInputId}@{alert.ExpectedFeedbackInputAnchorCm:F1}cm " +
+            $"BaseAnchorCm={alert.BaseAnchorCm:F1} HeadPositionCm={alert.HeadPositionCm:F1} SegmentDistanceCm={alert.SegmentDistanceCm:F1} " +
+            $"AllowedOverrunCm={alert.AllowedOverrunCm:F1} OverrunCm={alert.OverrunCm:F1} Active={alert.ActiveFromWaypointId ?? "-"}.");
+
+        _ = ExecuteStuckAlertEmergencyStopAsync();
+    }
+
+    private async Task ExecuteUnexpectedFeedbackEmergencyStopAsync(int feedbackId)
+    {
+        try
+        {
+            await BoundTrain.EmergencyStopAsync().ConfigureAwait(false);
+            Logging.Warning<RouteController>($"Event=UnexpectedAheadFeedbackEmergencyStopExecuted FeedbackId={feedbackId}.");
+        }
+        catch (Exception ex)
+        {
+            Logging.Error<RouteController>($"Unexpected feedback emergency stop failed for feedback {feedbackId}: {ex.Message}", ex);
+        }
+    }
+
+    private async Task ExecuteStuckAlertEmergencyStopAsync()
+    {
+        try
+        {
+            await BoundTrain.EmergencyStopAsync().ConfigureAwait(false);
+            Logging.Warning<RouteController>("Event=StuckAlertEmergencyStopExecuted.");
+        }
+        catch (Exception ex)
+        {
+            Logging.Error<RouteController>($"StuckAlert emergency stop failed: {ex.Message}", ex);
+        }
     }
 
     public async Task Run(CancellationToken cancellationToken = default)
@@ -256,6 +521,7 @@ public sealed class RouteController : IDisposable
             var snapshot = _service.GetSnapshot();
             var state = snapshot.RuntimeState;
             RouteTick?.Invoke(state);
+            PublishRouteLegTransitions(snapshot);
 
             if (state.ActiveRouteIndex is null)
             {
@@ -263,12 +529,30 @@ public sealed class RouteController : IDisposable
             }
 
             bool initialHold;
-            lock (_sync) { initialHold = _initialHoldActive; }
+            bool emergencyReleaseHold;
+            lock (_sync)
+            {
+                initialHold = _initialHoldActive;
+                emergencyReleaseHold = _emergencyReleaseHoldActive;
+            }
 
-            if (state.SafetyStopInjected || state.ActiveStopPoint || initialHold)
+            if (state.SafetyStopInjected || state.ActiveStopPoint || initialHold || emergencyReleaseHold)
             {
                 if (Math.Max(0, BoundTrain.SpeedV) > 0)
                     await BoundTrain.SetSpeedVAsync(0, runToken).ConfigureAwait(false);
+                var holdReason = state.SafetyStopInjected
+                    ? "SafetyStop"
+                    : state.ActiveStopPoint
+                        ? "StopPointHold"
+                        : emergencyReleaseHold
+                            ? "EmergencyReleaseHold"
+                            : "InitialHold";
+                PublishIdleStateOnce(
+                    holdReason,
+                    snapshot,
+                    state,
+                    Math.Max(0, BoundTrain.SpeedV),
+                    remainingDistanceCm: 0.0);
                 await WaitForRouteChangeAsync(runToken).ConfigureAwait(false);
                 continue;
             }
@@ -277,6 +561,12 @@ public sealed class RouteController : IDisposable
             {
                 if (Math.Max(0, BoundTrain.SpeedV) > 0)
                     await BoundTrain.SetSpeedVAsync(0, runToken).ConfigureAwait(false);
+                PublishIdleStateOnce(
+                    "NoActiveRoute",
+                    snapshot,
+                    state,
+                    Math.Max(0, BoundTrain.SpeedV),
+                    remainingDistanceCm: 0.0);
                 await WaitForRouteChangeAsync(runToken).ConfigureAwait(false);
                 continue;
             }
@@ -327,15 +617,50 @@ public sealed class RouteController : IDisposable
                     $"RemainingDistanceCm={remainingDistanceCm:F1}");
             }
 
-            // Safety break: if target speed is 0 and we're very close to the end, wait for next route
-            // This prevents tight spinning loops when a cycle completes with minimal remaining distance
+            // Safety break: if target speed is 0 and we're very close to the end, ensure the stop position
+            // is reached so NormalizeRuntimeUnsafe can activate the StopPoint, then wait for route change.
             if (targetSpeedKmh == 0 && remainingDistanceCm <= 1.5)
             {
                 if (Math.Max(0, BoundTrain.SpeedV) > 0)
                     await BoundTrain.SetSpeedVAsync(0, runToken).ConfigureAwait(false);
-                await Task.Delay(50, runToken).ConfigureAwait(false);  // Minimal delay to prevent CPU spinning
+
+                // Zug steht, aber die Stop-Position wurde noch nicht exakt erreicht:
+                // Position manuell auf stopPositionCm setzen, damit NormalizeRuntimeUnsafe
+                // den ActiveStopPoint aktiviert und der Controller korrekt in WaitForRouteChange haengt.
+                // stopPositionCm == 0 bedeutet: kein aktiver StopPoint (z.B. letztes Leg) -> kein Advance noetig.
+                if (stopPositionCm > 0 && state.HeadPositionCm < stopPositionCm)
+                    _service.AdvancePosition(stopPositionCm, suppressStuckAlert: true);
+
+                PublishIdleStateOnce(
+                    "RouteCompleted",
+                    snapshot,
+                    state,
+                    Math.Max(0, BoundTrain.SpeedV),
+                    remainingDistanceCm);
+
+                await WaitForRouteChangeAsync(runToken).ConfigureAwait(false);
                 continue;
             }
+
+            // Wenn bereits Stillstand und Zielgeschwindigkeit ebenfalls 0 ist, darf kein neuer
+            // 0-km/h-Fahrzyklus gestartet werden (wuerde sofort zurueckkehren und die Run-Schleife belasten).
+            if (targetSpeedKmh == 0 && currentSpeedKmh == 0)
+            {
+                if (stopPositionCm > 0 && state.HeadPositionCm < stopPositionCm)
+                    _service.AdvancePosition(stopPositionCm, suppressStuckAlert: true);
+
+                PublishIdleStateOnce(
+                    "ZeroSpeedTargetReached",
+                    snapshot,
+                    state,
+                    currentSpeedKmh,
+                    remainingDistanceCm);
+
+                await WaitForRouteChangeAsync(runToken).ConfigureAwait(false);
+                continue;
+            }
+
+            _lastIdleStateSignature = null;
 
             var cycle = new RouteCycle(
                 FromWaypointId: activeLeg.FromWaypointId,
@@ -553,7 +878,7 @@ public sealed class RouteController : IDisposable
                 // Die Offset-Position wird so interpretiert:
                 // - StopPoint.OffsetCm = Abstand vom Leg-Anfang zum StopPoint
                 // - Vorverlagerung: Bremsung beginnt um diesen Offset VOR Leg-Anfang
-                var offsetCm = Math.Clamp((double)leg.StopPoint.OffsetCm, 0.0, leg.DistanceCm);
+                var offsetCm = Math.Clamp(leg.StopPoint.OffsetCm, 0.0, leg.DistanceCm);
                 var candidateStopPositionCm = runningLegStartCm + offsetCm;
                 var candidatePreBrakeStartCm = runningLegStartCm - offsetCm;
 
@@ -592,22 +917,22 @@ public sealed class RouteController : IDisposable
         return start;
     }
 
-    private static bool TryGetPreviousSensorSpacingCm(
+    private static bool TryGetPreviousFeedbackSpacingCm(
         IReadOnlyList<RouteLeg> routeLegs,
-        int sensorId,
+        int feedbackId,
         double anchorPositionCm,
         out double spacingCm)
     {
         spacingCm = 0.0;
-        var markers = new List<(int SensorId, double AnchorCm)>();
+        var markers = new List<(int FeedbackId, double AnchorCm)>();
         var cumulative = 0.0;
 
         foreach (var leg in routeLegs)
         {
-            if (leg.SensorMarkers is not null)
+            if (leg.FeedbackInputActivationPoints is not null)
             {
-                foreach (var marker in leg.SensorMarkers)
-                    markers.Add((marker.SensorId, cumulative + marker.OffsetCm));
+                foreach (var marker in leg.FeedbackInputActivationPoints)
+                    markers.Add((marker.FeedbackId, cumulative + marker.OffsetCm));
             }
 
             cumulative += leg.DistanceCm;
@@ -620,7 +945,7 @@ public sealed class RouteController : IDisposable
         var currentBestDistance = double.MaxValue;
         for (var i = 0; i < markers.Count; i++)
         {
-            if (markers[i].SensorId != sensorId)
+            if (markers[i].FeedbackId != feedbackId)
                 continue;
 
             var distanceToAnchor = Math.Abs(markers[i].AnchorCm - anchorPositionCm);
@@ -635,18 +960,22 @@ public sealed class RouteController : IDisposable
             return false;
 
         var currentAnchor = markers[currentIndex].AnchorCm;
-        var previousAnchor = double.MinValue;
+        var previousAnchor = 0.0;
+        var hasPreviousAnchor = false;
         for (var i = 0; i < markers.Count; i++)
         {
             var anchor = markers[i].AnchorCm;
             if (anchor >= currentAnchor - 0.001)
                 continue;
 
-            if (anchor > previousAnchor)
+            if (!hasPreviousAnchor || anchor > previousAnchor)
+            {
                 previousAnchor = anchor;
+                hasPreviousAnchor = true;
+            }
         }
 
-        if (previousAnchor == double.MinValue)
+        if (!hasPreviousAnchor)
             return false;
 
         spacingCm = Math.Max(0.0, currentAnchor - previousAnchor);
@@ -670,7 +999,7 @@ public sealed class RouteController : IDisposable
         Logging.Debug<RouteController>(
             $"Event=ActiveCycleChanged Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} DistanceCm={activeLeg.DistanceCm:F1} AllowedSpeedKmh={activeLeg.MaxSpeedKmh:F0}");
         Logging.DebugExtended<RouteController>(
-            $"Event=ActiveCyclePayload Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} PendingSensors={activeLeg.SensorMarkers?.Count ?? 0} PendingActions=0");
+            $"Event=ActiveCyclePayload Active={activeLeg.FromWaypointId}->{activeLeg.ToWaypointId} PendingFeedbacks={activeLeg.FeedbackInputActivationPoints?.Count ?? 0} PendingActions=0");
     }
 
     private void LogActiveCycleClearedIfChanged()
@@ -692,7 +1021,7 @@ public sealed class RouteController : IDisposable
     private void OnProgressTick(TrainDrivingProgressTick tick)
     {
         var previousPos = _service.GetRuntimeState().HeadPositionCm;
-        _service.AdvanceByDelta(tick.DeltaCmModel);
+        var stuckAlert = _service.AdvanceByDelta(tick.DeltaCmModel);
         var snapshot = _service.GetSnapshot();
         var state = snapshot.RuntimeState;
         var currentPos = state.HeadPositionCm;
@@ -707,7 +1036,14 @@ public sealed class RouteController : IDisposable
         Logging.DebugExtended<RouteController>(
             $"Event=ApplyStep DeltaCm={tick.DeltaCmModel:F1} PreviousPositionCm={previousPos:F1} PositionCm={currentPos:F1} " +
             $"TrajectorySpeedKmh={tick.CommandedSpeedKmhPrototype} EffectiveSpeedKmh={tick.CommandedSpeedKmhPrototype} " +
-            $"SensorId=- Recalibrated=no Cycle={cycleLabel}");
+            $"FeedbackId=- Recalibrated=no Cycle={cycleLabel}");
+
+        if (stuckAlert is not null)
+        {
+            TriggerStuckAlertEmergencyStop(stuckAlert.Value);
+            RouteTick?.Invoke(state);
+            return;
+        }
 
         // Dynamische Replanung innerhalb eines laufenden Fahrzyklus:
         // Wenn sich durch fortschreitende Position das Bremsziel (StopPoint oder impliziter End-Halt)
@@ -765,7 +1101,7 @@ public sealed class RouteController : IDisposable
         RouteTick?.Invoke(state);
     }
 
-    private double EstimateHeadPositionAtSensorEvent()
+    private double EstimateHeadPositionAtFeedbackEvent()
     {
         var basePositionCm = _lastProgressTickTimestamp is null
             ? _service.GetRuntimeState().HeadPositionCm
@@ -825,6 +1161,14 @@ public sealed class RouteController : IDisposable
         return _routeLegResolver.Expand(leg);
     }
 
+    private void LogRouteMutation(string operation, int requestedCount)
+    {
+        var snapshot = _service.GetSnapshot();
+        Logging.Debug<RouteController>(
+            $"Event=RouteMutationApplied Operation={operation} Requested={requestedCount} RouteTableCount={snapshot.RouteLegs.Count}");
+    }
+
+    
     private IReadOnlyList<RouteLeg> ExpandRouteLegInputs(IReadOnlyList<RouteLeg> legs)
     {
         ArgumentNullException.ThrowIfNull(legs);
@@ -833,6 +1177,41 @@ public sealed class RouteController : IDisposable
             expanded.AddRange(ExpandRouteLegInput(leg));
 
         return expanded;
+    }
+
+    private void ValidateAgainstLineRoutes(IReadOnlyList<RouteLeg> legs)
+    {
+        ArgumentNullException.ThrowIfNull(legs);
+        foreach (var leg in legs)
+            ValidateAgainstLineRouteStart(leg);
+    }
+
+    private void ValidateAgainstLineRouteStart(RouteLeg leg)
+    {
+        ArgumentNullException.ThrowIfNull(leg);
+        if (leg.TravelDirection != RouteTravelDirection.AgainstLine)
+            return;
+
+        if (_routeLegResolver is null)
+            return;
+
+        var snapshot = _service.GetSnapshot();
+        if (snapshot.RouteLegs.Count == 0)
+            return;
+
+        var currentRouteEndWaypointId = snapshot.RouteLegs[^1].ToWaypointId;
+        if (string.Equals(currentRouteEndWaypointId, leg.FromWaypointId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var trainLengthCm = Math.Max(0.0, snapshot.RuntimeState.TrainLengthCm);
+        var availableSectionCm = _routeLegResolver.ResolvePathDistanceCm(currentRouteEndWaypointId, leg.FromWaypointId);
+
+        if (trainLengthCm > availableSectionCm + 0.1)
+        {
+            throw new RouteValidationException(
+                $"AgainstLine RouteLeg '{leg.FromWaypointId}->{leg.ToWaypointId}' cannot be created: train length {trainLengthCm:F1} cm exceeds distance from current route end '{currentRouteEndWaypointId}' to new start '{leg.FromWaypointId}' ({availableSectionCm:F1} cm)."
+            );
+        }
     }
 
     private IReadOnlyList<RouteLeg> ExpandDynamicRoutes(IReadOnlyList<DynamicRouteRequest> requests)
@@ -897,6 +1276,7 @@ public sealed class RouteController : IDisposable
 
     private void OnRouteChanged(int _)
     {
+        var snapshot = _service.GetSnapshot();
         lock (_sync)
         {
             try
@@ -909,6 +1289,9 @@ public sealed class RouteController : IDisposable
             }
         }
 
+        Logging.DebugExtended<RouteController>(
+            $"Event=RouteChangedSignal RouteTableCount={snapshot.RouteLegs.Count} ActiveIndex={snapshot.RuntimeState.ActiveRouteIndex?.ToString() ?? "-"}");
+
         try
         {
             _routeChangeSignal.Release();
@@ -919,10 +1302,208 @@ public sealed class RouteController : IDisposable
         }
     }
 
+    private void PublishIdleStateOnce(
+        string reason,
+        RouteSnapshot snapshot,
+        RouteRuntimeState state,
+        int currentSpeedKmh,
+        double remainingDistanceCm)
+    {
+        var signature =
+            $"{reason}|{state.ActiveFromWaypointId ?? "-"}|{state.ActiveRouteIndex?.ToString() ?? "-"}|{snapshot.RouteLegs.Count}|{state.ConsumedRouteCount}|{Math.Round(state.HeadPositionCm, 1)}|{currentSpeedKmh}";
+
+        if (string.Equals(_lastIdleStateSignature, signature, StringComparison.Ordinal))
+            return;
+
+        _lastIdleStateSignature = signature;
+        IdleStateReached?.Invoke(new IdleState(
+            Reason: reason,
+            ActiveFromWaypointId: state.ActiveFromWaypointId,
+            ActiveRouteIndex: state.ActiveRouteIndex,
+            RouteLegCount: snapshot.RouteLegs.Count,
+            ConsumedRouteCount: state.ConsumedRouteCount,
+            CurrentSpeedKmh: currentSpeedKmh,
+            HeadPositionCm: state.HeadPositionCm,
+             RemainingDistanceCm: remainingDistanceCm));
+    }
+
+    private void PublishRouteLegTransitions(RouteSnapshot current)
+    {
+        var previous = _lastTransitionSnapshot;
+        _lastTransitionSnapshot = current;
+
+        if (previous is null)
+            return;
+
+        var prevState = previous.RuntimeState;
+        var currState = current.RuntimeState;
+
+        // === Segment-Level: Enter ===
+        // Zugspitze betritt neues Segment (ActiveRouteIndex geändert).
+        if (currState.ActiveRouteIndex is { } currIdx &&
+            currIdx >= 0 && currIdx < current.RouteLegs.Count)
+        {
+            var currSeg = current.RouteLegs[currIdx];
+            var currGroupId = currSeg.GroupId;
+            var (currGroupFrom, currGroupTo) = ResolveGroupEndpoints(current.RouteLegs, currGroupId);
+
+            var prevSegFromId = default(string?);
+            var prevSegToId = default(string?);
+            var prevGroupId = default(string?);
+
+            if (prevState.ActiveRouteIndex is { } prevIdx &&
+                prevIdx >= 0 && prevIdx < previous.RouteLegs.Count)
+            {
+                var prevSeg = previous.RouteLegs[prevIdx];
+                prevSegFromId = prevSeg.FromWaypointId;
+                prevSegToId = prevSeg.ToWaypointId;
+                prevGroupId = prevSeg.GroupId;
+            }
+
+            var segmentChanged =
+                prevSegFromId is null ||
+                !string.Equals(prevSegFromId, currSeg.FromWaypointId, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(prevSegToId, currSeg.ToWaypointId, StringComparison.OrdinalIgnoreCase);
+
+            if (segmentChanged)
+            {
+                RouteLegSegmentTransition?.Invoke(new RouteLegSegmentTransitionEvent(
+                    RouteLegTransitionType.Enter,
+                    currSeg,
+                    currIdx,
+                    currState.ConsumedRouteCount,
+                    currState.ActiveFromWaypointId,
+                    currGroupFrom,
+                    currGroupTo));
+                Logging.DebugExtended<RouteController>(
+                    $"Event=SegmentEnter Segment={currSeg.FromWaypointId}->{currSeg.ToWaypointId} " +
+                    $"Group={currGroupFrom}->{currGroupTo} SegIdx={currIdx} Consumed={currState.ConsumedRouteCount}");
+            }
+
+            // === Gruppen-Level: Enter ===
+            var groupChanged =
+                prevGroupId is null ||
+                !string.Equals(prevGroupId, currGroupId, StringComparison.OrdinalIgnoreCase);
+
+            if (groupChanged)
+            {
+                RouteLegTransition?.Invoke(new RouteLegTransitionEvent(
+                    RouteLegTransitionType.Enter,
+                    currSeg,
+                    currIdx,
+                    currState.ConsumedRouteCount,
+                    currState.ActiveFromWaypointId,
+                    currGroupFrom,
+                    currGroupTo));
+                Logging.Debug<RouteController>(
+                    $"Event=RouteLegEnter Group={currGroupFrom}->{currGroupTo} " +
+                    $"SegIdx={currIdx} Consumed={currState.ConsumedRouteCount}");
+            }
+        }
+
+        // === Segment-Level + Gruppen-Level: Leave ===
+        // ConsumedRouteCount gestiegen => Zugschluss hat Segmente verlassen.
+        if (currState.ConsumedRouteCount > prevState.ConsumedRouteCount)
+        {
+            var consumedDelta = currState.ConsumedRouteCount - prevState.ConsumedRouteCount;
+            var prevLegs = previous.RouteLegs;
+            var emittedGroups = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            for (var i = 0; i < consumedDelta && i < prevLegs.Count; i++)
+            {
+                var leftSeg = prevLegs[i];
+                var groupId = leftSeg.GroupId ?? leftSeg.FromWaypointId;
+                var (groupFrom, groupTo) = ResolveGroupEndpoints(prevLegs, leftSeg.GroupId);
+
+                // Segment-Leave: einmal pro konsumiertem Segment
+                RouteLegSegmentTransition?.Invoke(new RouteLegSegmentTransitionEvent(
+                    RouteLegTransitionType.Leave,
+                    leftSeg,
+                    i,
+                    currState.ConsumedRouteCount,
+                    currState.ActiveFromWaypointId,
+                    groupFrom,
+                    groupTo));
+                Logging.DebugExtended<RouteController>(
+                    $"Event=SegmentLeave Segment={leftSeg.FromWaypointId}->{leftSeg.ToWaypointId} " +
+                    $"Group={groupFrom}->{groupTo} SegIdx={i} Consumed={currState.ConsumedRouteCount}");
+
+                // Gruppen-Leave: nur wenn letztes Segment dieser Gruppe konsumiert wurde
+                if (emittedGroups.Add(groupId))
+                {
+                    var lastSegmentOfGroup = FindLastSegmentIndexOfGroup(prevLegs, leftSeg.GroupId);
+                    if (lastSegmentOfGroup < consumedDelta)
+                    {
+                        RouteLegTransition?.Invoke(new RouteLegTransitionEvent(
+                            RouteLegTransitionType.Leave,
+                            leftSeg,
+                            i,
+                            currState.ConsumedRouteCount,
+                            currState.ActiveFromWaypointId,
+                            groupFrom,
+                            groupTo));
+                        Logging.Debug<RouteController>(
+                            $"Event=RouteLegLeave Group={groupFrom}->{groupTo} " +
+                            $"SegIdx={i} Consumed={currState.ConsumedRouteCount}");
+                    }
+                }
+            }
+        }
+    }
+
+    private static (string FromWaypointId, string ToWaypointId) ResolveGroupEndpoints(
+        System.Collections.Generic.IReadOnlyList<RouteLeg> legs,
+        string? groupId)
+    {
+        var firstFrom = string.Empty;
+        var lastTo = string.Empty;
+
+        foreach (var leg in legs)
+        {
+            if (groupId is not null &&
+                !string.Equals(leg.GroupId, groupId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (string.IsNullOrEmpty(firstFrom))
+                firstFrom = leg.FromWaypointId;
+
+            lastTo = leg.ToWaypointId;
+        }
+
+        return (firstFrom, lastTo);
+    }
+
+    private static int FindLastSegmentIndexOfGroup(
+        System.Collections.Generic.IReadOnlyList<RouteLeg> legs,
+        string? groupId)
+    {
+        var lastIndex = -1;
+        for (var i = 0; i < legs.Count; i++)
+        {
+            if (groupId is null || string.Equals(legs[i].GroupId, groupId, StringComparison.OrdinalIgnoreCase))
+                lastIndex = i;
+        }
+
+        return lastIndex;
+    }
+
     private void OnRouteDefinitionsChanged()
     {
         Logging.Info<RouteController>("Route definitions changed. New dynamic route requests will use the updated static data.");
         OnRouteChanged(0);
+    }
+
+    private void SignalRouteWakeup(string reason)
+    {
+        try
+        {
+            _routeChangeSignal.Release();
+            Logging.DebugExtended<RouteController>($"Event=RouteWakeup Reason={reason}");
+        }
+        catch (ObjectDisposedException)
+        {
+            // Ignore during shutdown.
+        }
     }
 
     private async Task WaitForRouteChangeAsync(CancellationToken cancellationToken)

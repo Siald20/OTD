@@ -20,62 +20,99 @@
         <waypoint id="S_I41" host="G41" offset_cm="116" description="Signal I41"/>
     </waypoints>
 
-    <!-- Graph edges: direct neighbor connections with speed limits -->
-    <segment from="S_A13" to="N_W1">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="60"/>
-        </speedlimits>
-    </segment>
-    <segment from="N_W1" to="S_B2">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="40"/>
-        </speedlimits>
-    </segment>
-    <segment from="S_B2" to="S_C2">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="80"/>
-        </speedlimits>
-    </segment>
-    <segment from="S_C2" to="N_W5/6">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="80"/>
-        </speedlimits>
-    </segment>
-    <segment from="N_W5/6" to="S_D12">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="60"/>
-        </speedlimits>
-    </segment>
-    <segment from="S_D12" to="N_121">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="60"/>
-        </speedlimits>
-    </segment>
-    <segment from="N_121" to="S_E104">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="80"/>
-        </speedlimits>
-    </segment>
-    <segment from="S_E104" to="S_H41">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="60"/>
-        </speedlimits>
-    </segment>
-    <segment from="S_H41" to="S_I41">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="80"/>
-        </speedlimits>
-    </segment>
-    <segment from="S_I41" to="S_K102">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="20"/>
-        </speedlimits>
-    </segment>
-    <segment from="S_K102" to="S_A13">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="60"/>
-        </speedlimits>
-    </segment>
+    <segments>
+        <!-- Graph edges: direct neighbor connections with speed limits -->
+        <segment from="S_A13" to="N_W1">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="60"/>
+            </speedlimits>
+        </segment>
+        <segment from="N_W1" to="S_B1">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="40"/>
+            </speedlimits>
+        </segment>
+        <segment from="N_W1" to="S_B2">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="40"/>
+            </speedlimits>
+        </segment>
+        <segment from="N_W1" to="S_B3">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="40"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_B1" to="S_C1">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="80"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_C1" to="S_C11">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="40"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_B2" to="S_C2">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="80"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_B3" to="S_C3">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="80"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_C11" to="N_W5/6">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="80"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_C2" to="N_W5/6">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="80"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_C3" to="N_W5/6">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="40"/>
+            </speedlimits>
+        </segment>
+        <segment from="N_W5/6" to="S_D12">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="60"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_D12" to="N_121">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="60"/>
+            </speedlimits>
+        </segment>
+        <segment from="N_121" to="S_E104">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="80"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_E104" to="S_H41">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="80"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_H41" to="S_I41">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="80"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_I41" to="S_K102">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="60"/>
+            </speedlimits>
+        </segment>
+        <segment from="S_K102" to="S_A13">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="60"/>
+            </speedlimits>
+        </segment>
+    </segments>
 </topology>
 
 

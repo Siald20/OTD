@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:blockTiles="using:OTD.Controlls.InterlockingEnlements.BlockTiles"
+        xmlns:blockTiles="using:OTD.Controls.InterlockingEnlements.BlockTiles"
         x:Class="OTD.BlockTestWindow"
         Title="Modellbahn-Blocksimulation"
         Width="1250"

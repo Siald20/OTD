@@ -38,7 +38,7 @@ internal static class TestOperationFlowBi
     private static Accessory? _threeWayW5W6;
 
     // verwendeter Rückmelder
-    private static Feedback? _feedbackModule;
+    private static FeedbackController? _feedbackModule;
 
     // verwendete Züge 
     private static Train? _trainDt612;
@@ -47,7 +47,7 @@ internal static class TestOperationFlowBi
     private static readonly SemaphoreSlim EmergencyStopGate = new(1, 1);
     private static readonly TimeSpan SpeedStepInterval = TimeSpan.FromSeconds(1);
 
-    public static void Run(CommandStation commandStation, Feedback feedbackModule)
+    public static void Run(CommandStation commandStation, FeedbackController feedbackModule)
     {
         ArgumentNullException.ThrowIfNull(commandStation);
         ArgumentNullException.ThrowIfNull(feedbackModule);
@@ -55,7 +55,7 @@ internal static class TestOperationFlowBi
         RunAsync(commandStation, feedbackModule).GetAwaiter().GetResult();
     }
 
-    private static async Task RunAsync(CommandStation commandStation, Feedback feedbackModule)
+    private static async Task RunAsync(CommandStation commandStation, FeedbackController feedbackModule)
     {
         using var emergencyHotkeyCts = new CancellationTokenSource();
         var emergencyHotkeyTask = StartEmergencyStopHotkeyListenerAsync(emergencyHotkeyCts.Token);
@@ -147,25 +147,25 @@ internal static class TestOperationFlowBi
         // Warten auf Sensor-Sequenz: Sensor 31 aktiv -> Sensor 30 aktiv -> Sensor 31 inaktiv
         // => W1 frei
         Console.WriteLine("[Feedback] Warte auf Sensor 31 (aktiv)...");
-        await WaitForSensorStateAsync(_feedbackModule, 31, RailSensorState.Active, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 31, InputState.Active, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 31 aktiv! Warte auf Sensor 30 (aktiv)...");
-        await WaitForSensorStateAsync(_feedbackModule, 30, RailSensorState.Active, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 30, InputState.Active, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 30 aktiv! Warte auf Sensor 31 (inaktiv) - Zug verlässt W1...");
-        await WaitForSensorStateAsync(_feedbackModule, 31, RailSensorState.Inactive, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 31, InputState.Inactive, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 31 inaktiv - VT612 hat W1 verlassen!");
 
         // Nach vollständiger Überfahrt über W1 Fahrt mit 60 km/h
         await DriveDt612Async(60);
 
         // Ankunft in Bi91
-        await WaitForSensorStateAsync(_feedbackModule, 56, RailSensorState.Active, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 56, InputState.Active, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 56 aktiv - VT612 in Bi91 eingetroffen!");
 
         // Einfahrt Bi91 -> Bi2 stellen (VT612)
         await _threeWayW5W6.SetStateAsync("straight");
 
         // Warten auf Sensor 29 (Bestztmeldung W5/6)
-        await WaitForSensorStateAsync(_feedbackModule, 54, RailSensorState.Active, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 54, InputState.Active, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 54 aktiv - VT612 beführt W5/6!");
 
         // 2 Sekunden verzögern, Abbremsen, Anhalten
@@ -183,8 +183,8 @@ internal static class TestOperationFlowBi
     {
         // Warten auf Sensor-Sequenz: Senser 30 aktiv -> Sensor 30 inaktiv (VT 612 verlässt Bi13)
         Console.WriteLine("[Feedback] Sensor 30 inaktiv! - Zug hat Bi13 verlassen...");
-        await WaitForSensorStateAsync(_feedbackModule, 30, RailSensorState.Active, CancellationToken.None);
-        await WaitForSensorStateAsync(_feedbackModule, 30, RailSensorState.Inactive, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 30, InputState.Active, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 30, InputState.Inactive, CancellationToken.None);
 
         // Ausfahrt Bi1 -> Bi13 stellen
         await _turnoutW3.SetStateAsync("diverging");
@@ -200,26 +200,26 @@ internal static class TestOperationFlowBi
         // Warten auf Sensor-Sequenz W2: Sensor 28 aktiv -> Sensor 28 inaktiv
         // -> Zug hat W2 verlassen, danach Start Bremsvorgang, um nach W1 zum Stehen zu kommen.
         Console.WriteLine("[Feedback] Warte auf Sensor 28 (aktiv)...");
-        await WaitForSensorStateAsync(_feedbackModule, 28, RailSensorState.Active, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 28, InputState.Active, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 28 aktiv! Warte auf Sensor 28 inaktiv...");
-        await WaitForSensorStateAsync(_feedbackModule, 28, RailSensorState.Inactive, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 28, InputState.Inactive, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 28 inaktiv! Zug hat W2 verlassen...");
 
         // bremsen und anhalten
         await DriveBR193Async(0);
         // sicherstellen, dass W1 frei ist.
         Console.WriteLine("[Feedback] Warte auf Sensor 31 (inaktiv)...");
-        await WaitForSensorStateAsync(_feedbackModule, 31, RailSensorState.Inactive, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 31, InputState.Inactive, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 31 inaktiv - BR193 hat W1 verlassen!");
 
         // Warten auf Sensor-Sequenz: Sensor 54 aktiv -> Sensor 52 aktiv -> Sensor 54 inaktiv
         // => Warteun auf Ankunft VT 612 in Bi2, sicherstellen, dass W5/6 frei sind.
         Console.WriteLine("[Feedback] Warte auf Sensor 54 (aktiv)...");
-        await WaitForSensorStateAsync(_feedbackModule, 54, RailSensorState.Active, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 54, InputState.Active, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 54 aktiv! Warte auf Sensor 52 (aktiv)...");
-        await WaitForSensorStateAsync(_feedbackModule, 52, RailSensorState.Active, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 52, InputState.Active, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 52 aktiv! Warte auf Sensor 54 (inaktiv) - Zug verlässt W1...");
-        await WaitForSensorStateAsync(_feedbackModule, 54, RailSensorState.Inactive, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 54, InputState.Inactive, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 31 inaktiv - BR193 hat W1 verlassen!");
 
         // Durchfahrt Bi13 -> Bi3 -> B91 stellen
@@ -235,9 +235,9 @@ internal static class TestOperationFlowBi
         // Warten auf Sensor-Sequenz: Sensor 54 aktiv -> Sensor 30 aktiv -> Sensor 31 inaktiv
         // => Zug hat Bi3 verlassen, danach Start Bremsvorgang, um nach W5/6 zum Stehen zu kommen.
         Console.WriteLine("[Feedback] Warte auf Sensor 53 (aktiv)...");
-        await WaitForSensorStateAsync(_feedbackModule, 53, RailSensorState.Active, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 53, InputState.Active, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 53 aktiv! Warte auf Sensor 53 (inaktiv)...");
-        await WaitForSensorStateAsync(_feedbackModule, 53, RailSensorState.Inactive, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 53, InputState.Inactive, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 53 inaktiv! Zug hat Bi3 verlassen.");
 
         // bremsen und anhalten
@@ -245,7 +245,7 @@ internal static class TestOperationFlowBi
 
         // sicherstellen, dass W5/6 frei ist.
         Console.WriteLine("[Feedback] Warte auf Sensor 54 (inaktiv)...");
-        await WaitForSensorStateAsync(_feedbackModule, 54, RailSensorState.Inactive, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 54, InputState.Inactive, CancellationToken.None);
         Console.WriteLine("[Feedback] Sensor 54 inaktiv - Zug hat W5/6 verlassen!");
         // 10 Sekunden warten
         await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
@@ -262,7 +262,7 @@ internal static class TestOperationFlowBi
         await DriveBR193Async(40);
 
         // Warten auf Sensor 49 (Bestztmeldung Bi1)
-        await WaitForSensorStateAsync(_feedbackModule, 49, RailSensorState.Active, CancellationToken.None);
+        await WaitForSensorStateAsync(_feedbackModule, 49, InputState.Active, CancellationToken.None);
 
         // in Bi1 angekommen: nach 4 s Verzögerung anhalten
         await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
@@ -380,29 +380,29 @@ internal static class TestOperationFlowBi
     ///     Prüft zuerst den Ist-Zustand, sonst wird auf ein passendes Sensor-Event gewartet.
     /// </summary>
     private static async Task WaitForSensorStateAsync(
-        Feedback feedbackModule,
-        int sensorNumber,
-        RailSensorState targetState,
+        FeedbackController feedbackModule,
+        int inputNumber,
+        InputState targetState,
         CancellationToken cancellationToken)
     {
         // Prüfe zunächst den aktuellen Zustand
-        var currentState = feedbackModule.GetSensorState(sensorNumber);
+        var currentState = feedbackModule.GetInputState(inputNumber);
         if (currentState == targetState) return; // Zielzustand bereits erreicht
 
         // Wenn nicht, registriere einen Event-Handler und warte auf die Änderung
         var tcs = new TaskCompletionSource<bool>();
-        EventHandler<SensorStateChangedEventArgs>? handler = null;
+        EventHandler<InputStateChangedEventArgs>? handler = null;
 
         handler = (_, args) =>
         {
-            if (args.SensorNumber == sensorNumber && args.State == targetState)
+            if (args.InputNumber == inputNumber && args.State == targetState)
             {
-                feedbackModule.SensorStateChanged -= handler;
+                feedbackModule.InputStateChanged -= handler;
                 tcs.TrySetResult(true);
             }
         };
 
-        feedbackModule.SensorStateChanged += handler;
+        feedbackModule.InputStateChanged += handler;
 
         try
         {
@@ -420,7 +420,7 @@ internal static class TestOperationFlowBi
         }
         finally
         {
-            feedbackModule.SensorStateChanged -= handler;
+            feedbackModule.InputStateChanged -= handler;
         }
     }
 }

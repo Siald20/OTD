@@ -8,5 +8,5 @@ public sealed record GeneratedTrackLeg(
     string FromWaypointId,
     string ToWaypointId,
     int DistanceCm,
-    IReadOnlyList<SensorMarker>? SensorMarkers = null);
+    IReadOnlyList<FeedbackActivationPoint>? FeedbackActivationPoints = null);
 

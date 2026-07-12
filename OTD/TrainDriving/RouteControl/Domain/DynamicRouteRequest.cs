@@ -3,6 +3,7 @@
 namespace OTD.TrainDriving.RouteControl.Domain;
 
 public sealed record DynamicRouteRequest(
+    RouteTravelDirection TravelDirection,
     string FromWaypointId,
     string ToWaypointId,
     int? MaxSpeedKmh = null,

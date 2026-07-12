@@ -59,24 +59,24 @@
         </trackelement>
     </trackelements>
 
-    <sensors>
-        <section id="sec_G120" detectorId="30" host="G120"/>
-        <section id="sec_W1" detectorId="31" host="W1"/>
-        <section id="sec_W2" detectorId="28" host="W2"/>
-        <section id="sec_W3" detectorId="26" host="W3"/>
-        <section id="sec_G1" detectorId="49" host="G1"/>
-        <section id="sec_G2_1" detectorId="29" host="G2-1"/>
-        <section id="sec_G2_2" detectorId="52" host="G2-2"/>
-        <section id="sec_G3_1" detectorId="32" host="G3-1"/>
-        <section id="sec_G3_2" detectorId="53" host="G3-2"/>
-        <section id="sec_W4" detectorId="50" host="W4"/>
-        <section id="sec_W5/6" detectorId="54" host="W5/6"/>
-        <section id="sec_G91" detectorId="55" host="G91"/>
-        <section id="sec_G121" detectorId="56" host="G121"/>
-        <section id="sec_W101" detectorId="150" host="W101"/>
-        <section id="sec_W102" detectorId="151" host="W102"/>
-        <section id="sec_W103" detectorId="146" host="W103"/>
-        <section id="sec_G41" detectorId="147" host="G41"/>
-        <section id="sec_W104" detectorId="148" host="W104"/>        
-    </sensors>
+    <feedbacks>
+        <feedback type="occupancy" id="sec_G120" detectorId="30" host="G120"/>
+        <feedback type="occupancy" id="sec_W1" detectorId="31" host="W1"/>
+        <feedback type="occupancy" id="sec_W2" detectorId="28" host="W2"/>
+        <feedback type="occupancy" id="sec_W3" detectorId="26" host="W3"/>
+        <feedback type="occupancy" id="sec_G1" detectorId="49" host="G1"/>
+        <feedback type="occupancy" id="sec_G2_1" detectorId="29" host="G2-1"/>
+        <feedback type="occupancy" id="sec_G2_2" detectorId="52" host="G2-2"/>
+        <feedback type="occupancy" id="sec_G3_1" detectorId="32" host="G3-1"/>
+        <feedback type="occupancy" id="sec_G3_2" detectorId="53" host="G3-2"/>
+        <feedback type="occupancy" id="sec_W4" detectorId="50" host="W4"/>
+        <feedback type="occupancy" id="sec_W5/6" detectorId="54" host="W5/6"/>
+        <feedback type="occupancy" id="sec_G91" detectorId="55" host="G91"/>
+        <feedback type="occupancy" id="sec_G121" detectorId="56" host="G121"/>
+        <feedback type="occupancy" id="sec_W101" detectorId="150" host="W101"/>
+        <feedback type="occupancy" id="sec_W102" detectorId="151" host="W102"/>
+        <feedback type="occupancy" id="sec_W103" detectorId="146" host="W103"/>
+        <feedback type="occupancy" id="sec_G41" detectorId="147" host="G41"/>
+        <feedback type="occupancy" id="sec_W104" detectorId="148" host="W104"/>        
+    </feedbacks>
 </railwaylayout>

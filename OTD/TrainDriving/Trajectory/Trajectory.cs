@@ -14,6 +14,7 @@ public sealed class Trajectory : ISpeedTrajectory
     private readonly double _scale;
     private readonly TrajectoryCurveType _curveType;
     private readonly TrajectoryControlPoint? _controlPoint;
+    private readonly TrajectoryControlPoint? _secondaryControlPoint;
     private readonly double _shapeExponent;
 
     public Trajectory(DrivingTrajectoryRequest request)
@@ -24,6 +25,7 @@ public sealed class Trajectory : ISpeedTrajectory
         _scale = request.Scale;
         _curveType = request.CurveType;
         _controlPoint = request.ControlPoint;
+        _secondaryControlPoint = request.SecondaryControlPoint;
 
         _v0Ms = request.CurrentSpeedKmhPrototype / 3.6;
         _v1Ms = request.TargetSpeedKmhPrototype / 3.6;
@@ -71,33 +73,65 @@ public sealed class Trajectory : ISpeedTrajectory
         if (_controlPoint is null)
             return EvaluateLinear(traveledModelCm);
 
-        var cpDistanceCm = _controlPoint.XModelRatio * TotalDistanceCmModel;
-        var cpSpeedMs = _controlPoint.SpeedKmhPrototype / 3.6;
-
         var sTotal = ModelCmToPrototypeM(TotalDistanceCmModel);
-        var sCp = ModelCmToPrototypeM(cpDistanceCm);
+        if (sTotal <= 0.0)
+            return EvaluateLinear(traveledModelCm);
 
-        if (sTotal <= 0.0 || sCp <= 0.0 || sCp >= sTotal)
+        var cp1DistanceCm = _controlPoint.XModelRatio * TotalDistanceCmModel;
+        var cp1SpeedMs = _controlPoint.SpeedKmhPrototype / 3.6;
+        var sCp1 = ModelCmToPrototypeM(cp1DistanceCm);
+
+        if (sCp1 <= 0.0 || sCp1 >= sTotal)
             return EvaluateLinear(traveledModelCm);
 
         var s = ModelCmToPrototypeM(traveledModelCm);
 
-        if (s <= sCp)
+        if (_secondaryControlPoint is null)
         {
-            var a1 = ((cpSpeedMs * cpSpeedMs) - (_v0Ms * _v0Ms)) / (2.0 * sCp);
-            var vSquared1 = (_v0Ms * _v0Ms) + (2.0 * a1 * s);
-            return Math.Sqrt(Math.Max(0.0, vSquared1));
+            if (s <= sCp1)
+            {
+                return EvaluateSegmentSpeed(s, 0.0, sCp1, _v0Ms, cp1SpeedMs);
+            }
+
+            if (traveledModelCm >= TotalDistanceCmModel)
+                return _v1Ms;
+
+            return EvaluateSegmentSpeed(s, sCp1, sTotal, cp1SpeedMs, _v1Ms);
         }
 
-        var s2 = sTotal - sCp;
-        var a2 = ((_v1Ms * _v1Ms) - (cpSpeedMs * cpSpeedMs)) / (2.0 * s2);
-        var sFromCp = s - sCp;
-        var vSquared2 = (cpSpeedMs * cpSpeedMs) + (2.0 * a2 * sFromCp);
+        var cp2DistanceCm = _secondaryControlPoint.XModelRatio * TotalDistanceCmModel;
+        var cp2SpeedMs = _secondaryControlPoint.SpeedKmhPrototype / 3.6;
+        var sCp2 = ModelCmToPrototypeM(cp2DistanceCm);
+
+        if (sCp2 <= sCp1 || sCp2 >= sTotal)
+            return EvaluateLinear(traveledModelCm);
+
+        if (s <= sCp1)
+        {
+            return EvaluateSegmentSpeed(s, 0.0, sCp1, _v0Ms, cp1SpeedMs);
+        }
+
+        if (s <= sCp2)
+        {
+            return EvaluateSegmentSpeed(s, sCp1, sCp2, cp1SpeedMs, cp2SpeedMs);
+        }
 
         if (traveledModelCm >= TotalDistanceCmModel)
             return _v1Ms;
 
-        return Math.Sqrt(Math.Max(0.0, vSquared2));
+        return EvaluateSegmentSpeed(s, sCp2, sTotal, cp2SpeedMs, _v1Ms);
+    }
+
+    private static double EvaluateSegmentSpeed(double s, double sStart, double sEnd, double vStartMs, double vEndMs)
+    {
+        var segmentLength = sEnd - sStart;
+        if (segmentLength <= 0.0)
+            return vEndMs;
+
+        var segmentTravel = Math.Clamp(s - sStart, 0.0, segmentLength);
+        var a = ((vEndMs * vEndMs) - (vStartMs * vStartMs)) / (2.0 * segmentLength);
+        var vSquared = (vStartMs * vStartMs) + (2.0 * a * segmentTravel);
+        return Math.Sqrt(Math.Max(0.0, vSquared));
     }
 
     private double EvaluateEaseInOut(double traveledModelCm)

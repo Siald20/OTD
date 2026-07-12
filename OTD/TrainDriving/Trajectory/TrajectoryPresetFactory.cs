@@ -8,7 +8,7 @@ namespace OTD.TrainDriving.Trajectory;
 /// Factory for mapping named trajectory presets to concrete <see cref="DrivingTrajectoryRequest"/> configurations.
 /// 
 /// Separation of concerns:
-/// - <see cref="Apply(DrivingTrajectoryRequest, AccelerationTrajectoryPreset)"/> handles acceleration phase presets
+/// - <see cref="Apply(DrivingTrajectoryRequest, AccelerationTrajectoryPresets)"/> handles acceleration phase presets
 /// - <see cref="Apply(DrivingTrajectoryRequest, BrakingTrajectoryPreset)"/> handles braking phase presets
 /// 
 /// Each preset defines a curve type and optional control point(s) that shape the speed profile over distance.
@@ -33,36 +33,36 @@ public static class TrajectoryPresetFactory
     ///   A new <see cref="DrivingTrajectoryRequest"/> with curve parameters configured according to the preset.
     ///   All other request properties remain unchanged.
     /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown if preset is not a recognized <see cref="AccelerationTrajectoryPreset"/> value.</exception>
-    public static DrivingTrajectoryRequest Apply(DrivingTrajectoryRequest request, AccelerationTrajectoryPreset preset)
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if preset is not a recognized <see cref="AccelerationTrajectoryPresets"/> value.</exception>
+    public static DrivingTrajectoryRequest Apply(DrivingTrajectoryRequest request, AccelerationTrajectoryPresets preset)
     {
         return preset switch
         {
-            AccelerationTrajectoryPreset.Linear => request with
+            AccelerationTrajectoryPresets.Linear => request with
             {
                 CurveType = TrajectoryCurveType.Linear,
                 ControlPoint = null,
                 CurveShapePercent = 50.0
             },
-            AccelerationTrajectoryPreset.Comfort => request with
+            AccelerationTrajectoryPresets.Comfort => request with
             {
                 CurveType = TrajectoryCurveType.EaseInOut,
                 ControlPoint = null,
                 CurveShapePercent = 80.0
             },
-            AccelerationTrajectoryPreset.EarlyAcceleration => request with
+            AccelerationTrajectoryPresets.EarlyAcceleration => request with
             {
                 CurveType = TrajectoryCurveType.ControlPoint,
                 ControlPoint = CreateControlPoint(request, xRatio: 0.35, speedRatio: 0.75),
                 CurveShapePercent = 50.0
             },
-            AccelerationTrajectoryPreset.LateAcceleration => request with
+            AccelerationTrajectoryPresets.LateAcceleration => request with
             {
                 CurveType = TrajectoryCurveType.ControlPoint,
                 ControlPoint = CreateControlPoint(request, xRatio: 0.75, speedRatio: 0.20),
                 CurveShapePercent = 50.0
             },
-            AccelerationTrajectoryPreset.BalancedControlPoint => request with
+            AccelerationTrajectoryPresets.BalancedControlPoint => request with
             {
                 CurveType = TrajectoryCurveType.ControlPoint,
                 ControlPoint = CreateControlPoint(request, xRatio: 0.50, speedRatio: 0.50),
@@ -123,7 +123,10 @@ public static class TrajectoryPresetFactory
             BrakingTrajectoryPreset.LateBrake => request with
             {
                 CurveType = TrajectoryCurveType.ControlPoint,
-                ControlPoint = CreateControlPoint(request, xRatio: 0.75, speedRatio: 0.20),
+                // Phase 1: bis zur Streckenmitte nur leichte Reduktion (~20% vom Starttempo).
+                ControlPoint = CreateControlPoint(request, xRatio: 0.50, speedRatio: 0.80),
+                // Phase 2+3: danach starkes Bremsen, kurz vor Ziel mit flachem Auslauf.
+                SecondaryControlPoint = CreateControlPoint(request, xRatio: 0.92, speedRatio: 0.98),
                 CurveShapePercent = 50.0
             },
             BrakingTrajectoryPreset.BalancedControlPoint => request with

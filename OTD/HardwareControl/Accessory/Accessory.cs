@@ -215,7 +215,7 @@ public class Accessory : IDisposable
             throw new ArgumentException("State id must not be empty.", nameof(stateId));
 
         if (!_statesById.TryGetValue(stateId.Trim(), out var state))
-            throw new ArgumentOutOfRangeException(nameof(stateId), stateId, $"Unknown accessory state '{stateId}'.");
+            throw new ArgumentOutOfRangeException(nameof(stateId), stateId, $"Accessory {Name} ({AccessoryId}): Unknown accessory state '{stateId}'.");
 
         // nichts unternehmen, falls bereits im gewünschten Schaltzustand
         if (string.Equals(CurrentState, state.State, StringComparison.OrdinalIgnoreCase))

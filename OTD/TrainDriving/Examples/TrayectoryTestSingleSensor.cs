@@ -29,13 +29,13 @@ using OTD.TrainDriving.Trajectory;
 
 namespace OTD.TrainDriving.Examples;
 
-public class TrayectoryTestSingleSensor
+public class TrayectoryTestSingleFeedback
 {
     private static void LogTimed(string channel, string message)
     {
         if (string.Equals(channel, "TrainDriving", StringComparison.OrdinalIgnoreCase))
         {
-            Logging.Info<TrayectoryTestSingleSensor>(message);
+            Logging.Info<TrayectoryTestSingleFeedback>(message);
             return;
         }
 
@@ -51,22 +51,22 @@ public class TrayectoryTestSingleSensor
     private static Accessory? _turnoutW104; // Bi41 - Bi13 (Abzweigung Tiefengrund)
 
     // verwendeter Rückmelder
-    private static Feedback? _feedbackModule;
+    private static FeedbackController? _feedbackModule;
 
     // verwendete Züge
     private static Train? _testTrain;
 
     private static object? _activeRouteRuntime;
 
-    // Prototypische Zuordnung Hardware-Sensornummer -> RouteControl SensorId.
-    private static readonly Dictionary<int, int> RouteSensorIdMap = new()
+    // Prototypische Zuordnung Hardware-Feedbacknummer -> RouteControl FeedbackId.
+    private static readonly Dictionary<int, int> RouteFeedbackIdMap = new()
     {
         { 56, 4 }
     };
 
     private static readonly SemaphoreSlim EmergencyStopGate = new(1, 1);
 
-    public static void Run(CommandStation commandStation, Feedback feedbackModule)
+    public static void Run(CommandStation commandStation, FeedbackController feedbackModule)
     {
 //        DecoderDelayExampleRunner.Run();
 //        return;
@@ -76,11 +76,11 @@ public class TrayectoryTestSingleSensor
         RunAsync(commandStation, feedbackModule).GetAwaiter().GetResult();
     }
 
-    private static async Task RunAsync(CommandStation commandStation, Feedback feedbackModule)
+    private static async Task RunAsync(CommandStation commandStation, FeedbackController feedbackModule)
     {
         using var emergencyHotkeyCts = new CancellationTokenSource();
         var emergencyHotkeyTask = StartEmergencyStopHotkeyListenerAsync(emergencyHotkeyCts.Token);
-        EventHandler<SensorStateChangedEventArgs>? feedbackEventLogger = null;
+        EventHandler<InputStateChangedEventArgs>? feedbackEventLogger = null;
         _activeRouteRuntime = null;
         // Logging.EnableDebugFor<TrainDriving>();
 
@@ -90,25 +90,25 @@ public class TrayectoryTestSingleSensor
             //
             // feedbackEventLogger = (_, args) =>
             // {
-            //     Console.WriteLine($"[Feedback] {DateTime.Now:HH:mm:ss.fff} Sensor {args.SensorNumber} => {args.State}");
+            //     Console.WriteLine($"[Feedback] {DateTime.Now:HH:mm:ss.fff} FeedbackController {args.InputNumber} => {args.State}");
             //
-            //     // Sensor-Trigger als Positionsabgleich in RouteRuntime (nur bei aktivem Kontakt).
-            //     if (args.State != RailSensorState.Active || _activeRouteRuntime is null)
+            //     // Feedback-Trigger als Positionsabgleich in RouteRuntime (nur bei aktivem Kontakt).
+            //     if (args.State != InputState.Active || _activeRouteRuntime is null)
             //         return;
             //
-            //     if (!RouteSensorIdMap.TryGetValue(args.SensorNumber, out var routeSensorId))
+            //     if (!RouteFeedbackIdMap.TryGetValue(args.InputNumber, out var routeFeedbackId))
             //         return;
             //
             //     var tick = _activeRouteRuntime.ApplyStep(
             //         deltaCm: 0,
             //         trajectorySpeedKmh: VTest,
-            //         activatedSensorId: routeSensorId);
+            //         activatedFeedbackId: routeFeedbackId);
             //
             //     Console.WriteLine(
-            //         $"[RouteRuntime] Sensorabgleich {routeSensorId}: " +
+            //         $"[RouteRuntime] Feedbackabgleich {routeFeedbackId}: " +
             //         $"recal={tick.PositionRecalibrated}, pos={tick.EstimatedPositionCm:F1}cm, err={tick.CorrectionErrorCm:F1}cm");
             // };
-            // _feedbackModule.SensorStateChanged += feedbackEventLogger;
+            // _feedbackModule.InputStateChanged += feedbackEventLogger;
 
             // Weichen initialisieren
             _turnoutW1 = new Accessory(Guid.Parse("3f8a1b2c-4d5e-4f7a-8b9c-0d1e2f3a4b5c"), commandStation) ??
@@ -147,7 +147,7 @@ public class TrayectoryTestSingleSensor
             const int vTest = 60; // Test-Geschwindigkeit in km/h
             var trainDriving = new TrainDriving(_testTrain)
             {
-                AccelerationPreset = AccelerationTrajectoryPreset.Linear,
+                AccelerationPreset = AccelerationTrajectoryPresets.Linear,
                 AccelerationMs2 = 1.5,
                 BrakingPreset = BrakingTrajectoryPreset.Linear,
                 UseAdaptiveSpeedStepInterval = true,
@@ -164,11 +164,11 @@ public class TrayectoryTestSingleSensor
                 targetSpeed: vTest,
                 cancellationToken: accelerationCts.Token);
 
-            Logging.Info<TrayectoryTestSingleSensor>("Train departs and accelerates toward target speed.");
+            Logging.Info<TrayectoryTestSingleFeedback>("Train departs and accelerates toward target speed.");
 
-            // Warten auf Sensor waehrend die Beschleunigungsrampe noch laeuft.
-            LogTimed("Feedback", "Warte auf Sensor 56/147 (Block G91) ...");
-            await WaitForSensorStateAsync(_feedbackModule, 56, RailSensorState.Active, emergencyHotkeyCts.Token);
+            // Warten auf FeedbackController waehrend die Beschleunigungsrampe noch laeuft.
+            LogTimed("Feedback", "Warte auf FeedbackController 56/147 (Block G91) ...");
+            await WaitForFeedbackStateAsync(_feedbackModule, 56, InputState.Active, emergencyHotkeyCts.Token);
 
             accelerationCts.Cancel();
             try
@@ -177,11 +177,11 @@ public class TrayectoryTestSingleSensor
             }
             catch (OperationCanceledException) when (accelerationCts.IsCancellationRequested)
             {
-                // Erwartet: Die Beschleunigungsrampe wird am Sensorsignal beendet.
+                // Erwartet: Die Beschleunigungsrampe wird am Feedbacksignal beendet.
             }
 
             LogTimed("Feedback",
-                $"Sensor 56 aktiv -> starte Bremsrampe aus aktueller Geschwindigkeit {_testTrain!.SpeedV} km/h auf 0 km/h ueber 200 cm.");
+                $"FeedbackController 56 aktiv -> starte Bremsrampe aus aktueller Geschwindigkeit {_testTrain!.SpeedV} km/h auf 0 km/h ueber 200 cm.");
 
             // Fallback falls kein gueltiger Routenzyklus verfuegbar ist.
             await trainDriving.BrakeAsync(
@@ -210,7 +210,7 @@ public class TrayectoryTestSingleSensor
 
             if (_feedbackModule is not null && feedbackEventLogger is not null)
             {
-                _feedbackModule.SensorStateChanged -= feedbackEventLogger;
+                _feedbackModule.InputStateChanged -= feedbackEventLogger;
             }
 
             DisposeAccessory(ref _turnoutW1);
@@ -284,44 +284,44 @@ public class TrayectoryTestSingleSensor
 
 
     /// <summary>
-    ///     Wartet, bis ein Sensor einen bestimmten Zustand erreicht.
-    ///     Prüft zuerst den Ist-Zustand, sonst wird auf ein passendes Sensor-Event gewartet.
+    ///     Wartet, bis ein FeedbackController einen bestimmten Zustand erreicht.
+    ///     Prüft zuerst den Ist-Zustand, sonst wird auf ein passendes Feedback-Event gewartet.
     /// </summary>
-    private static async Task WaitForSensorStateAsync(
-        Feedback feedbackModule,
-        int sensorNumber,
-        RailSensorState targetState,
+    private static async Task WaitForFeedbackStateAsync(
+        FeedbackController feedbackModule,
+        int feedbackNumber,
+        InputState targetState,
         CancellationToken cancellationToken)
     {
         var waitStart = DateTimeOffset.Now;
-        LogTimed("Feedback", $"WaitForSensorState gestartet: Sensor={sensorNumber}, Ziel={targetState}");
+        LogTimed("Feedback", $"WaitForFeedbackState gestartet: Feedback={feedbackNumber}, Ziel={targetState}");
 
         // Prüfe zunächst den aktuellen Zustand
-        var currentState = feedbackModule.GetSensorState(sensorNumber);
+        var currentState = feedbackModule.GetInputState(feedbackNumber);
         if (currentState == targetState)
         {
             LogTimed("Feedback",
-                $"Sensor {sensorNumber} ist bereits {targetState} (ohne Event, +0 ms nach Start).");
+                $"FeedbackController {feedbackNumber} ist bereits {targetState} (ohne Event, +0 ms nach Start).");
             return;
         }
 
         // Wenn nicht, registriere einen Event-Handler und warte auf die Änderung
         var tcs = new TaskCompletionSource<bool>();
-        EventHandler<SensorStateChangedEventArgs>? handler = null;
+        EventHandler<InputStateChangedEventArgs>? handler = null;
 
         handler = (_, args) =>
         {
-            if (args.SensorNumber == sensorNumber && args.State == targetState)
+            if (args.InputNumber == feedbackNumber && args.State == targetState)
             {
                 var elapsedMs = (DateTimeOffset.Now - waitStart).TotalMilliseconds;
                 LogTimed("Feedback",
-                    $"Sensor {sensorNumber} => {args.State} (Event empfangen, +{elapsedMs:F0} ms seit Wait-Start)");
-                feedbackModule.SensorStateChanged -= handler;
+                    $"FeedbackController {feedbackNumber} => {args.State} (Event empfangen, +{elapsedMs:F0} ms seit Wait-Start)");
+                feedbackModule.InputStateChanged -= handler;
                 tcs.TrySetResult(true);
             }
         };
 
-        feedbackModule.SensorStateChanged += handler;
+        feedbackModule.InputStateChanged += handler;
 
         try
         {
@@ -339,7 +339,7 @@ public class TrayectoryTestSingleSensor
         }
         finally
         {
-            feedbackModule.SensorStateChanged -= handler;
+            feedbackModule.InputStateChanged -= handler;
         }
     }
 }

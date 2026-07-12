@@ -124,23 +124,24 @@ public static class RouteLegBuildTrace
             Console.WriteLine(
                 $"  [{i + 1}] {edge.FromWaypointId}->{edge.ToWaypointId}, len={segment.LengthCm} cm, speedclasses=[{speedClassSummary}], selected={effectiveSpeedClass}:{resolvedClassSpeed}");
 
-            if (edge.SensorMarkers is not null && edge.SensorMarkers.Count > 0)
+            if (edge.FeedbackActivationPoints is not null && edge.FeedbackActivationPoints.Count > 0)
             {
-                foreach (var marker in edge.SensorMarkers.OrderBy(marker => marker.OffsetCm).ThenBy(marker => marker.SensorId))
+                foreach (var marker in edge.FeedbackActivationPoints.OrderBy(marker => marker.OffsetCm).ThenBy(marker => marker.FeedbackId))
                 {
                     Console.WriteLine(
-                        $"      sensor@segment id={marker.SensorId}, offset={marker.OffsetCm} cm, type={marker.Type}, offset@routeleg={marker.OffsetCm + cumulativeDistanceCm} cm");
+                        $"      feedback@segment id={marker.FeedbackId}, offset={marker.OffsetCm} cm, type={marker.Type}, offset@routeleg={marker.OffsetCm + cumulativeDistanceCm} cm");
                 }
             }
             else
             {
-                Console.WriteLine("      sensor@segment: -");
+                Console.WriteLine("      feedback@segment: -");
             }
 
             cumulativeDistanceCm += segment.LengthCm;
         }
 
         var draftLeg = new RouteLeg(
+            TravelDirection: RouteTravelDirection.AlongLine,
             FromWaypointId: fromWaypointId.Trim(),
             ToWaypointId: toWaypointId.Trim(),
             MaxSpeedKmh: requestedMaxSpeedKmh);
@@ -154,27 +155,27 @@ public static class RouteLegBuildTrace
         Console.WriteLine($"  driveProfile={(resolvedLeg.DriveProfile is null ? "-" : "set")}");
         Console.WriteLine($"  stopPoint={(resolvedLeg.StopPoint is null ? "-" : resolvedLeg.StopPoint.OffsetCm + " cm")}");
 
-        Console.WriteLine("  SensorMarkers:");
-        if (resolvedLeg.SensorMarkers is null || resolvedLeg.SensorMarkers.Count == 0)
+        Console.WriteLine("  FeedbackActivationPoints:");
+        if (resolvedLeg.FeedbackInputActivationPoints is null || resolvedLeg.FeedbackInputActivationPoints.Count == 0)
         {
             Console.WriteLine("    -");
         }
         else
         {
-            foreach (var marker in resolvedLeg.SensorMarkers.OrderBy(marker => marker.OffsetCm).ThenBy(marker => marker.SensorId))
+            foreach (var marker in resolvedLeg.FeedbackInputActivationPoints.OrderBy(marker => marker.OffsetCm).ThenBy(marker => marker.FeedbackId))
             {
-                Console.WriteLine($"    id={marker.SensorId}, offset={marker.OffsetCm} cm, type={marker.Type}");
+                Console.WriteLine($"    id={marker.FeedbackId}, offset={marker.OffsetCm} cm, type={marker.Type}");
             }
         }
 
         Console.WriteLine("  FeedbackReferences:");
-        if (resolvedLeg.FeedbackReferences is null || resolvedLeg.FeedbackReferences.Count == 0)
+        if (resolvedLeg.FeedbackInputReferences is null || resolvedLeg.FeedbackInputReferences.Count == 0)
         {
             Console.WriteLine("    -");
         }
         else
         {
-            foreach (var reference in resolvedLeg.FeedbackReferences.OrderBy(reference => reference.OffsetCm))
+            foreach (var reference in resolvedLeg.FeedbackInputReferences.OrderBy(reference => reference.OffsetCm))
             {
                 Console.WriteLine($"    target={reference.TargetId}, kind={reference.TargetKind}, offset={reference.OffsetCm} cm");
             }
@@ -282,11 +283,11 @@ public static class RouteLegBuildTrace
                            <path id="sw1_branch" from="nW" to="nB2" length_cm="110"/>
                        </trackelement>
                    </trackelements>
-                   <sensors>
-                       <section id="sec_A" detectorId="30" host="seg_A"/>
-                       <point id="pt_145" detectorId="145" host="seg_A" offset_cm="145"/>
-                       <section id="sec_branch" detectorId="32" host="sw1_branch"/>
-                   </sensors>
+                   <feedbacks>
+                       <occupancy id="sec_A" detectorId="30" host="seg_A"/>
+                       <contact id="pt_145" detectorId="145" host="seg_A" offset_cm="145"/>
+                       <occupancy id="sec_branch" detectorId="32" host="sw1_branch"/>
+                   </feedbacks>
                </railwaylayout>
                """;
     }

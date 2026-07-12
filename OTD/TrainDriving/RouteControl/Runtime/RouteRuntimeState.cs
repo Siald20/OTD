@@ -9,6 +9,6 @@ public sealed record RouteRuntimeState(
     double TrainLengthCm,
     bool ActiveStopPoint,
     bool SafetyStopInjected,
-    bool SensorRecoveryMode,
+    bool FeedbackInputRecoveryMode,
     int ConsumedRouteCount);
 

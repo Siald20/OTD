@@ -48,10 +48,10 @@ internal static class MockKeyboardFeedback
         var feedback = new KeyboardMockFeedback(providerUid);
         await feedback.ConnectAsync(linkedCts.Token).ConfigureAwait(false);
 
-        feedback.SensorStateChanged += (_, e) =>
+        feedback.InputStateChanged += (_, e) =>
         {
-            var marker = e.State == RailSensorState.Active ? "ON " : "OFF";
-            Console.WriteLine($"[{DateTimeOffset.Now:HH:mm:ss.fff}] Sensor {e.SensorNumber:D2} => {marker}");
+            var marker = e.State == InputState.Active ? "ON " : "OFF";
+            Console.WriteLine($"[{DateTimeOffset.Now:HH:mm:ss.fff}] Sensor {e.InputNumber:D2} => {marker}");
         };
 
         PrintIntro();

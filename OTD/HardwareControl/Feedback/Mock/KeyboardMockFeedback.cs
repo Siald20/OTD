@@ -31,30 +31,30 @@ namespace OTD.HardwareControl.Drivers;
 ///     Mock feedback provider for console keyboard simulation.
 ///     Sensors are mapped to keyboard keys and exposed as 1-based sensor numbers.
 /// </summary>
-internal sealed class KeyboardMockFeedback : IFeedback
+internal sealed class KeyboardMockFeedback : IFeedbackController
 {
     // Simulated key-release timeout for console input (no real KeyUp available).
     private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromMilliseconds(300);
-    private readonly HashSet<int> _heldSensors = [];
-    private readonly Dictionary<ConsoleKey, int> _keyToSensor = BuildKeyMap();
+    private readonly HashSet<int> _heldInputs = [];
+    private readonly Dictionary<ConsoleKey, int> _keyToInput = BuildKeyMap();
     private readonly Dictionary<int, DateTimeOffset> _lastKeyPressUtc = [];
 
-    private readonly Dictionary<int, RailSensorState> _states = [];
+    private readonly Dictionary<int, InputState> _states = [];
 
     public KeyboardMockFeedback(Guid uniqueId)
     {
         UniqueId = uniqueId;
         for (var i = 1; i <= 40; i++)
-            _states[i] = RailSensorState.Inactive;
+            _states[i] = InputState.Inactive;
     }
 
     public Guid UniqueId { get; }
 
     public bool IsConnected { get; private set; }
 
-    public int SensorCount => 40;
+    public int InputCount => 40;
 
-    public event EventHandler<SensorStateChangedEventArgs>? SensorStateChanged;
+    public event EventHandler<InputStateChangedEventArgs>? InputStateChanged;
 
     public Task ConnectAsync(CancellationToken cancellationToken = default)
     {
@@ -65,28 +65,28 @@ internal sealed class KeyboardMockFeedback : IFeedback
     public Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         IsConnected = false;
-        _heldSensors.Clear();
+        _heldInputs.Clear();
         _lastKeyPressUtc.Clear();
 
         // Reset all sensors to inactive on disconnect.
         foreach (var sensor in _states.Keys.ToArray())
-            SetState(sensor, RailSensorState.Inactive);
+            SetState(sensor, InputState.Inactive);
 
         return Task.CompletedTask;
     }
 
-    public RailSensorState GetSensorState(int sensorNumber)
+    public InputState GetInputState(int inputNumber)
     {
-        if (sensorNumber < 1 || sensorNumber > SensorCount)
-            throw new ArgumentOutOfRangeException(nameof(sensorNumber), "Sensor number must be in range 1..40.");
+        if (inputNumber < 1 || inputNumber > InputCount)
+            throw new ArgumentOutOfRangeException(nameof(inputNumber), "Sensor number must be in range 1..40.");
 
-        return _states[sensorNumber];
+        return _states[inputNumber];
     }
 
-    public Task<IReadOnlyDictionary<int, RailSensorState>> QueryAllSensorsAsync(
+    public Task<IReadOnlyDictionary<int, InputState>> QueryFeedbackAsync(
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyDictionary<int, RailSensorState> snapshot = new Dictionary<int, RailSensorState>(_states);
+        IReadOnlyDictionary<int, InputState> snapshot = new Dictionary<int, InputState>(_states);
         return Task.FromResult(snapshot);
     }
 
@@ -95,21 +95,21 @@ internal sealed class KeyboardMockFeedback : IFeedback
         if (!IsConnected)
             return false;
 
-        if (!_keyToSensor.TryGetValue(key, out var sensorNumber))
+        if (!_keyToInput.TryGetValue(key, out var inputNumber))
             return false;
 
         var nowUtc = DateTimeOffset.UtcNow;
-        _lastKeyPressUtc[sensorNumber] = nowUtc;
+        _lastKeyPressUtc[inputNumber] = nowUtc;
 
         // Ignore auto-repeat while key is considered held.
-        if (_heldSensors.Contains(sensorNumber))
+        if (_heldInputs.Contains(inputNumber))
             return true;
 
-        _heldSensors.Add(sensorNumber);
-        var nextState = _states[sensorNumber] == RailSensorState.Active
-            ? RailSensorState.Inactive
-            : RailSensorState.Active;
-        SetState(sensorNumber, nextState);
+        _heldInputs.Add(inputNumber);
+        var nextState = _states[inputNumber] == InputState.Active
+            ? InputState.Inactive
+            : InputState.Active;
+        SetState(inputNumber, nextState);
         return true;
     }
 
@@ -118,24 +118,24 @@ internal sealed class KeyboardMockFeedback : IFeedback
         if (!IsConnected)
             return;
 
-        foreach (var (sensorNumber, lastPressUtc) in _lastKeyPressUtc.ToArray())
+        foreach (var (inputNumber, lastPressUtc) in _lastKeyPressUtc.ToArray())
             if (nowUtc - lastPressUtc >= ReleaseTimeout)
             {
-                _heldSensors.Remove(sensorNumber);
-                _lastKeyPressUtc.Remove(sensorNumber);
+                _heldInputs.Remove(inputNumber);
+                _lastKeyPressUtc.Remove(inputNumber);
             }
     }
 
-    private void SetState(int sensorNumber, RailSensorState newState)
+    private void SetState(int inputNumber, InputState newState)
     {
-        if (_states[sensorNumber] == newState)
+        if (_states[inputNumber] == newState)
             return;
 
-        _states[sensorNumber] = newState;
-        var sensorName = $"1.{sensorNumber}";
-        SensorStateChanged?.Invoke(this, new SensorStateChangedEventArgs(
+        _states[inputNumber] = newState;
+        var inputName = $"1.{inputNumber}";
+        InputStateChanged?.Invoke(this, new InputStateChangedEventArgs(
             UniqueId,
-            new SensorInfo(sensorNumber, sensorName, newState)));
+            new InputInfo(inputNumber, inputName, newState)));
     }
 
     private static Dictionary<ConsoleKey, int> BuildKeyMap()

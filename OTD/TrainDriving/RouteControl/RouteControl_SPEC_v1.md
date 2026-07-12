@@ -11,7 +11,7 @@ Das RouteControl verwaltet den vor dem Zug liegenden Fahrweg (Route) als geordne
 - validiert und verwaltet die RouteTable,
 - erzeugt direkt Fahrkommandos aus den RouteLeg-Einträgen,
 - passt Fahrverhalten bei Updates sofort an,
-- koppelt sich an Sensorik/Events für Korrektur und Sicherheit.
+- koppelt sich an Rueckmeldungen/Events fuer Korrektur und Sicherheit.
 
 Zur Ausführung von Zugbewegungen wird `Trajectory` verwendet.
 `Trajectory` ist dabei kein eigenständiger Planer, sondern ein untergeordnetes Rechen-/Ausführungsmodul des RouteControl.
@@ -44,7 +44,7 @@ Hinweis: Das Stellwerk kennt ausschließlich Wegpunkte. `ReplaceRoutes` ist dahe
 - prüft Plausibilität und Kontextkonsistenz,
 - verwaltet aktive Tabelle inkl. Konsumierung,
 - steuert Fahrdynamik/Fahrbefehle direkt,
-- überwacht Sensor-Timings und löst Sicherheitsreaktionen aus.
+- ueberwacht Rueckmelde-Timings und loest Sicherheitsreaktionen aus.
 
 ## 4. Domänenmodell (statische Daten)
 
@@ -57,7 +57,7 @@ Hinweis: Das Stellwerk kennt ausschließlich Wegpunkte. `ReplaceRoutes` ist dahe
 - `DriveProfile: RouteDriveProfile?`
 - `AccelerationStartPolicy: AccelerationStartPolicy` (Default `AtWaypointCrossing`)
 - `Metadata: RouteMetadata?` (optional; kann u. a. Signalbegriffe am Anfang und/oder Ende der Route enthalten)
-- `SensorMarkers: IReadOnlyList<SensorMarker>?` (optional; positionsgebundene Sensoren relativ zum Beginn des `RouteLeg`, automatisch aus dem Layout abgeleitet)
+- `FeedbackActivationPoints: IReadOnlyList<FeedbackActivationPoint>?` (optional; positionsgebundene Rueckmeldungen relativ zum Beginn des `RouteLeg`, automatisch aus dem Layout abgeleitet)
 
 ```csharp
 public enum AccelerationStartPolicy
@@ -75,10 +75,10 @@ Hinweis:
 
 ### 4.2 Marker und Events
 
-- `SensorMarker`: positionsgebundener Realwelt-Abgleich innerhalb eines `RouteLeg`
-  - `SensorId`, `OffsetCm`, optional `ActivationTimeoutMs`
-  - Entsteht beim Laden aus Sensoren des Layouts entlang des topologischen Pfads zwischen `FromWaypointId` und `ToWaypointId`.
-  - `occupancy_detection` liegt an der Einfahrtsseite des Host-Tracks, `track_contact` an einem festen geometrischen Offset.
+- `FeedbackActivationPoint`: positionsgebundener Realwelt-Abgleich innerhalb eines `RouteLeg`
+  - `FeedbackId`, `OffsetCm`, optional `ActivationTimeoutMs`
+  - Entsteht beim Laden aus Rueckmeldern des Layouts entlang des topologischen Pfads zwischen `FromWaypointId` und `ToWaypointId`.
+  - `occupancy` (`FeedbackType.OccupancyFeedback`) liegt an der Einfahrtsseite des Host-Tracks, `contact` (`FeedbackType.ContactFeedback`) an einem festen geometrischen Offset.
 - `FeedbackReference`: Altmodell / reserviert; wird im aktuellen Greenfield-Modell nicht mehr zur Leg-Erzeugung verwendet.
 - `RouteActionEvent`: positionsgebundene Aktion (z.B. Pfeifen vor unbewachtem Bahnübergang)
 - `RoutePositionEvent`: positionsgebundene Rückmeldung ans Stellwerk (z.B. virtuelle Blockgrenzen)
@@ -111,7 +111,7 @@ public sealed record RouteRuntimeState(
     double TrainLengthCm,
     bool ActiveStopPoint,
     bool SafetyStopInjected,
-    bool SensorRecoveryMode,
+    bool FeedbackInputRecoveryMode,
     int ConsumedRouteCount);
 ```
 
@@ -119,7 +119,7 @@ Bedeutung:
 - `ActiveStopPoint == true`: Der `StopPoint` des aktiven `RouteLeg` wurde erreicht; der Zug steht auf `0` und wartet auf `ReleaseGo()`.
 - `ActiveStopPoint == false`: Kein aktiver StopPoint-Wartezustand; es ist keine Go-Freigabe aus dem StopPoint-Mechanismus erforderlich.
 - `SafetyStopInjected`: Sicherheitsrückfall; das RouteControl begrenzt Fahrbefehle so, dass am Ende der bekannten Strecke sicher `0` erreicht wird.
-- `SensorRecoveryMode`: Nach Nothalt/Abweichung Weiterfahrt nur stark reduziert bis nächster Sensor.
+- `FeedbackInputRecoveryMode`: Nach Nothalt/Abweichung Weiterfahrt nur stark reduziert bis zum naechsten Rueckmelder.
 
 ## 6. Invarianten
 
@@ -166,7 +166,7 @@ Regeln:
 ```csharp
 RouteController(Train train, bool initialHold = false);
 void AdvancePosition(double headPositionCm);
-void OnSensorActivated(int sensorId);
+void OnFeedbackInputActivated(int feedbackId);
 void ReleaseGo();
 void OnEmergencyStop();
 void OnEmergencyRelease();
@@ -178,12 +178,12 @@ Regeln:
 - Über `BoundTrain` sind grundlegende Zugfunktionen (z. B. Betriebsmodus, Fahrtrichtung) verfügbar.
 - RouteControl generiert Fahrbefehle direkt aus den RouteLeg-Elementen.
 - Bei Route-Update wird Fahrstrategie sofort neu berechnet.
-- `OnSensorActivated(sensorId)` ermöglicht positionsgebundene Rekalibrierung anhand der in `RouteLeg.SensorMarkers` konfigurierten Sensoren.
+- `OnFeedbackInputActivated(feedbackId)` ermoeglicht positionsgebundene Rekalibrierung anhand der in `RouteLeg.FeedbackActivationPoints` konfigurierten Rueckmelder.
 - Nach Erreichen eines `StopPoint` ist Weiterfahrt nur über `ReleaseGo()` zulässig.
 - `ReleaseGo()` gibt die Weiterfahrt frei — verhält sich abhängig vom aktiven Haltezustand:
   - Ist ein **InitialHold** aktiv, wird dieser zuerst konsumiert (einmalig); danach wirkt `ReleaseGo()` ausschliesslich auf `StopPoint`-Halte.
   - Ist kein InitialHold aktiv, gibt `ReleaseGo()` den aktuell anstehenden `StopPoint`-Halt frei.
-- `OnEmergencyRelease()` kann `SensorRecoveryMode` aktivieren (Langsamfahrt bis nächster Sensor).
+- `OnEmergencyRelease()` kann `FeedbackInputRecoveryMode` aktivieren (Langsamfahrt bis zum naechsten Rueckmelder).
 
 #### InitialHold (Startzustand)
 
@@ -227,7 +227,7 @@ public enum RouteControlEvent
 {
     SafetyWarningRaised,
     SafetyStopInjected,
-    SensorTimeoutRaised
+    FeedbackTimeoutRaised
 }
 ```
 
@@ -280,7 +280,7 @@ Wenn ein Folge-RouteLeg eine höhere Geschwindigkeit als der aktuelle RouteLeg z
 - Die Bremsstrecke selbst bleibt dabei erhalten; nur der Bremsbeginn wird nach vorne in die Route verschoben.
 - Der Zielabschnitt definiert weiterhin die Bremsweg-Länge; bei frühem `StopPoint` wird der Bremsbeginn um den Abstand zwischen `StopPoint` und `RouteLeg`-Ende in den vorherigen Abschnitt verlagert.
 - Implementierungsform (v1.2): Das RouteControl bestimmt den nächsten noch nicht erreichten `StopPoint` leg-übergreifend und schätzt eine erforderliche Bremsdistanz aus aktueller Geschwindigkeit; wird diese Distanz unterschritten, wird bereits im vorherigen `RouteLeg` ein Bremsziel `v = 0` geplant (Vorlauf-Bremsung).
-- Aktiviert ein Sensor bereits im Folge-`RouteLeg` (z. B. durch zu schnelle reale Fahrt), darf RouteControl den Positionsabgleich trotzdem annehmen, den laufenden Zyklus sofort beenden und die Fahrt unmittelbar mit dem neu aktiven `RouteLeg` weiterplanen.
+- Aktiviert ein Feedback bereits im Folge-`RouteLeg` (z. B. durch zu schnelle reale Fahrt), darf RouteControl den Positionsabgleich trotzdem annehmen, den laufenden Zyklus sofort beenden und die Fahrt unmittelbar mit dem neu aktiven `RouteLeg` weiterplanen.
 
 ## 9. Sicherheitslogik
 
@@ -293,18 +293,18 @@ Sicherheitsrückfall (`SafetyStopInjected`): Erkennt das RouteControl, dass der 
 2. `SafetyStopInjected = true` setzen.
 3. Fahrbefehle so begrenzen, dass am Ende der bekannten Strecke sicher `0` erreicht wird.
 
-### 9.2 Sensor-Timeout und Positionsabweichung
+### 9.2 Feedback-Timeout und Positionsabweichung
 
-- Wird ein erwarteter Sensor nach Erreichen der rechnerischen Sensorposition nicht innerhalb `ActivationTimeoutMs` aktiviert:
-  1. `SensorTimeoutRaised` emittieren,
+- Wird ein erwarteter Rueckmelder nach Erreichen der rechnerischen Feedback-Position nicht innerhalb `ActivationTimeoutMs` aktiviert:
+  1. `FeedbackTimeoutRaised` emittieren,
   2. Sicherheitsstopp auslösen.
 - Ziel: Fehlerbild "Zug steht" oder "Zug auf falschem Gleis" sicher abfangen.
 
 ### 9.3 Nothalt-Recovery (vorsehen, optional initial)
 
 - Nach Nothalt kann Positionsabweichung vorliegen.
-- Nach Freigabe kann RouteControl in `SensorRecoveryMode` wechseln:
-  - Fahrt mit stark reduzierter Geschwindigkeit bis zum nächsten Sensor,
+- Nach Freigabe kann RouteControl in `FeedbackInputRecoveryMode` wechseln:
+  - Fahrt mit stark reduzierter Geschwindigkeit bis zum nächsten Feedback,
   - danach Normalbetrieb wieder aufnehmen.
 
 ## 10. Validierung und Fehler
@@ -313,14 +313,14 @@ Sicherheitsrückfall (`SafetyStopInjected`): Erkennt das RouteControl, dass der 
 public sealed class RouteValidationException : Exception { }
 public sealed class RouteUpdateConflictException : Exception { }
 public sealed class RouteStateException : Exception { }
-public sealed class SensorTimeoutException : Exception { }
+public sealed class FeedbackTimeoutException : Exception { }
 ```
 
 Zuordnung:
 - `RouteValidationException`: Kette/Wegpunkte/Grenzen/Null/leer/Duplikate/ungültige `DistanceCm` oder `MaxSpeedKmh` (≤ 0).
 - `RouteUpdateConflictException`: Zielbereich enthält aktiven `RouteLeg`.
 - `RouteStateException`: Zielbereich enthält konsumierten `RouteLeg` oder ungültiger Laufzeitzustand.
-- `SensorTimeoutException`: optional intern, extern primär Event + Sicherheitsstopp.
+- `FeedbackTimeoutException`: optional intern, extern primär Event + Sicherheitsstopp.
 
 ## 11. Anforderungen an den Builder
 
@@ -329,7 +329,7 @@ Bezug: `OTD/TrainDriving/RouteControl/RouteTableBuilder.cs`
 - `AddRoute(...)` muss `maxSpeedKmh` (`> 0`) als Pflichtparameter führen.
 - optional `accelerationStartPolicy` aufnehmen.
 - `AddStopPoint(...)` soll das nachträgliche Hinzufügen eines eingebetteten `StopPoint` zu einem vorhandenen `RouteLeg` unterstützen.
-- Builder-Hilfen für `SensorMarkers` sind fachlich sinnvoll und sollen die leg-lokale Zuordnung von Sensoren direkt unterstützen.
+- Builder-Hilfen für `FeedbackActivationPoints` sind fachlich sinnvoll und sollen die leg-lokale Zuordnung von Rueckmeldern direkt unterstützen.
 - Builder bleibt Datensammler; die finale Plausibilität prüft zentral der Validator im RouteControl.
 
 Beispielsignatur:
@@ -348,13 +348,13 @@ public RouteTableBuilder AddRoute(
 ## 12. Zielarchitektur (Greenfield)
 
 - `RouteControl/Domain/`
-  - `RouteLeg.cs`, `SensorMarker.cs`, `RouteActionEvent.cs`, `RoutePositionEvent.cs`, `RouteMetadata.cs`, `AccelerationStartPolicy.cs`
+  - `RouteLeg.cs`, `FeedbackHandling.cs`, `RouteActionEvent.cs`, `RoutePositionEvent.cs`, `RouteMetadata.cs`, `AccelerationStartPolicy.cs`
 - `RouteControl/Runtime/`
   - `RouteRuntimeState.cs`, `RouteSnapshot.cs`
 - `RouteControl/Services/`
   - `RouteTableService.cs` (Add/AddRoutes/ReplaceRoutes/ReplaceRouteAtEnd/RemoveRouteAtEnd/RemoveRoutesFromWaypoint/Advance)
   - `RouteCommandPlanner.cs` (Fahrbefehle aus RouteLeg, impliziter End-Halt)
-  - `SensorSupervisionService.cs` (Timeouts/Abweichungen)
+  - `FeedbackSupervisionService.cs` (Timeouts/Abweichungen)
   - `RouteValidator.cs` (Invarianten, Kontextprüfung)
 - `RouteControl/Exceptions/`
   - `RouteValidationException.cs`, `RouteUpdateConflictException.cs`, `RouteStateException.cs`
@@ -378,9 +378,9 @@ Prinzipien:
 - Am Tabellenende bremst das RouteControl den Zug automatisch auf 0 (impliziter End-Halt), ohne expliziten Halt-Eintrag.
 - Der implizite End-Halt wird bereits im letzten `RouteLeg` fahrdynamisch als Bremsziel eingeplant; ein abrupter Geschwindigkeitswechsel erst am Tabellenende ist nicht zulässig.
 - Kann das RouteControl den impliziten End-Halt nicht sicher einhalten, emittiert es `SafetyWarningRaised` und setzt `SafetyStopInjected = true`.
-- Sensor-Timeout führt zu Event + Sicherheitsstopp.
-- SensorMarker in `RouteLeg.SensorMarkers` werden unterstützt; Offset-Validierung erfolgt relativ zur Distanz des zugehörigen `RouteLeg`.
-- `OnSensorActivated(sensorId)` nutzt SensorMarker zur Positionsrekalibrierung und triggert sofortige Fahrstrategie-Neuberechnung.
+- Feedback-Timeout führt zu Event + Sicherheitsstopp.
+- FeedbackActivationPoint in `RouteLeg.FeedbackActivationPoints` werden unterstützt; Offset-Validierung erfolgt relativ zur Distanz des zugehörigen `RouteLeg`.
+- `OnFeedbackInputActivated(feedbackId)` nutzt FeedbackActivationPoint zur Positionsrekalibrierung und triggert sofortige Fahrstrategie-Neuberechnung.
 - StopPoints innerhalb eines `RouteLeg` werden unterstützt; bei frühem `StopPoint` beginnt der Bremsvorgang bereits im vorausgehenden `RouteLeg`.
 - Pro `RouteLeg` ist maximal ein `StopPoint` zulässig.
 - Ein definierter `StopPoint` führt immer zu einem Halt (`v = 0`).
@@ -393,11 +393,11 @@ Prinzipien:
 ## 14. Offene Punkte (Implementierungs-Backlog)
 
 - `RouteActionEvent` und `RoutePositionEvent` sind im Domänenmodell der Spec definiert, aber in `RouteControl` derzeit noch nicht als Runtime-Ausführungspfad integriert.
-- Externe Event-Pipeline gemäss `RouteControlEvent` (`SafetyWarningRaised`, `SafetyStopInjected`, `SensorTimeoutRaised`) ist noch nicht vollständig als publizierte API umgesetzt.
-- `SensorSupervisionService` mit echtem `ActivationTimeoutMs`-Handling (Timeout-Erkennung + Eventauslösung) ist als Architekturziel definiert, aktuell jedoch noch nicht als separater Service implementiert.
-- Sensor-Rekalibrierung benötigt ein explizites Korrekturfenster (z. B. ±15 cm um die erwartete Marker-Position) mit klarer Accept/Reject-Policy; bei akzeptierter Korrektur muss die Bremsrampe/Fahrstrategie unmittelbar neu geplant werden.
+- Externe Event-Pipeline gemäss `RouteControlEvent` (`SafetyWarningRaised`, `SafetyStopInjected`, `FeedbackTimeoutRaised`) ist noch nicht vollständig als publizierte API umgesetzt.
+- `FeedbackSupervisionService` mit echtem `ActivationTimeoutMs`-Handling (Timeout-Erkennung + Eventauslösung) ist als Architekturziel definiert, aktuell jedoch noch nicht als separater Service implementiert.
+- Feedback-Rekalibrierung benötigt ein explizites Korrekturfenster (z. B. ±15 cm um die erwartete Marker-Position) mit klarer Accept/Reject-Policy; bei akzeptierter Korrektur muss die Bremsrampe/Fahrstrategie unmittelbar neu geplant werden.
 - `RouteCommandPlanner` als eigenständiger Service ist architektonisch vorgesehen; die Fahrplanungslogik liegt aktuell überwiegend direkt im `RouteController`.
-- `RouteTableBuilder` unterstützt aktuell `AddRoute(...)` und `AddStopPoint(...)`; explizite Builder-Hilfsmethoden für `SensorMarkers` sind noch nicht umgesetzt.
-- **[SICHERHEIT]** Unerwartete Sensoren: Sollte während einer Fahrt ein Sensor aktiv werden, der **aufgrund der Sequenz der RouteLegs nicht erwartet wird** (d.h., kein entsprechender `SensorMarker` im aktiven oder nächsten RouteLeg liegt vor), so ist dies ein Indiz für einen Fehlerbetrieb (z.B. Zug auf falscher Route, Sensor-Fehlfunktion, Gleiswechsel-Fehler). In diesem Fall sollte RouteControl mit `SensorUnexpectedWarning` ein Sicherheitsereignis emittieren, einen Notbremse-ähnlichen Halt einleiten und den Fehlerfall mit `RouteUnexpectedSensorException` dokumentieren. Das System wartet dann auf explizite Freigabe durch den Benutzer/das Stellwerk (`OnEmergencyRelease()`).
+- `RouteTableBuilder` unterstützt aktuell `AddRoute(...)` und `AddStopPoint(...)`; explizite Builder-Hilfsmethoden für `FeedbackActivationPoints` sind noch nicht umgesetzt.
+- **[SICHERHEIT]** Unerwartete Rueckmelder: Wird waehrend einer Fahrt ein Feedback aktiv, das aufgrund der Sequenz der RouteLegs nicht erwartet wird (d. h. kein entsprechender `FeedbackActivationPoint` im aktiven oder naechsten RouteLeg vorhanden ist), ist dies ein Indiz fuer einen Fehlerbetrieb (z. B. Zug auf falscher Route, Feedback-Fehlfunktion, Gleiswechsel-Fehler). In diesem Fall sollte RouteControl mit `FeedbackUnexpectedWarning` ein Sicherheitsereignis emittieren, einen notbremsaehnlichen Halt einleiten und den Fehlerfall mit `RouteUnexpectedFeedbackException` dokumentieren. Das System wartet danach auf explizite Freigabe durch den Benutzer bzw. das Stellwerk (`OnEmergencyRelease()`).
 
 

@@ -52,7 +52,7 @@ public class TrainDriving
     private static readonly TimeSpan DefaultMinSpeedStepInterval = TimeSpan.FromMilliseconds(100);
     private const double DefaultAccelerationMs2 = 5; // 0.55
     private const double DefaultBrakingMs2 = 0.8; // Independent deceleration rate (m/s²)
-    private const double DefaultBrakePointCorrectionPercent = 0; // -3.5
+    private const double DefaultBrakePointCorrectionPercent = -3.5;
     private const double DefaultBrakePointCorrectionPercentPerVMax  = 0.0;
     private const double DefaultSpeedCurveFidelityPercent = 60.0;
 
@@ -65,7 +65,7 @@ public class TrainDriving
     /// Preset for acceleration phases (currentSpeed &lt; targetSpeed). Can be changed at runtime.
     /// Shapes the start-oriented acceleration curve while <see cref="AccelerationMs2"/> controls the absolute acceleration strength.
     /// </summary>
-    public AccelerationTrajectoryPreset AccelerationPreset { get; set; } = AccelerationTrajectoryPreset.Linear;
+    public AccelerationTrajectoryPresets AccelerationPreset { get; set; } = AccelerationTrajectoryPresets.Linear;
 
     /// <summary>
     /// Preset for braking phases (currentSpeed &gt; targetSpeed). Can be changed at runtime.

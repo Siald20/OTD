@@ -8,6 +8,7 @@ public sealed record RouteLeg
 {
     // User-facing constructor: topology-derived fields are expanded into segment entries by RouteLegResolver.
     public RouteLeg(
+        RouteTravelDirection TravelDirection,
         string FromWaypointId,
         string ToWaypointId,
         int? MaxSpeedKmh = null,
@@ -15,6 +16,7 @@ public sealed record RouteLeg
         int? StopPointToTargetCm = null,
         RouteMetadata? Metadata = null)
     {
+        this.TravelDirection = TravelDirection;
         this.FromWaypointId = FromWaypointId;
         this.ToWaypointId = ToWaypointId;
         // No explicit cap => let segment limits from topology resolve the effective speed.
@@ -33,11 +35,12 @@ public sealed record RouteLeg
     public AccelerationStartPolicy AccelerationStartPolicy { get; init; } = AccelerationStartPolicy.AfterTrainClearsWaypoint;
     public RouteMetadata? Metadata { get; init; }
     public int? StopPointToTargetCm { get; init; }
+    public RouteTravelDirection TravelDirection { get; init; } = RouteTravelDirection.AlongLine;
 
     // Runtime fields (resolved/expanded):
     public StopPoint? StopPoint { get; init; }
-    public IReadOnlyList<SensorMarker>? SensorMarkers { get; init; }
-    public IReadOnlyList<FeedbackReference>? FeedbackReferences { get; init; }
+    public IReadOnlyList<FeedbackActivationPoint>? FeedbackInputActivationPoints { get; init; }
+    public IReadOnlyList<FeedbackReference>? FeedbackInputReferences { get; init; }
     public string? GroupId { get; init; }
     public int GroupTotalDistanceCm { get; init; }
     public int GroupOffsetStartCm { get; init; }

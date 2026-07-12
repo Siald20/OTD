@@ -32,11 +32,12 @@ public sealed class RouteTableBuilder
     public IReadOnlyList<RouteLeg> RouteLegs => new ReadOnlyCollection<RouteLeg>(_routeLegs);
 
     public RouteTableBuilder AddRoute(
+        RouteTravelDirection travelDirection,
         string fromWaypointId,
         string toWaypointId,
         int? maxSpeedKmh = null,
         AccelerationStartPolicy accelerationStartPolicy = AccelerationStartPolicy.AtWaypointCrossing,
-        AccelerationTrajectoryPreset? accelerationPreset = null,
+        AccelerationTrajectoryPresets? accelerationPreset = null,
         BrakingTrajectoryPreset? brakingPreset = null)
     {
         RouteDriveProfile? driveProfile = null;
@@ -48,6 +49,7 @@ public sealed class RouteTableBuilder
         }
 
         var leg = new RouteLeg(
+            TravelDirection: travelDirection,
             FromWaypointId: fromWaypointId,
             ToWaypointId: toWaypointId,
             MaxSpeedKmh: maxSpeedKmh,
@@ -72,6 +74,24 @@ public sealed class RouteTableBuilder
         }
 
         return this;
+    }
+
+    public RouteTableBuilder AddRoute(
+        string fromWaypointId,
+        string toWaypointId,
+        int? maxSpeedKmh = null,
+        AccelerationStartPolicy accelerationStartPolicy = AccelerationStartPolicy.AtWaypointCrossing,
+        AccelerationTrajectoryPresets? accelerationPreset = null,
+        BrakingTrajectoryPreset? brakingPreset = null)
+    {
+        return AddRoute(
+            RouteTravelDirection.AlongLine,
+            fromWaypointId,
+            toWaypointId,
+            maxSpeedKmh,
+            accelerationStartPolicy,
+            accelerationPreset,
+            brakingPreset);
     }
 
     public RouteTableBuilder AddStopPointToTarget(string fromWaypointId, int stopPointToTargetCm, string? stopReason = null)

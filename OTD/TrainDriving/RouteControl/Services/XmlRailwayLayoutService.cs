@@ -21,8 +21,8 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
     private readonly string _configPath;
     private readonly string? _topologyPath;
     private Dictionary<(string From, string To), GeneratedTrackLeg> _generatedLegs = new();
-    private Dictionary<string, TrackFeedbackSection> _sections = new(StringComparer.OrdinalIgnoreCase);
-    private Dictionary<string, TrackFeedbackPoint> _points = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, OccupancyFeedback> _occupancyFeedbacks = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, ContactFeedback> _contactFeedbacks = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, TrackWaypoint> _waypoints = new(StringComparer.OrdinalIgnoreCase);
 
     public event Action? DefinitionsChanged;
@@ -51,23 +51,23 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
         }
     }
 
-    public bool TryGetSection(string sectionId, out TrackFeedbackSection section)
+    public bool TryGetOccupancyFeedback(string occupancyFeedbackId, out OccupancyFeedback occupancyFeedback)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sectionId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(occupancyFeedbackId);
 
         lock (_sync)
         {
-            return _sections.TryGetValue(sectionId.Trim(), out section!);
+            return _occupancyFeedbacks.TryGetValue(occupancyFeedbackId.Trim(), out occupancyFeedback!);
         }
     }
 
-    public bool TryGetPoint(string pointId, out TrackFeedbackPoint point)
+    public bool TryGetContactFeedback(string contactFeedbackId, out ContactFeedback contactFeedback)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(pointId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(contactFeedbackId);
 
         lock (_sync)
         {
-            return _points.TryGetValue(pointId.Trim(), out point!);
+            return _contactFeedbacks.TryGetValue(contactFeedbackId.Trim(), out contactFeedback!);
         }
     }
 
@@ -89,19 +89,19 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
         }
     }
 
-    public IReadOnlyCollection<TrackFeedbackSection> GetAllSections()
+    public IReadOnlyCollection<OccupancyFeedback> GetAllOccupancyFeedbacks()
     {
         lock (_sync)
         {
-            return _sections.Values.ToList().AsReadOnly();
+            return _occupancyFeedbacks.Values.ToList().AsReadOnly();
         }
     }
 
-    public IReadOnlyCollection<TrackFeedbackPoint> GetAllPoints()
+    public IReadOnlyCollection<ContactFeedback> GetAllContactFeedbacks()
     {
         lock (_sync)
         {
-            return _points.Values.ToList().AsReadOnly();
+            return _contactFeedbacks.Values.ToList().AsReadOnly();
         }
     }
 
@@ -119,13 +119,13 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
         lock (_sync)
         {
             _generatedLegs = snapshot.GeneratedLegs;
-            _sections = snapshot.Sections;
-            _points = snapshot.Points;
+            _occupancyFeedbacks = snapshot.OccupancyFeedbacks;
+            _contactFeedbacks = snapshot.ContactFeedbacks;
             _waypoints = snapshot.Waypoints;
         }
 
         Logging.Info<XmlRailwayLayoutService>(
-            $"Railway layout config loaded: waypoints={snapshot.Waypoints.Count}, sections={snapshot.Sections.Count}, points={snapshot.Points.Count}, legs={snapshot.GeneratedLegs.Count}, file='{_configPath}'.");
+            $"Railway layout config loaded: waypoints={snapshot.Waypoints.Count}, occupancyFeedbacks={snapshot.OccupancyFeedbacks.Count}, contactFeedbacks={snapshot.ContactFeedbacks.Count}, legs={snapshot.GeneratedLegs.Count}, file='{_configPath}'.");
         DefinitionsChanged?.Invoke();
     }
 
@@ -162,13 +162,13 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
 
         var edges = ParseEdges(root);
         var usedDetectorIds = new HashSet<int>();
-        var sections = ParseSections(root, edges, usedDetectorIds);
-        var points = ParsePoints(root, edges, usedDetectorIds);
+        var occupancyFeedbacks = ParseOccupancyFeedbacks(root, edges, usedDetectorIds);
+        var contactFeedbacks = ParseContactFeedbacks(root, edges, usedDetectorIds);
         var waypointsSource = ResolveWaypointsElement(root, configPath, topologyPath);
         var waypoints = ParseWaypoints(waypointsSource, edges);
-        var generatedLegs = GenerateLegs(edges, sections, points, waypoints);
+        var generatedLegs = GenerateLegs(edges, occupancyFeedbacks, contactFeedbacks, waypoints);
 
-        return new LayoutSnapshot(generatedLegs, sections, points, waypoints);
+        return new LayoutSnapshot(generatedLegs, occupancyFeedbacks, contactFeedbacks, waypoints);
     }
 
     /// <summary>
@@ -389,80 +389,120 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
         return edges;
     }
 
-    private static Dictionary<string, TrackFeedbackSection> ParseSections(
+    private static Dictionary<string, OccupancyFeedback> ParseOccupancyFeedbacks(
         XElement root,
         IReadOnlyDictionary<string, TrackEdge> edges,
         ISet<int> usedDetectorIds)
     {
-        var sections = new Dictionary<string, TrackFeedbackSection>(StringComparer.OrdinalIgnoreCase);
-        var sensorsElement = root.Element("sensors");
-        if (sensorsElement is null)
-            return sections;
+        var occupancyFeedbacks = new Dictionary<string, OccupancyFeedback>(StringComparer.OrdinalIgnoreCase);
+        var feedbacksElement = root.Element("feedbacks");
+        if (feedbacksElement is null)
+            return occupancyFeedbacks;
 
-        foreach (var sectionElement in sensorsElement.Elements("section"))
+        foreach (var occupancyElement in SelectFeedbackElementsByType(feedbacksElement, "occupancy", "occupancy"))
         {
-            var id = RequireAttribute(sectionElement, "id", "sensor section");
-            var detectorId = ParseIntAttribute(sectionElement, "detectorId")
-                ?? ParseIntAttribute(sectionElement, "detector_id")
-                ?? throw new RouteValidationException($"sensor section '{id}' requires detectorId.");
+            var id = RequireAttribute(occupancyElement, "id", "occupancy feedback");
+            var detectorId = ParseIntAttribute(occupancyElement, "detectorId")
+                ?? ParseIntAttribute(occupancyElement, "detector_id")
+                ?? throw new RouteValidationException($"occupancy feedback '{id}' requires detectorId.");
             if (!usedDetectorIds.Add(detectorId))
-                throw new RouteValidationException($"Duplicate detectorId '{detectorId}' in railwaylayout sensors.");
+                throw new RouteValidationException($"Duplicate detectorId '{detectorId}' in railwaylayout feedback definitions.");
 
-            var hostTrackId = ResolveHostTrackId(sectionElement, $"sensor section '{id}'");
-            ResolveSectionHostEdgeIds(edges, hostTrackId, $"sensor section '{id}'");
+            var hostTrackId = ResolveHostTrackId(occupancyElement, $"occupancy feedback '{id}'");
+            ResolveOccupancyHostEdgeIds(edges, hostTrackId, $"occupancy feedback '{id}'");
 
-            var description = OptionalAttribute(sectionElement, "description");
-            var section = new TrackFeedbackSection(id, detectorId, hostTrackId, SensorType.OccupancyDetection, description);
-            if (!sections.TryAdd(section.Id, section))
-                throw new RouteValidationException($"Duplicate sensor section id '{section.Id}'.");
+            var description = OptionalAttribute(occupancyElement, "description");
+            var occupancyFeedback = new OccupancyFeedback(id, detectorId, hostTrackId, FeedbackType.OccupancyFeedback, description);
+            if (!occupancyFeedbacks.TryAdd(occupancyFeedback.Id, occupancyFeedback))
+                throw new RouteValidationException($"Duplicate occupancy feedback id '{occupancyFeedback.Id}'.");
         }
 
-        return sections;
+        return occupancyFeedbacks;
     }
 
-    private static Dictionary<string, TrackFeedbackPoint> ParsePoints(
+    private static Dictionary<string, ContactFeedback> ParseContactFeedbacks(
         XElement root,
         IReadOnlyDictionary<string, TrackEdge> edges,
         ISet<int> usedDetectorIds)
     {
-        var points = new Dictionary<string, TrackFeedbackPoint>(StringComparer.OrdinalIgnoreCase);
-        var sensorsElement = root.Element("sensors");
-        if (sensorsElement is null)
-            return points;
+        var contactFeedbacks = new Dictionary<string, ContactFeedback>(StringComparer.OrdinalIgnoreCase);
+        var feedbacksElement = root.Element("feedbacks");
+        if (feedbacksElement is null)
+            return contactFeedbacks;
 
-        foreach (var pointElement in sensorsElement.Elements("point"))
+        foreach (var contactElement in SelectFeedbackElementsByType(feedbacksElement, "contact", "contact"))
         {
-            var id = RequireAttribute(pointElement, "id", "sensor point");
-            var detectorId = ParseIntAttribute(pointElement, "detectorId")
-                ?? ParseIntAttribute(pointElement, "detector_id")
-                ?? throw new RouteValidationException($"sensor point '{id}' requires detectorId.");
+            var id = RequireAttribute(contactElement, "id", "contact feedback");
+            var detectorId = ParseIntAttribute(contactElement, "detectorId")
+                ?? ParseIntAttribute(contactElement, "detector_id")
+                ?? throw new RouteValidationException($"contact feedback '{id}' requires detectorId.");
             if (!usedDetectorIds.Add(detectorId))
-                throw new RouteValidationException($"Duplicate detectorId '{detectorId}' in railwaylayout sensors.");
+                throw new RouteValidationException($"Duplicate detectorId '{detectorId}' in railwaylayout feedback definitions.");
 
-            var hostTrackId = ResolveHostTrackId(pointElement, $"sensor point '{id}'");
-            var offsetCm = ParseIntAttribute(pointElement, "offset_cm")
-                ?? ParseIntAttribute(pointElement, "offset")
-                ?? throw new RouteValidationException($"sensor point '{id}' requires offset_cm.");
-            var hostEdgeIds = ResolveHostEdgeIdsForOffset(edges, hostTrackId, offsetCm, $"sensor point '{id}'");
+            var hostTrackId = ResolveHostTrackId(contactElement, $"contact feedback '{id}'");
+            var offsetCm = ParseIntAttribute(contactElement, "offset_cm")
+                ?? ParseIntAttribute(contactElement, "offset")
+                ?? throw new RouteValidationException($"contact feedback '{id}' requires offset_cm.");
+            var hostEdgeIds = ResolveHostEdgeIdsForOffset(edges, hostTrackId, offsetCm, $"contact feedback '{id}'");
 
             foreach (var hostEdgeId in hostEdgeIds)
             {
-                var edge = GetRequiredEdge(edges, hostEdgeId, $"sensor point '{id}'");
+                var edge = GetRequiredEdge(edges, hostEdgeId, $"contact feedback '{id}'");
                 if (offsetCm < 0 || offsetCm > edge.LengthCm)
                 {
                     throw new RouteValidationException(
-                        $"sensor point '{id}' must be within [0, {edge.LengthCm}] cm of host '{hostTrackId}' (resolved edge '{edge.Id}').");
+                        $"contact feedback '{id}' must be within [0, {edge.LengthCm}] cm of host '{hostTrackId}' (resolved edge '{edge.Id}').");
                 }
             }
 
-            var type = SensorType.TrackContact;
-            var description = OptionalAttribute(pointElement, "description");
-            var point = new TrackFeedbackPoint(id, detectorId, hostTrackId, offsetCm, type, description);
-            if (!points.TryAdd(point.Id, point))
-                throw new RouteValidationException($"Duplicate sensor point id '{point.Id}'.");
+            var type = FeedbackType.ContactFeedback;
+            var description = OptionalAttribute(contactElement, "description");
+            var contactFeedback = new ContactFeedback(id, detectorId, hostTrackId, offsetCm, type, description);
+            if (!contactFeedbacks.TryAdd(contactFeedback.Id, contactFeedback))
+                throw new RouteValidationException($"Duplicate contact feedback id '{contactFeedback.Id}'.");
         }
 
-        return points;
+        return contactFeedbacks;
+    }
+
+    private static IEnumerable<XElement> SelectFeedbackElementsByType(
+        XElement feedbacksElement,
+        string expectedType,
+        string legacyElementName)
+    {
+        foreach (var feedbackElement in feedbacksElement.Elements())
+        {
+            if (string.Equals(feedbackElement.Name.LocalName, legacyElementName, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return feedbackElement;
+                continue;
+            }
+
+            if (!string.Equals(feedbackElement.Name.LocalName, "feedback", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var declaredType = OptionalAttribute(feedbackElement, "type");
+            if (string.IsNullOrWhiteSpace(declaredType))
+            {
+                throw new RouteValidationException(
+                    "feedback element requires type='occupancy' or type='contact'.");
+            }
+
+            if (string.Equals(declaredType, expectedType, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return feedbackElement;
+                continue;
+            }
+
+            var isKnownType = string.Equals(declaredType, "occupancy", StringComparison.OrdinalIgnoreCase)
+                              || string.Equals(declaredType, "contact", StringComparison.OrdinalIgnoreCase);
+            if (!isKnownType)
+            {
+                var feedbackId = OptionalAttribute(feedbackElement, "id") ?? "(missing id)";
+                throw new RouteValidationException(
+                    $"feedback '{feedbackId}' has unsupported type '{declaredType}'. Allowed values: occupancy, contact.");
+            }
+        }
     }
 
     private static Dictionary<string, TrackWaypoint> ParseWaypoints(
@@ -583,26 +623,26 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
 
     private static Dictionary<(string From, string To), GeneratedTrackLeg> GenerateLegs(
         IReadOnlyDictionary<string, TrackEdge> edges,
-        IReadOnlyDictionary<string, TrackFeedbackSection> sections,
-        IReadOnlyDictionary<string, TrackFeedbackPoint> points,
+        IReadOnlyDictionary<string, OccupancyFeedback> occupancyFeedbacks,
+        IReadOnlyDictionary<string, ContactFeedback> contactFeedbacks,
         IReadOnlyDictionary<string, TrackWaypoint> waypoints)
     {
         var edgesByNode = BuildEdgesByNode(edges);
-        var sectionsByEdge = sections.Values
-            .SelectMany(section => ResolveSectionHostEdgeIds(edges, section.HostTrackId, $"sensor section '{section.Id}'")
-                .Select(edgeId => (EdgeId: edgeId, Section: section)))
+        var occupancyFeedbacksByEdge = occupancyFeedbacks.Values
+            .SelectMany(occupancyFeedback => ResolveOccupancyHostEdgeIds(edges, occupancyFeedback.HostTrackId, $"occupancy feedback '{occupancyFeedback.Id}'")
+                .Select(edgeId => (EdgeId: edgeId, OccupancyFeedback: occupancyFeedback)))
             .GroupBy(item => item.EdgeId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 group => group.Key,
-                group => group.Select(item => item.Section).ToList(),
+                group => group.Select(item => item.OccupancyFeedback).ToList(),
                 StringComparer.OrdinalIgnoreCase);
-        var pointsByEdge = points.Values
-            .SelectMany(point => ResolveHostEdgeIdsForOffset(edges, point.HostTrackId, point.OffsetCm, $"sensor point '{point.Id}'")
-                .Select(edgeId => (EdgeId: edgeId, Point: point)))
+        var contactFeedbacksByEdge = contactFeedbacks.Values
+            .SelectMany(contactFeedback => ResolveHostEdgeIdsForOffset(edges, contactFeedback.HostTrackId, contactFeedback.OffsetCm, $"contact feedback '{contactFeedback.Id}'")
+                .Select(edgeId => (EdgeId: edgeId, ContactFeedback: contactFeedback)))
             .GroupBy(item => item.EdgeId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 group => group.Key,
-                group => group.Select(item => item.Point).OrderBy(point => point.OffsetCm).ToList(),
+                group => group.Select(item => item.ContactFeedback).OrderBy(contactFeedback => contactFeedback.OffsetCm).ToList(),
                 StringComparer.OrdinalIgnoreCase);
         var edgeWaypoints = waypoints.Values
             .Where(waypoint => waypoint.HostTrackId is not null && waypoint.OffsetCm is not null)
@@ -627,16 +667,16 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
                     edge: branch.Edge,
                     moveForward: branch.MoveForward,
                     startOffsetCm: branch.StartOffsetCm,
-                    includeCurrentPositionSensors: branch.IncludeCurrentPositionSensors,
+                    includeCurrentPositionFeedbacks: branch.IncludeCurrentPositionFeedbacks,
                     enteredFromNodeBoundary: branch.EnteredFromNodeBoundary,
                     distanceFromStartCm: 0,
-                    currentMarkers: [],
+                    currentFeedbackActivationPoints: [],
                     visitedStates: new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                     edgesByNode: edgesByNode,
                     edgeWaypoints: edgeWaypoints,
                     nodeWaypoints: nodeWaypoints,
-                    sectionsByEdge: sectionsByEdge,
-                    pointsByEdge: pointsByEdge,
+                    occupancyFeedbacksByEdge: occupancyFeedbacksByEdge,
+                    contactFeedbacksByEdge: contactFeedbacksByEdge,
                     results: results);
 
                 foreach (var leg in results)
@@ -683,8 +723,8 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
         if (candidate.DistanceCm != current.DistanceCm)
             return candidate.DistanceCm < current.DistanceCm;
 
-        var candidateMarkerCount = candidate.SensorMarkers?.Count ?? 0;
-        var currentMarkerCount = current.SensorMarkers?.Count ?? 0;
+        var candidateMarkerCount = candidate.FeedbackActivationPoints?.Count ?? 0;
+        var currentMarkerCount = current.FeedbackActivationPoints?.Count ?? 0;
         if (candidateMarkerCount != currentMarkerCount)
             return candidateMarkerCount < currentMarkerCount;
 
@@ -728,8 +768,8 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
 
         var hostEdge = GetRequiredEdge(edges, waypoint.HostTrackId!, $"waypoint '{waypoint.Id}'");
         var offset = waypoint.OffsetCm!.Value;
-        result.Add(new InitialBranch(hostEdge, MoveForward: true, StartOffsetCm: offset, IncludeCurrentPositionSensors: false, EnteredFromNodeBoundary: false));
-        result.Add(new InitialBranch(hostEdge, MoveForward: false, StartOffsetCm: offset, IncludeCurrentPositionSensors: false, EnteredFromNodeBoundary: false));
+        result.Add(new InitialBranch(hostEdge, MoveForward: true, StartOffsetCm: offset, IncludeCurrentPositionFeedbacks: false, EnteredFromNodeBoundary: false));
+        result.Add(new InitialBranch(hostEdge, MoveForward: false, StartOffsetCm: offset, IncludeCurrentPositionFeedbacks: false, EnteredFromNodeBoundary: false));
         return result;
     }
 
@@ -738,16 +778,16 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
         TrackEdge edge,
         bool moveForward,
         int startOffsetCm,
-        bool includeCurrentPositionSensors,
+        bool includeCurrentPositionFeedbacks,
         bool enteredFromNodeBoundary,
         int distanceFromStartCm,
-        List<SensorMarker> currentMarkers,
+        List<FeedbackActivationPoint> currentFeedbackActivationPoints,
         HashSet<string> visitedStates,
         IReadOnlyDictionary<string, List<TrackEdge>> edgesByNode,
         IReadOnlyDictionary<string, List<TrackWaypoint>> edgeWaypoints,
         IReadOnlyDictionary<string, TrackWaypoint> nodeWaypoints,
-        IReadOnlyDictionary<string, List<TrackFeedbackSection>> sectionsByEdge,
-        IReadOnlyDictionary<string, List<TrackFeedbackPoint>> pointsByEdge,
+        IReadOnlyDictionary<string, List<OccupancyFeedback>> occupancyFeedbacksByEdge,
+        IReadOnlyDictionary<string, List<ContactFeedback>> contactFeedbacksByEdge,
         List<GeneratedTrackLeg> results)
     {
         var stateKey = $"{edge.Id}:{(moveForward ? "F" : "R")}:{startOffsetCm}";
@@ -761,18 +801,18 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
         var nextWaypoint = FindNextWaypointOnEdge(startWaypoint.Id, edge.Id, startOffsetCm, moveForward, edgeWaypoints, out var nextWaypointOffsetCm);
         var endOffsetCm = nextWaypointOffsetCm ?? terminalOffsetCm;
 
-        var markers = new List<SensorMarker>(currentMarkers);
-        AppendSensorsOnEdge(
+        var feedbackActivationPoints = new List<FeedbackActivationPoint>(currentFeedbackActivationPoints);
+        AppendFeedbackActivationPointsOnEdge(
             edge,
             moveForward,
             startOffsetCm,
             endOffsetCm,
             distanceFromStartCm,
-            includeCurrentPositionSensors,
+            includeCurrentPositionFeedbacks,
             enteredFromNodeBoundary,
-            sectionsByEdge,
-            pointsByEdge,
-            markers);
+            occupancyFeedbacksByEdge,
+            contactFeedbacksByEdge,
+            feedbackActivationPoints);
 
         var travelledDistanceCm = Math.Abs(endOffsetCm - startOffsetCm);
         var totalDistanceCm = distanceFromStartCm + travelledDistanceCm;
@@ -782,7 +822,7 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
                 startWaypoint.Id,
                 nextWaypoint.Id,
                 totalDistanceCm,
-                markers.Count == 0 ? null : markers.OrderBy(marker => marker.OffsetCm).ThenBy(marker => marker.SensorId).ToList().AsReadOnly()));
+                feedbackActivationPoints.Count == 0 ? null : feedbackActivationPoints.OrderBy(marker => marker.OffsetCm).ThenBy(marker => marker.FeedbackId).ToList().AsReadOnly()));
             return;
         }
 
@@ -794,7 +834,7 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
                 startWaypoint.Id,
                 nodeWaypoint.Id,
                 totalDistanceCm,
-                markers.Count == 0 ? null : markers.OrderBy(marker => marker.OffsetCm).ThenBy(marker => marker.SensorId).ToList().AsReadOnly()));
+                feedbackActivationPoints.Count == 0 ? null : feedbackActivationPoints.OrderBy(marker => marker.OffsetCm).ThenBy(marker => marker.FeedbackId).ToList().AsReadOnly()));
             return;
         }
 
@@ -812,16 +852,16 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
                 nextEdge,
                 nextMoveForward,
                 nextMoveForward ? 0 : nextEdge.LengthCm,
-                includeCurrentPositionSensors: true,
+                includeCurrentPositionFeedbacks: true,
                 enteredFromNodeBoundary: true,
                 distanceFromStartCm: totalDistanceCm,
-                currentMarkers: markers,
+                currentFeedbackActivationPoints: feedbackActivationPoints,
                 visitedStates: new HashSet<string>(visitedStates, StringComparer.OrdinalIgnoreCase),
                 edgesByNode,
                 edgeWaypoints,
                 nodeWaypoints,
-                sectionsByEdge,
-                pointsByEdge,
+                occupancyFeedbacksByEdge,
+                contactFeedbacksByEdge,
                 results);
         }
     }
@@ -869,39 +909,39 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
         return null;
     }
 
-    private static void AppendSensorsOnEdge(
+    private static void AppendFeedbackActivationPointsOnEdge(
         TrackEdge edge,
         bool moveForward,
         int startOffsetCm,
         int endOffsetCm,
         int distanceFromStartCm,
-        bool includeCurrentPositionSensors,
+        bool includeCurrentPositionFeedbacks,
         bool enteredFromNodeBoundary,
-        IReadOnlyDictionary<string, List<TrackFeedbackSection>> sectionsByEdge,
-        IReadOnlyDictionary<string, List<TrackFeedbackPoint>> pointsByEdge,
-        ICollection<SensorMarker> markers)
+        IReadOnlyDictionary<string, List<OccupancyFeedback>> occupancyFeedbacksByEdge,
+        IReadOnlyDictionary<string, List<ContactFeedback>> contactFeedbacksByEdge,
+        ICollection<FeedbackActivationPoint> feedbackActivationPoints)
     {
-        if (enteredFromNodeBoundary && sectionsByEdge.TryGetValue(edge.Id, out var sections))
+        if (enteredFromNodeBoundary && occupancyFeedbacksByEdge.TryGetValue(edge.Id, out var occupancyFeedbacks))
         {
-            foreach (var section in sections.OrderBy(section => section.DetectorId))
+            foreach (var occupancyFeedback in occupancyFeedbacks.OrderBy(feedback => feedback.DetectorId))
             {
-                markers.Add(new SensorMarker(section.DetectorId, distanceFromStartCm, section.Type));
+                feedbackActivationPoints.Add(new FeedbackActivationPoint(occupancyFeedback.DetectorId, distanceFromStartCm, occupancyFeedback.Type));
             }
         }
 
-        if (!pointsByEdge.TryGetValue(edge.Id, out var points))
+        if (!contactFeedbacksByEdge.TryGetValue(edge.Id, out var contactFeedbacks))
             return;
 
-        foreach (var point in points)
+        foreach (var contactFeedback in contactFeedbacks)
         {
             var include = moveForward
-                ? (includeCurrentPositionSensors ? point.OffsetCm >= startOffsetCm : point.OffsetCm > startOffsetCm) && point.OffsetCm < endOffsetCm
-                : (includeCurrentPositionSensors ? point.OffsetCm <= startOffsetCm : point.OffsetCm < startOffsetCm) && point.OffsetCm > endOffsetCm;
+                ? (includeCurrentPositionFeedbacks ? contactFeedback.OffsetCm >= startOffsetCm : contactFeedback.OffsetCm > startOffsetCm) && contactFeedback.OffsetCm < endOffsetCm
+                : (includeCurrentPositionFeedbacks ? contactFeedback.OffsetCm <= startOffsetCm : contactFeedback.OffsetCm < startOffsetCm) && contactFeedback.OffsetCm > endOffsetCm;
             if (!include)
                 continue;
 
-            var relativeOffsetCm = distanceFromStartCm + Math.Abs(point.OffsetCm - startOffsetCm);
-            markers.Add(new SensorMarker(point.DetectorId, relativeOffsetCm, point.Type));
+            var relativeOffsetCm = distanceFromStartCm + Math.Abs(contactFeedback.OffsetCm - startOffsetCm);
+            feedbackActivationPoints.Add(new FeedbackActivationPoint(contactFeedback.DetectorId, relativeOffsetCm, contactFeedback.Type));
         }
     }
 
@@ -951,7 +991,7 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
             : throw new RouteValidationException($"{context} requires host='...'.");
     }
 
-    private static IReadOnlyList<string> ResolveSectionHostEdgeIds(
+    private static IReadOnlyList<string> ResolveOccupancyHostEdgeIds(
         IReadOnlyDictionary<string, TrackEdge> edges,
         string hostTrackId,
         string context)
@@ -977,7 +1017,7 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
         int offsetCm,
         string context)
     {
-        var hostEdges = ResolveSectionHostEdgeIds(edges, hostTrackId, context);
+        var hostEdges = ResolveOccupancyHostEdgeIds(edges, hostTrackId, context);
         var compatibleEdges = hostEdges
             .Where(edgeId =>
             {
@@ -1029,8 +1069,8 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
 
     private sealed record LayoutSnapshot(
         Dictionary<(string From, string To), GeneratedTrackLeg> GeneratedLegs,
-        Dictionary<string, TrackFeedbackSection> Sections,
-        Dictionary<string, TrackFeedbackPoint> Points,
+        Dictionary<string, OccupancyFeedback> OccupancyFeedbacks,
+        Dictionary<string, ContactFeedback> ContactFeedbacks,
         Dictionary<string, TrackWaypoint> Waypoints);
 
     private sealed record TrackEdge(
@@ -1044,6 +1084,6 @@ public sealed class XmlRailwayLayoutService : IRailwayLayoutService
         TrackEdge Edge,
         bool MoveForward,
         int StartOffsetCm,
-        bool IncludeCurrentPositionSensors,
+        bool IncludeCurrentPositionFeedbacks,
         bool EnteredFromNodeBoundary);
 }

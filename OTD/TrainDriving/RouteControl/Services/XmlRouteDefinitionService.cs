@@ -168,8 +168,11 @@ public sealed class XmlRouteDefinitionService : IRouteDefinitionService
         if (!isTopologyRoot && !isRouteSegmentsRoot && !isLegacyRouteLegsRoot)
             throw new RouteValidationException("topology.xml root element must be <topology> (legacy: <routesegments> or <routelegs>)." );
 
-        var segmentElementName = isTopologyRoot ? "segment" : (isRouteSegmentsRoot ? "routesegment" : "routeleg");
-        foreach (var routeLegElement in root.Elements(segmentElementName))
+        var routeLegElements = isTopologyRoot
+            ? (root.Element("segments")?.Elements("segment") ?? root.Elements("segment"))
+            : root.Elements(isRouteSegmentsRoot ? "routesegment" : "routeleg");
+
+        foreach (var routeLegElement in routeLegElements)
         {
             if (routeLegElement.Elements("direction").Any())
             {

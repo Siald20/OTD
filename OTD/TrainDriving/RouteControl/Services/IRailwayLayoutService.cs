@@ -12,17 +12,17 @@ public interface IRailwayLayoutService
 
     bool TryGetGeneratedLeg(string fromWaypointId, string toWaypointId, out GeneratedTrackLeg leg);
 
-    bool TryGetSection(string sectionId, out TrackFeedbackSection section);
+    bool TryGetOccupancyFeedback(string occupancyFeedbackId, out OccupancyFeedback occupancyFeedback);
 
-    bool TryGetPoint(string pointId, out TrackFeedbackPoint point);
+    bool TryGetContactFeedback(string contactFeedbackId, out ContactFeedback contactFeedback);
 
     bool TryGetWaypoint(string waypointId, out TrackWaypoint waypoint);
 
     IReadOnlyCollection<GeneratedTrackLeg> GetAllGeneratedLegs();
 
-    IReadOnlyCollection<TrackFeedbackSection> GetAllSections();
+    IReadOnlyCollection<OccupancyFeedback> GetAllOccupancyFeedbacks();
 
-    IReadOnlyCollection<TrackFeedbackPoint> GetAllPoints();
+    IReadOnlyCollection<ContactFeedback> GetAllContactFeedbacks();
 
     IReadOnlyCollection<TrackWaypoint> GetAllWaypoints();
 }

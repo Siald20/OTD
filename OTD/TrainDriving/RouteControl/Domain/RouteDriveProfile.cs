@@ -5,6 +5,6 @@ using OTD.TrainDriving.Trajectory;
 namespace OTD.TrainDriving.RouteControl.Domain;
 
 public sealed record RouteDriveProfile(
-    AccelerationTrajectoryPreset? AccelerationPreset = null,
+    AccelerationTrajectoryPresets? AccelerationPreset = null,
     BrakingTrajectoryPreset? BrakingPreset = null);
 

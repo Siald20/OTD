@@ -9,7 +9,7 @@ namespace OTD.TrainDriving.Trajectory;
 ///
 /// The acceleration distance is derived from an explicit acceleration value in m/s².
 /// The actual speed curve over that distance is then shaped by an
-/// <see cref="AccelerationTrajectoryPreset"/>.
+/// <see cref="AccelerationTrajectoryPresets"/>.
 ///
 /// Behaviour:
 /// <list type="bullet">
@@ -38,7 +38,7 @@ public sealed class StartOrientedAccelerationTrajectory : ISpeedTrajectory
     /// </param>
     public StartOrientedAccelerationTrajectory(
         DrivingTrajectoryRequest request,
-        AccelerationTrajectoryPreset preset,
+        AccelerationTrajectoryPresets preset,
         double accelerationMs2)
     {
         if (request.Scale <= 0)

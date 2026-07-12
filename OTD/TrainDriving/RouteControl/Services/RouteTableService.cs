@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using OTD.Common;
 using OTD.HardwareControl;
 using OTD.TrainDriving.RouteControl.Domain;
@@ -10,12 +11,15 @@ using OTD.TrainDriving.RouteControl.Runtime;
 
 namespace OTD.TrainDriving.RouteControl.Services;
 
+
 public sealed class RouteTableService
 {
     private const double ConsumeEpsilonCm = 0.1;
+    private const int DefaultScale = 87;
 
     private readonly object _sync = new();
     private readonly List<RouteLeg> _routeLegs = new();
+    private readonly FeedbackTracking _feedbackTracking = new();
 
     private Train? _boundTrain;
     private int _version;
@@ -25,15 +29,35 @@ public sealed class RouteTableService
     private string? _activeStopPointFromWaypointId;
     private bool _releasePendingForActiveStopPoint;
     private bool _safetyStopInjected;
-    private bool _sensorRecoveryMode;
+    private bool _feedbackInputRecoveryMode;
+    private double? _stuckAlertBaseAnchorCm;
+    private bool _stuckAlertTriggeredForCurrentBase;
+    private bool _stuckAlertSuppressedForCurrentBase;
+    private long? _stuckAlertMonitoringStartedTimestamp;
 
-    public readonly record struct SensorActivationResult(
+    public readonly record struct FeedbackInputActivationResult(
         bool Accepted,
         double? PreviousHeadPositionCm,
         double? AnchorPositionCm,
         double? CorrectionErrorCm,
         string? ActiveFromWaypointId,
-        bool ForcedForwardLegSync);
+        bool ForcedForwardLegSync,
+        bool EmergencyStopRequested,
+        int? ExpectedFeedbackInputId,
+        double? ExpectedFeedbackInputAnchorCm,
+        double? ActivatedFeedbackInputAnchorCm,
+        double? UnexpectedDeltaToExpectedCm,
+        bool IsExpectedFeedbackInputActivatedEarly);
+
+    public readonly record struct StuckAlertResult(
+        double BaseAnchorCm,
+        int ExpectedFeedbackInputId,
+        double ExpectedFeedbackInputAnchorCm,
+        double HeadPositionCm,
+        double SegmentDistanceCm,
+        double AllowedOverrunCm,
+        double OverrunCm,
+        string? ActiveFromWaypointId);
 
     public event Action<int>? RouteChanged;
 
@@ -254,17 +278,26 @@ public sealed class RouteTableService
         handlers?.Invoke(version);
     }
 
-    public void AdvancePosition(double headPositionCm)
+    public StuckAlertResult? AdvancePosition(double headPositionCm, bool suppressStuckAlert = false)
     {
         Action<int>? handlers = null;
         int version = 0;
-        var changed = false;
+        bool changed;
+        StuckAlertResult? stuckAlert = null;
 
         lock (_sync)
         {
             var previous = _headPositionCm;
             _headPositionCm = Math.Max(0.0, headPositionCm);
+            if (!suppressStuckAlert)
+                EnsureStuckAlertMonitoringStartedUnsafe(previous);
             changed = NormalizeRuntimeUnsafe();
+            if (!suppressStuckAlert)
+                stuckAlert = TryEvaluateStuckAlertUnsafe();
+
+            if (stuckAlert is not null)
+                changed = true;
+
             Logging.DebugExtended<RouteTableService>($"AdvancePosition: head={previous:F1}->{_headPositionCm:F1} cm, changed={(changed ? "yes" : "no")}." );
             if (changed)
             {
@@ -275,11 +308,13 @@ public sealed class RouteTableService
 
         if (changed)
             handlers?.Invoke(version);
+
+        return stuckAlert;
     }
 
-    public void AdvanceByDelta(double deltaCm)
+    public StuckAlertResult? AdvanceByDelta(double deltaCm, bool suppressStuckAlert = false)
     {
-        AdvancePosition(GetRuntimeState().HeadPositionCm + deltaCm);
+        return AdvancePosition(GetRuntimeState().HeadPositionCm + deltaCm, suppressStuckAlert);
     }
 
     public void ReleaseGo()
@@ -294,6 +329,7 @@ public sealed class RouteTableService
             {
                 _releasePendingForActiveStopPoint = true;
                 _activeStopPoint = false;
+                _stuckAlertMonitoringStartedTimestamp = null;
                 changed = true;
                 Logging.Info<RouteTableService>("ReleaseGo: active StopPoint released.");
             }
@@ -318,8 +354,9 @@ public sealed class RouteTableService
         lock (_sync)
         {
             _safetyStopInjected = true;
-            _sensorRecoveryMode = false;
-            Logging.Warning<RouteTableService>("EmergencyStop received: SafetyStopInjected=true, SensorRecoveryMode=false.");
+            _feedbackInputRecoveryMode = false;
+            _stuckAlertMonitoringStartedTimestamp = null;
+            Logging.Warning<RouteTableService>("EmergencyStop received: SafetyStopInjected=true, FeedbackInputRecoveryMode=false.");
         }
     }
 
@@ -328,41 +365,134 @@ public sealed class RouteTableService
         lock (_sync)
         {
             _safetyStopInjected = false;
-            _sensorRecoveryMode = true;
-            Logging.Warning<RouteTableService>("EmergencyRelease received: SafetyStopInjected=false, SensorRecoveryMode=true.");
+            _feedbackInputRecoveryMode = true;
+            _stuckAlertMonitoringStartedTimestamp = null;
+            Logging.Warning<RouteTableService>("EmergencyRelease received: SafetyStopInjected=false, FeedbackInputRecoveryMode=true.");
         }
     }
 
-    public SensorActivationResult OnSensorActivated(int sensorId, double? estimatedHeadPositionCm = null)
+    public FeedbackInputActivationResult OnFeedbackInputActivated(int feedbackId, double? estimatedHeadPositionCm = null)
     {
         Action<int>? handlers = null;
         int version = 0;
-        var changed = false;
-        SensorActivationResult result;
+        bool changed;
+        FeedbackInputActivationResult result;
 
         lock (_sync)
         {
+            // Nur Feedbacken des aktiven Legs akzeptieren. Zukünftige Feedbacken werden ignoriert.
             var activeIndexBefore = GetActiveIndexUnsafe(estimatedHeadPositionCm);
-            if (!TryResolveSensorAnchorUnsafe(sensorId, estimatedHeadPositionCm, out var anchorCm, out var sensorLegIndex))
+            if (activeIndexBefore is null)
             {
-                Logging.DebugExtended<RouteTableService>($"Sensor {sensorId}: ignored, no SensorMarker found in route table.");
-                return new SensorActivationResult(false, null, null, null, null, false);
+                Logging.DebugExtended<RouteTableService>($"Feedback {feedbackId}: ignored, no active leg.");
+                return new FeedbackInputActivationResult(false, null, null, null, null, false, false, null, null, null, null, false);
+            }
+
+            if (!TryResolveFeedbackAnchorUnsafe(feedbackId, estimatedHeadPositionCm, out var anchorCm, out var feedbackLegIndex))
+            {
+                Logging.DebugExtended<RouteTableService>($"Feedback {feedbackId}: ignored, not in active leg.");
+                return new FeedbackInputActivationResult(false, null, null, null, null, false, false, null, null, null, null, false);
+            }
+
+            var headPositionForUnexpectedCheck = Math.Max(0.0, estimatedHeadPositionCm ?? _headPositionCm);
+            if (RouteControlSafetyOptions.EnableUnexpectedAheadFeedbackInputEmergencyStop)
+            {
+                var lookAhead = ResolveFeedbackLookAheadPositionUnsafe(headPositionForUnexpectedCheck);
+                if (_feedbackTracking.TryMatchUnexpectedAheadInput(
+                    feedbackId,
+                    anchorCm,
+                    headPositionForUnexpectedCheck,
+                    lookAhead.SearchAnchorCm,
+                    _routeLegs,
+                    Math.Max(0.0, RouteControlSafetyOptions.UnexpectedAheadFeedbackInputToleranceCm),
+                    lookAhead.TrainLengthCm,
+                    out var unexpectedMatch))
+                {
+                    var state = GetRuntimeStateUnsafe();
+                    Logging.Warning<RouteTableService>(
+                        $"Feedback {feedbackId}: unexpected ahead feedback detected, active={state.ActiveFromWaypointId ?? "-"}, " +
+                        $"head={headPositionForUnexpectedCheck:F1}cm, activated={unexpectedMatch.ActivatedAnchorCm:F1}cm, " +
+                        $"expectedInput={unexpectedMatch.ExpectedInput.InputId}@{unexpectedMatch.ExpectedInput.AnchorCm:F1}cm, " +
+                        (unexpectedMatch.IsExpectedInputActivatedEarly
+                            ? $"headToFeedbackInput={unexpectedMatch.HeadToInputDistanceCm:F1}cm (expected feedback input activated too early)."
+                            : $"delta={unexpectedMatch.DeltaToExpectedCm:F1}cm."));
+                    return new FeedbackInputActivationResult(
+                        false,
+                        headPositionForUnexpectedCheck,
+                        anchorCm,
+                        null,
+                        state.ActiveFromWaypointId,
+                        false,
+                        true,
+                        unexpectedMatch.ExpectedInput.InputId,
+                        unexpectedMatch.ExpectedInput.AnchorCm,
+                        unexpectedMatch.ActivatedAnchorCm,
+                        unexpectedMatch.DeltaToExpectedCm,
+                        unexpectedMatch.IsExpectedInputActivatedEarly);
+                }
+            }
+
+            // Normalfall: nur Feedbacken des aktuell aktiven Legs zulassen.
+            // Startup-Recovery: Falls noch nie kalibriert wurde, akzeptiere einmalig auch
+            // ein Feedback aus einem bereits vorgerueckten Leg, um die erste Synchronisation
+            // trotz frueher Fremd-/Heck-Feedbacks zu ermoeglichen.
+            if (feedbackLegIndex < activeIndexBefore.Value)
+            {
+                var allowInitialRecoverySync = !_stuckAlertBaseAnchorCm.HasValue;
+                if (!allowInitialRecoverySync)
+                {
+                    var state = GetRuntimeStateUnsafe();
+                    Logging.DebugExtended<RouteTableService>(
+                        $"Feedback {feedbackId}: ignored, not in current active leg (feedbackLegIndex={feedbackLegIndex}, activeIndex={activeIndexBefore.Value}), active={state.ActiveFromWaypointId ?? "-"}.");
+                    return new FeedbackInputActivationResult(false, null, null, null, null, false, false, null, null, null, null, false);
+                }
+
+                Logging.Debug<RouteTableService>(
+                    $"Feedback {feedbackId}: startup recovery sync allowed (feedbackLegIndex={feedbackLegIndex}, activeIndex={activeIndexBefore.Value}, head={Math.Max(0.0, estimatedHeadPositionCm ?? _headPositionCm):F1}cm).");
+            }
+
+            // Duplikat-Schutz: Nur einmal pro aktivem Waypoint kalibrieren.
+            if (_feedbackTracking.IsAlreadyCalibratedForCurrentWaypoint(feedbackId))
+            {
+                var state = GetRuntimeStateUnsafe();
+                Logging.DebugExtended<RouteTableService>(
+                    $"Feedback {feedbackId}: ignored, already calibrated for active waypoint {state.ActiveFromWaypointId ?? "-"}.");
+                return new FeedbackInputActivationResult(false, null, null, null, null, false, false, null, null, null, null, false);
             }
 
             var previousHead = estimatedHeadPositionCm is null ? _headPositionCm : Math.Max(0.0, estimatedHeadPositionCm.Value);
             var forcedForwardLegSync = false;
             var correctedAnchorCm = anchorCm;
 
-            // Sensoren am Beginn des Folge-RouteLeg koennen sonst auf der Leg-Grenze verbleiben.
-            if (activeIndexBefore is not null && sensorLegIndex > activeIndexBefore.Value)
+            // Feedbacken am Beginn des Folge-RouteLeg koennen sonst auf der Leg-Grenze verbleiben.
+            if (feedbackLegIndex > activeIndexBefore.Value)
             {
-                var sensorLegStartCm = GetLegStartPositionUnsafe(sensorLegIndex);
-                correctedAnchorCm = Math.Max(correctedAnchorCm, sensorLegStartCm + ConsumeEpsilonCm);
+                var feedbackLegStartCm = GetLegStartPositionUnsafe(feedbackLegIndex);
+                if (ShouldReanchorAgainstToAlongTransitionUnsafe(activeIndexBefore.Value, feedbackLegIndex))
+                {
+                    // Bei Richtungswechsel AgainstLine->AlongLine:
+                    // Die Stuck-Guard-Berechnung muss neu starten mit dem neuen Leg-Kontext.
+                    // Setze BaseAnchor auf null, damit die Stuck-Guard nach diesem Feedback neu initialisiert wird.
+                    _stuckAlertBaseAnchorCm = null;
+                }
+                else
+                {
+                    correctedAnchorCm = Math.Max(correctedAnchorCm, feedbackLegStartCm + ConsumeEpsilonCm);
+                }
                 forcedForwardLegSync = true;
             }
 
             var correctionError = correctedAnchorCm - previousHead;
             _headPositionCm = Math.Max(0.0, correctedAnchorCm);
+            _feedbackTracking.MarkCalibrated(feedbackId);
+            
+            // StuckAlertBaseAnchor wird bei jedem Feedback neu gesetzt.
+            // Bei Richtungswechsel AgainstLine->AlongLine wird damit der Kontext auf den neuen Leg ausgerichtet.
+            _stuckAlertBaseAnchorCm = correctedAnchorCm;
+            
+            _stuckAlertTriggeredForCurrentBase = false;
+            _stuckAlertSuppressedForCurrentBase = false;
+            _stuckAlertMonitoringStartedTimestamp = Stopwatch.GetTimestamp();
             changed = NormalizeRuntimeUnsafe();
             if (!changed)
             {
@@ -370,12 +500,24 @@ public sealed class RouteTableService
                 changed = true;
             }
 
-            var state = GetRuntimeStateUnsafe();
+            var state2 = GetRuntimeStateUnsafe();
             Logging.Debug<RouteTableService>(
-                $"Sensor {sensorId}: recalibration accepted, pos={previousHead:F1}->{state.HeadPositionCm:F1} cm, " +
-                $"error={correctionError:F1} cm, active={state.ActiveFromWaypointId ?? "-"}, forcedForwardLegSync={(forcedForwardLegSync ? "yes" : "no")}.");
+                $"Feedback {feedbackId}: recalibration accepted, pos={previousHead:F1}->{state2.HeadPositionCm:F1} cm, " +
+                $"error={correctionError:F1} cm, active={state2.ActiveFromWaypointId ?? "-"}, forcedForwardLegSync={(forcedForwardLegSync ? "yes" : "no")}.");
 
-            result = new SensorActivationResult(true, previousHead, correctedAnchorCm, correctionError, state.ActiveFromWaypointId, forcedForwardLegSync);
+            result = new FeedbackInputActivationResult(
+                true,
+                previousHead,
+                correctedAnchorCm,
+                correctionError,
+                state2.ActiveFromWaypointId,
+                forcedForwardLegSync,
+                false,
+                null,
+                null,
+                correctedAnchorCm,
+                null,
+                false);
 
             if (changed)
             {
@@ -416,6 +558,10 @@ public sealed class RouteTableService
             _activeStopPoint = false;
             _activeStopPointFromWaypointId = null;
             _releasePendingForActiveStopPoint = false;
+            _stuckAlertBaseAnchorCm = null;
+            _stuckAlertTriggeredForCurrentBase = false;
+            _stuckAlertSuppressedForCurrentBase = false;
+            _stuckAlertMonitoringStartedTimestamp = null;
             return false;
         }
 
@@ -428,8 +574,12 @@ public sealed class RouteTableService
             _activeStopPoint = false;
             _activeStopPointFromWaypointId = null;
             _releasePendingForActiveStopPoint = false;
+            _stuckAlertMonitoringStartedTimestamp = null;
             return changed;
         }
+
+        if (!_stuckAlertBaseAnchorCm.HasValue)
+            return changed;
 
         var activeLeg = _routeLegs[activeIndex.Value];
         var activeLegStartCm = GetLegStartPositionUnsafe(activeIndex.Value);
@@ -439,6 +589,8 @@ public sealed class RouteTableService
             _activeStopPoint = false;
             _activeStopPointFromWaypointId = null;
             _releasePendingForActiveStopPoint = false;
+            _stuckAlertSuppressedForCurrentBase = false;
+            _feedbackTracking.UpdateActiveWaypoint(activeLeg.FromWaypointId);
         }
 
         if (activeLeg.StopPoint is null)
@@ -454,6 +606,7 @@ public sealed class RouteTableService
         _headPositionCm = stopPositionCm;
         _activeStopPoint = true;
         _activeStopPointFromWaypointId = activeLeg.FromWaypointId;
+        _stuckAlertMonitoringStartedTimestamp = null;
         return true;
     }
 
@@ -469,6 +622,8 @@ public sealed class RouteTableService
             var removedDistanceCm = _routeLegs[0].DistanceCm;
             _routeLegs.RemoveAt(0);
             _headPositionCm = Math.Max(0.0, _headPositionCm - removedDistanceCm);
+            if (_stuckAlertBaseAnchorCm.HasValue)
+                _stuckAlertBaseAnchorCm = Math.Max(0.0, _stuckAlertBaseAnchorCm.Value - removedDistanceCm);
             _consumedRouteCount++;
             _activeStopPoint = false;
             _activeStopPointFromWaypointId = null;
@@ -476,8 +631,10 @@ public sealed class RouteTableService
             changed = true;
         }
 
+
         return changed;
     }
+
 
     private int? GetActiveIndexUnsafe(double? headPositionOverrideCm = null)
     {
@@ -495,6 +652,155 @@ public sealed class RouteTableService
         }
 
         return null;
+    }
+
+    private StuckAlertResult? TryEvaluateStuckAlertUnsafe()
+    {
+        if (!RouteControlSafetyOptions.EnableStuckAlertEmergencyStop)
+            return null;
+
+        if (_safetyStopInjected || _activeStopPoint || _routeLegs.Count == 0 || _stuckAlertSuppressedForCurrentBase)
+            return null;
+
+        if (!_stuckAlertBaseAnchorCm.HasValue)
+            return null;
+
+        var currentHeadPositionCm = Math.Max(0.0, _headPositionCm);
+        var lookAhead = ResolveFeedbackLookAheadPositionUnsafe(currentHeadPositionCm);
+        var baseAnchorCm = lookAhead.BaseAnchorCm;
+        var searchAnchorCm = lookAhead.SearchAnchorCm;
+
+        if (!_feedbackTracking.TryGetNextExpectedInputAhead(_routeLegs, searchAnchorCm, lookAhead.TrainLengthCm, out var expected))
+            return null;
+
+        var segmentDistanceCm = expected.AnchorCm - baseAnchorCm;
+        if (segmentDistanceCm <= 0.0)
+            return null;
+
+        var tolerancePercent = Math.Max(0.0, RouteControlSafetyOptions.StuckAlertTolerancePercent);
+        var slackFactor = tolerancePercent / 100.0;
+        var allowedOverrunCm = ResolveAllowedStuckAlertOverrunCm(segmentDistanceCm, slackFactor);
+        var alertThresholdCm = expected.AnchorCm + allowedOverrunCm;
+        var overrunCm = currentHeadPositionCm - expected.AnchorCm;
+        var requiredElapsedSeconds = ResolveRequiredStuckAlertElapsedSecondsUnsafe(segmentDistanceCm, slackFactor);
+        var elapsedSeconds = _stuckAlertMonitoringStartedTimestamp is { } startedTimestamp
+            ? Math.Max(0.0, (Stopwatch.GetTimestamp() - startedTimestamp) / (double)Stopwatch.Frequency)
+            : 0.0;
+
+        if (Math.Abs(currentHeadPositionCm - expected.AnchorCm) <= ConsumeEpsilonCm)
+        {
+            _stuckAlertSuppressedForCurrentBase = true;
+            Logging.Debug<RouteTableService>(
+                $"StuckAlert suppressed: target input {expected.InputId}@{expected.AnchorCm:F1}cm was already active at monitoring start.");
+            return null;
+        }
+
+        if (currentHeadPositionCm <= alertThresholdCm || _stuckAlertTriggeredForCurrentBase)
+            return null;
+
+        if (requiredElapsedSeconds is not null && elapsedSeconds <= requiredElapsedSeconds.Value)
+            return null;
+
+        _stuckAlertTriggeredForCurrentBase = true;
+        _safetyStopInjected = true;
+        _feedbackInputRecoveryMode = false;
+
+        var state = GetRuntimeStateUnsafe();
+        var result = new StuckAlertResult(
+            BaseAnchorCm: baseAnchorCm,
+            ExpectedFeedbackInputId: expected.InputId,
+            ExpectedFeedbackInputAnchorCm: expected.AnchorCm,
+            HeadPositionCm: currentHeadPositionCm,
+            SegmentDistanceCm: segmentDistanceCm,
+            AllowedOverrunCm: allowedOverrunCm,
+            OverrunCm: overrunCm,
+            ActiveFromWaypointId: state.ActiveFromWaypointId);
+
+        Logging.Warning<RouteTableService>(
+            $"StuckAlert: expectedInput={expected.InputId}@{expected.AnchorCm:F1}cm, head={currentHeadPositionCm:F1}cm, " +
+            $"base={baseAnchorCm:F1}cm, segment={segmentDistanceCm:F1}cm, tolerancePercent={tolerancePercent:F1}, " +
+            $"allowedOverrun={allowedOverrunCm:F1}cm, overrun={overrunCm:F1}cm, elapsed={elapsedSeconds:F3}s, " +
+            $"requiredElapsed={(requiredElapsedSeconds is null ? "-" : $"{requiredElapsedSeconds.Value:F3}s")}, active={state.ActiveFromWaypointId ?? "-"}.");
+
+        return result;
+    }
+
+    private void EnsureStuckAlertMonitoringStartedUnsafe(double previousHeadPositionCm)
+    {
+        if (!_stuckAlertBaseAnchorCm.HasValue)
+            return;
+
+        if (_stuckAlertMonitoringStartedTimestamp.HasValue)
+            return;
+
+        if (_headPositionCm <= previousHeadPositionCm + ConsumeEpsilonCm)
+            return;
+
+        _stuckAlertMonitoringStartedTimestamp = Stopwatch.GetTimestamp();
+    }
+
+    private double? ResolveRequiredStuckAlertElapsedSecondsUnsafe(double segmentDistanceCm, double slackFactor)
+    {
+        if (segmentDistanceCm <= 0.0)
+            return null;
+
+        var monitoringSpeedKmh = ResolveStuckAlertMonitoringSpeedKmhUnsafe();
+        if (monitoringSpeedKmh <= 0.0)
+            return null;
+
+        var monitoringSpeedCmPerSecond = ModelCmPerSecondFromPrototypeKmh(monitoringSpeedKmh);
+        if (monitoringSpeedCmPerSecond <= 0.0)
+            return null;
+
+        var effectiveOverrunCm = ResolveAllowedStuckAlertOverrunCm(segmentDistanceCm, slackFactor);
+        return effectiveOverrunCm / monitoringSpeedCmPerSecond;
+    }
+
+    private static double ResolveAllowedStuckAlertOverrunCm(double segmentDistanceCm, double slackFactor)
+    {
+        if (segmentDistanceCm <= 0.0)
+            return 0.0;
+
+        // Distanz-Overrun = (Segmentlänge × Prozent) + hartes Minimum von 15 cm.
+        // Diese physische Zusatzstrecke gilt sowohl für die Distanzschwelle als auch
+        // – über v = s / t – für die daraus abgeleitete Zeitschwelle.
+        const double minimumAllowedOverrunCm = 15.0;
+        return (segmentDistanceCm * slackFactor) + minimumAllowedOverrunCm;
+    }
+
+    private double ResolveStuckAlertMonitoringSpeedKmhUnsafe()
+    {
+        var trainSpeedKmh = Math.Max(0, _boundTrain?.SpeedV ?? 0);
+        if (trainSpeedKmh > 0)
+            return trainSpeedKmh;
+
+        var activeIndex = GetActiveIndexUnsafe();
+        if (activeIndex is null)
+            return 0.0;
+
+        var activeLegMaxSpeedKmh = _routeLegs[activeIndex.Value].MaxSpeedKmh;
+        if (activeLegMaxSpeedKmh <= 0 || activeLegMaxSpeedKmh == int.MaxValue)
+            return 0.0;
+
+        return activeLegMaxSpeedKmh;
+    }
+
+    private static double ModelCmPerSecondFromPrototypeKmh(double speedKmhPrototype)
+        => (speedKmhPrototype / 3.6) * 100.0 / DefaultScale;
+
+    private bool ShouldReanchorAgainstToAlongTransitionUnsafe(int activeLegIndex, int feedbackLegIndex)
+    {
+        if (activeLegIndex < 0 || feedbackLegIndex < 0)
+            return false;
+
+        if (feedbackLegIndex != activeLegIndex + 1)
+            return false;
+
+        if (feedbackLegIndex >= _routeLegs.Count)
+            return false;
+
+        return _routeLegs[activeLegIndex].TravelDirection == RouteTravelDirection.AgainstLine &&
+               _routeLegs[feedbackLegIndex].TravelDirection == RouteTravelDirection.AlongLine;
     }
 
     private double GetLegStartPositionUnsafe(int routeIndex)
@@ -518,7 +824,7 @@ public sealed class RouteTableService
             TrainLengthCm: ResolveTrainLengthCmUnsafe(),
             ActiveStopPoint: _activeStopPoint,
             SafetyStopInjected: _safetyStopInjected,
-            SensorRecoveryMode: _sensorRecoveryMode,
+            FeedbackInputRecoveryMode: _feedbackInputRecoveryMode,
             ConsumedRouteCount: _consumedRouteCount);
     }
 
@@ -588,21 +894,31 @@ public sealed class RouteTableService
         return _boundTrain.Length / 10.0;
     }
 
-    private bool TryResolveSensorAnchorUnsafe(int sensorId, double? headPositionOverrideCm, out double anchorCm, out int sensorLegIndex)
+    private (double TrainLengthCm, double TailPositionCm, double BaseAnchorCm, double SearchAnchorCm) ResolveFeedbackLookAheadPositionUnsafe(double headPositionCm)
+    {
+        var normalizedHeadPositionCm = Math.Max(0.0, headPositionCm);
+        var trainLengthCm = ResolveTrainLengthCmUnsafe();
+        var tailPositionCm = Math.Max(0.0, normalizedHeadPositionCm - trainLengthCm);
+        var baseAnchorCm = Math.Max(0.0, _stuckAlertBaseAnchorCm ?? 0.0);
+        var searchAnchorCm = Math.Max(baseAnchorCm, tailPositionCm);
+        return (trainLengthCm, tailPositionCm, baseAnchorCm, searchAnchorCm);
+    }
+
+    private bool TryResolveFeedbackAnchorUnsafe(int feedbackId, double? headPositionOverrideCm, out double anchorCm, out int feedbackLegIndex)
     {
         anchorCm = 0.0;
-        sensorLegIndex = -1;
+        feedbackLegIndex = -1;
         var cumulative = 0.0;
         var candidates = new List<(double AnchorCm, int LegIndex)>();
 
         for (var legIndex = 0; legIndex < _routeLegs.Count; legIndex++)
         {
             var leg = _routeLegs[legIndex];
-            if (leg.SensorMarkers is not null)
+            if (leg.FeedbackInputActivationPoints is not null)
             {
-                foreach (var marker in leg.SensorMarkers)
+                foreach (var marker in leg.FeedbackInputActivationPoints)
                 {
-                    if (marker.SensorId != sensorId)
+                    if (marker.FeedbackId != feedbackId)
                         continue;
 
                     candidates.Add((cumulative + marker.OffsetCm, legIndex));
@@ -618,7 +934,7 @@ public sealed class RouteTableService
         if (candidates.Count == 1)
         {
             anchorCm = candidates[0].AnchorCm;
-            sensorLegIndex = candidates[0].LegIndex;
+            feedbackLegIndex = candidates[0].LegIndex;
             return true;
         }
 
@@ -653,7 +969,7 @@ public sealed class RouteTableService
         }
 
         anchorCm = best.AnchorCm;
-        sensorLegIndex = best.LegIndex;
+        feedbackLegIndex = best.LegIndex;
         return true;
     }
 

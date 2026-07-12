@@ -1,0 +1,81 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="120"
+             d:DesignHeight="120"
+             x:Class="OTD.Controls.InterlockingEnlements.BlockTiles.BlockTile"
+             Width="120"
+             Height="120">
+    <UserControl.Styles>
+        <Style Selector="Path.arrow">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Stretch" Value="Fill" />
+            <Setter Property="Fill" Value="{StaticResource LampOff}" />
+        </Style>
+        <Style Selector="Path.white.active">
+            <Setter Property="Fill" Value="#F2F2F2" />
+        </Style>
+        <Style Selector="Path.red.active">
+            <Setter Property="Fill" Value="{StaticResource SignalRed}" />
+        </Style>
+        <Style Selector="Border.lock">
+            <Setter Property="Background" Value="{StaticResource LampOff}" />
+            <Setter Property="BorderBrush" Value="#181818" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.lock.active">
+            <Setter Property="Background" Value="{StaticResource SignalRed}" />
+            <Setter Property="BorderBrush" Value="#9E1117" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Width="120"
+            Height="120"
+            Background="#7E9F88"
+            BorderBrush="Black"
+            BorderThickness="1">
+        <Canvas Width="120"
+                Height="120"
+                UseLayoutRounding="True">
+            <Rectangle Canvas.Top="53"
+                       Width="120"
+                       Height="14"
+                       Fill="{StaticResource GleisDunkel}" />
+
+            <!-- Fahrtrichtung nach rechts -->
+            <Path x:Name="WhiteRightArrow"
+                  Classes="arrow white"
+                  Canvas.Left="13"
+                  Canvas.Top="20"
+                  Data="M 0,0 L 30,8 L 0,16 Z" />
+            <Path x:Name="RedRightArrow"
+                  Classes="arrow red"
+                  Canvas.Left="77"
+                  Canvas.Top="20"
+                  Data="M 0,0 L 30,8 L 0,16 Z" />
+
+            <!-- Fahrtrichtung nach links -->
+            <Path x:Name="RedLeftArrow"
+                  Classes="arrow red"
+                  Canvas.Left="13"
+                  Canvas.Top="84"
+                  Data="M 30,0 L 0,8 L 30,16 Z" />
+            <Path x:Name="WhiteLeftArrow"
+                  Classes="arrow white"
+                  Canvas.Left="77"
+                  Canvas.Top="84"
+                  Data="M 30,0 L 0,8 L 30,16 Z" />
+
+            <!-- Sperranzeige -->
+            <Border x:Name="LockIndicator"
+                    Classes="lock"
+                    Canvas.Left="54"
+                    Canvas.Top="45"
+                    Width="12"
+                    Height="30" />
+        </Canvas>
+    </Border>
+</UserControl>

@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="OTD.Controls.InterlockingEnlements.ButtonTiles.SwitchButtonTiles">
+    <UserControl.Styles>
+        <StyleInclude Source="avares://OTD/Controls/InterlockingEnlements/ButtonTiles/Styles/ButtonTilesStyle.axaml" />
+    </UserControl.Styles>
+
+    <Border Width="120"
+            Height="120"
+            Background="#7E9F88"
+            BorderBrush="Black"
+            BorderThickness="1">
+        <StackPanel HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="10">
+            <Ellipse Width="12"
+                     Height="12"
+                     Fill="{StaticResource LampYellow}"
+                     HorizontalAlignment="Center" />
+            <Button Width="24"
+                    Height="24"
+                    HorizontalAlignment="Center"
+                    CornerRadius="12"
+                    Classes="Switch-Button" />
+            <TextBlock Text="W1"
+                       Width="40"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       FontSize="11" />
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -1,19 +1,20 @@
 # Route Layout Schema
 
 Diese Notiz beschreibt die aktuelle Zielarchitektur fuer RouteControl mit klarer Trennung zwischen
-Topologie (`railwaylayout.xml`), Segment-Defaults (`routesegments.xml`) und zur Laufzeit komponierten `RouteLeg`s.
+Topologie (`railwaylayout.xml`), Segment-Defaults (`topology.xml`) und zur Laufzeit komponierten `RouteLeg`s.
 
 ## 1. Rollen der Datenquellen
 
 - `railwaylayout.xml` ist die primaere Quelle fuer:
-  - Topologie (`trackelements`/`path`)
-  - Sensorik (`section`, `point`)
-  - Waypoints (`waypoints`)
-- `routesegments.xml` ist die sekundaere Quelle fuer **Nachbarsegment-Defaults**:
+   - Topologie (`trackelements`/`path`)
+   - Rueckmeldelogik (`occupancy`, `contact`)
+   - Waypoints (`waypoints`)
+- `topology.xml` ist die sekundaere Quelle fuer **Nachbarsegment-Defaults** und fasst die Segmente unter `<segments>`:
   - `speedlimits`
 
-`routesegments.xml` enthaelt **keine** Geometrie (`distance_cm`) und **keine** Sensorlisten.
-`routesegments.xml` enthaelt fuer die Segmentlogik nur `speedlimits`; andere Elemente wie `driveprofile`, `stoppoint` oder `acceleration_start_policy` werden ignoriert.
+`topology.xml` enthaelt **keine** Geometrie (`distance_cm`) und **keine** Rueckmeldelisten.
+`topology.xml` enthaelt fuer die Segmentlogik nur `speedlimits`; andere Elemente wie `driveprofile`, `stoppoint` oder `acceleration_start_policy` werden ignoriert.
+Legacy-Konfigurationen mit Root `<routesegments>` oder `<routelegs>` werden weiterhin toleriert.
 
 ## 2. XML-Schema (kompakt)
 
@@ -29,10 +30,10 @@ Topologie (`railwaylayout.xml`), Segment-Defaults (`routesegments.xml`) und zur 
         </trackelement>
     </trackelements>
 
-    <sensors>
-        <section id="sec_A13" detectorId="30" host="seg_A13_W1"/>
-        <point id="contact_145" detectorId="145" host="seg_A13_W1" offset_cm="145"/>
-    </sensors>
+    <feedbacks>
+        <occupancy id="sec_A13" detectorId="30" host="seg_A13_W1"/>
+        <contact id="contact_145" detectorId="145" host="seg_A13_W1" offset_cm="145"/>
+    </feedbacks>
 
     <waypoints>
         <waypoint id="A13" node="nA13"/>
@@ -43,22 +44,24 @@ Topologie (`railwaylayout.xml`), Segment-Defaults (`routesegments.xml`) und zur 
 </railwaylayout>
 ```
 
-### `routesegments.xml`
+### `topology.xml`
 
 ```xml
-<routesegments>
-    <routesegment from="A13" to="W1">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="60"/>
-        </speedlimits>
-    </routesegment>
+<topology>
+    <segments>
+        <segment from="A13" to="W1">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="60"/>
+            </speedlimits>
+        </segment>
 
-    <routesegment from="W1" to="B120">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="40"/>
-        </speedlimits>
-    </routesegment>
-</routesegments>
+        <segment from="W1" to="B120">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="40"/>
+            </speedlimits>
+        </segment>
+    </segments>
+</topology>
 ```
 
 ## 3. RouteLeg-Contract (oeffentlich vs. abgeleitet)
@@ -87,7 +90,7 @@ Diese Parameter beziehen sich auf die gesamte aufgeloeste RouteLeg-Distanz (ggf.
 ### Nicht oeffentlich setzbar (werden automatisch komponiert)
 
 - `DistanceCm`
-- `SensorMarkers`
+- `FeedbackActivationPoints`
 - `FeedbackReferences`
 
 Diese Felder duerfen nicht manuell ueberschrieben werden.
@@ -99,15 +102,15 @@ Diese Felder duerfen nicht manuell ueberschrieben werden.
 Dabei gilt:
 
 - `DistanceCm` = Summe der Segmentdistanzen
-- `SensorMarkers` = aggregiert aus allen Segmenten (Offsets entlang der Gesamtdistanz)
+- `FeedbackActivationPoints` = aggregiert aus allen Segmenten (Offsets entlang der Gesamtdistanz)
 - `FeedbackReferences` = aggregiert aus allen Segmenten (Offsets entlang der Gesamtdistanz)
 - effektive Geschwindigkeit pro Leg:
   - `effectiveMaxSpeedKmh = min(RouteLeg.MaxSpeedKmh, Segment-Speedlimits entlang der Kette)`
 
 ## 5. Validierungsregeln
 
-- Ein `routesegment` muss einem benachbarten, auto-generierten Leg im Layout entsprechen.
-- `routesegments` sind richtungsunabhaengig auf Segmentebene (`A<->B`), die konkrete Fahrtrichtung ergibt sich aus dem aufgeloesten Pfad.
+- Ein `segment` (legacy: `routesegment`/`routeleg`) muss einem benachbarten, auto-generierten Leg im Layout entsprechen.
+- Segmente sind richtungsunabhaengig auf Segmentebene (`A<->B`), die konkrete Fahrtrichtung ergibt sich aus dem aufgeloesten Pfad.
 - `intermediate` ist auf Segmentebene nicht erlaubt.
 - Nicht passende Eintraege fuehren beim Laden zu `RouteValidationException`.
 

@@ -5,7 +5,7 @@ using System.Text;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using OTD.Controlls.InterlockingEnlements.BlockTiles;
+using OTD.Controls.InterlockingEnlements.BlockTiles;
 
 namespace OTD;
 

@@ -16,6 +16,7 @@ public sealed record DrivingTrajectoryRequest(
     int? VMaxKmhPrototype = null,
     TrajectoryCurveType CurveType = TrajectoryCurveType.Linear,
     TrajectoryControlPoint? ControlPoint = null,
+    TrajectoryControlPoint? SecondaryControlPoint = null,
     double CurveShapePercent = 50.0
 )
 {
@@ -58,7 +59,21 @@ public sealed record DrivingTrajectoryRequest(
             throw new ArgumentException("ControlPoint must be set when CurveType is ControlPoint.", nameof(ControlPoint));
         }
 
+        if (SecondaryControlPoint is not null && ControlPoint is null)
+        {
+            throw new ArgumentException("ControlPoint must be set when SecondaryControlPoint is used.", nameof(ControlPoint));
+        }
+
         ControlPoint?.Validate();
+        SecondaryControlPoint?.Validate();
+
+        if (ControlPoint is not null && SecondaryControlPoint is not null &&
+            SecondaryControlPoint.XModelRatio <= ControlPoint.XModelRatio)
+        {
+            throw new ArgumentException(
+                "SecondaryControlPoint must be located after ControlPoint on the X axis.",
+                nameof(SecondaryControlPoint));
+        }
     }
 }
 

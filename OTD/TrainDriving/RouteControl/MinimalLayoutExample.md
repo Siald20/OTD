@@ -1,4 +1,4 @@
-# Minimal Example: `railwaylayout.xml` + `routelegs.xml`
+# Minimal Example: `railwaylayout.xml` + `topology.xml`
 
 Dieses Minimalbeispiel zeigt die kleinstmoegliche Konfiguration mit topologiebasiertem Layout und automatisch erzeugten Legs.
 
@@ -14,11 +14,11 @@ Dieses Minimalbeispiel zeigt die kleinstmoegliche Konfiguration mit topologiebas
         </trackelement>
     </trackelements>
 
-    <sensors>
-        <section id="sec_A" detectorId="30" host="seg_A"/>
-        <point id="pt_145" detectorId="145" host="seg_A" offset_cm="145"/>
-        <section id="sec_branch" detectorId="32" host="sw1_branch"/>
-    </sensors>
+    <feedbacks>
+        <occupancy id="sec_A" detectorId="30" host="seg_A"/>
+        <contact id="pt_145" detectorId="145" host="seg_A" offset_cm="145"/>
+        <occupancy id="sec_branch" detectorId="32" host="sw1_branch"/>
+    </feedbacks>
 
     <waypoints>
         <waypoint id="A" node="nA"/>
@@ -30,26 +30,28 @@ Dieses Minimalbeispiel zeigt die kleinstmoegliche Konfiguration mit topologiebas
 </railwaylayout>
 ```
 
-## 2) `routelegs.xml`
+## 2) `topology.xml`
 
 ```xml
-<routelegs>
-    <routeleg waypoint1="A" waypoint2="MID">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="40"/>
-        </speedlimits>
-    </routeleg>
-    <routeleg waypoint1="MID" waypoint2="W">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="50"/>
-        </speedlimits>
-    </routeleg>
-    <routeleg waypoint1="W" waypoint2="B2">
-        <speedlimits>
-            <speedlimit speedClass="default" speed_kmh="30"/>
-        </speedlimits>
-    </routeleg>
-</routelegs>
+<topology>
+    <segments>
+        <segment from="A" to="MID">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="40"/>
+            </speedlimits>
+        </segment>
+        <segment from="MID" to="W">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="50"/>
+            </speedlimits>
+        </segment>
+        <segment from="W" to="B2">
+            <speedlimits>
+                <speedlimit speedClass="default" speed_kmh="30"/>
+            </speedlimits>
+        </segment>
+    </segments>
+</topology>
 ```
 
 ## 3) Runtime-Wiring
@@ -63,9 +65,9 @@ var resolver = new RouteLegResolver(routeDefinitions);
 ## Hinweise
 
 - `XmlRailwayLayoutService` erzeugt die gerichteten Legs direkt aus Waypoints und Topologie.
-- `XmlRouteDefinitionService` legt nur betriebliche Overrides aus `routelegs.xml` darueber.
-- `occupancy_detection` wird automatisch an der Einfahrt in den jeweiligen Host-Track zugeordnet.
-- `track_contact` bleibt ein fixer Punkt mit geometrischem `offset_cm`.
+- `XmlRouteDefinitionService` legt nur betriebliche Overrides aus `topology.xml` darueber.
+- `occupancy` (`FeedbackType.OccupancyFeedback`) wird automatisch an der Einfahrt in den jeweiligen Host-Track zugeordnet.
+- `contact` (`FeedbackType.ContactFeedback`) bleibt ein fixer Punkt mit geometrischem `offset_cm`.
 
 ## Ausfuehrung (ohne Hardware)
 
@@ -84,9 +86,9 @@ OTD_ENTRYPOINT=TEST_HARDWARECONTROL OTD_TEST_CASE=TRAINDRIVING_ROUTE_LAYOUT_MINI
 
 ```text
 [Minimal] Automatisch generierte Legs:
-  A->MID, dist=60cm, sensors=[30@0cm/OccupancyDetection]
-  MID->W, dist=90cm, sensors=[145@85cm/TrackContact]
-  W->MID, dist=90cm, sensors=[30@0cm/OccupancyDetection, 145@5cm/TrackContact]
-  W->B2, dist=110cm, sensors=[32@0cm/OccupancyDetection]
+  A->MID, dist=60cm, feedbacks=[30@0cm/OccupancyFeedback]
+  MID->W, dist=90cm, feedbacks=[145@85cm/ContactFeedback]
+  W->MID, dist=90cm, feedbacks=[30@0cm/OccupancyFeedback, 145@5cm/ContactFeedback]
+  W->B2, dist=110cm, feedbacks=[32@0cm/OccupancyFeedback]
 [Minimal] Alle Assertions erfolgreich.
 ```
